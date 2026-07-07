@@ -1,9 +1,11 @@
 import {
   Activity,
   Bot,
+  FileDown,
   GitBranch,
   History,
   LayoutDashboard,
+  MessageSquareText,
   Settings,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -20,8 +22,10 @@ export const navigationItems: NavigationItem[] = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'participants', label: 'Participants', icon: Bot },
   { key: 'profiles', label: 'Profiles', icon: SlidersHorizontal },
+  { key: 'prompts', label: 'Prompt Designer', icon: MessageSquareText },
   { key: 'workflow', label: 'Workflow', icon: GitBranch },
   { key: 'drivers', label: 'Drivers', icon: Activity },
-  { key: 'history', label: 'Run History', icon: History },
+  { key: 'history', label: 'Sessions', icon: History },
+  { key: 'export', label: 'Export', icon: FileDown },
   { key: 'settings', label: 'Settings', icon: Settings },
 ];

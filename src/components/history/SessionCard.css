@@ -1,0 +1,154 @@
+.session-card {
+  background: linear-gradient(180deg, rgba(23, 34, 48, 0.78), rgba(17, 25, 35, 0.86));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.session-card:hover,
+.session-card[data-selected='true'] {
+  border-color: rgba(110, 231, 200, 0.24);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.16);
+}
+
+.session-card[data-selected='true'] {
+  box-shadow:
+    inset 2px 0 0 var(--accent),
+    0 16px 34px rgba(0, 0, 0, 0.16);
+}
+
+.session-card__header {
+  align-items: start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.session-card__status {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 760;
+  margin-bottom: 0.5rem;
+  padding: 0.28rem 0.42rem;
+}
+
+.session-card__status[data-status='Completed'] {
+  background: rgba(110, 231, 200, 0.12);
+  border-color: rgba(110, 231, 200, 0.24);
+  color: var(--accent);
+}
+
+.session-card__status[data-status='Failed'] {
+  background: rgba(255, 116, 116, 0.12);
+  border-color: rgba(255, 116, 116, 0.22);
+  color: #ffadad;
+}
+
+.session-card__status[data-status='Draft'] {
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--muted-strong);
+}
+
+.session-card__status[data-status='In Progress'] {
+  background: rgba(130, 183, 255, 0.1);
+  border-color: rgba(130, 183, 255, 0.22);
+  color: var(--accent-blue);
+}
+
+.session-card h3 {
+  color: var(--text);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.session-card p {
+  color: var(--muted-strong);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  margin: 0.45rem 0 0;
+}
+
+.session-card time {
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  text-align: right;
+}
+
+.session-card__meta,
+.session-card__order,
+.session-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.session-card__meta span,
+.session-card__order span {
+  background: rgba(8, 12, 17, 0.42);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted-strong);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  padding: 0.32rem 0.46rem;
+}
+
+.session-card__order span {
+  color: var(--accent-blue);
+}
+
+.session-card__actions {
+  justify-content: flex-end;
+}
+
+.session-card__actions button {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--muted-strong);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 680;
+  gap: 0.42rem;
+  height: 36px;
+  justify-content: center;
+  padding: 0 0.64rem;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.session-card__actions button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-strong);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 620px) {
+  .session-card__header {
+    display: grid;
+  }
+
+  .session-card time {
+    text-align: left;
+  }
+
+  .session-card__actions,
+  .session-card__actions button {
+    width: 100%;
+  }
+}

@@ -1,0 +1,26 @@
+.settings-section {
+  background: linear-gradient(180deg, rgba(23, 34, 48, 0.78), rgba(17, 25, 35, 0.86));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.settings-section__header h3 {
+  color: var(--text);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.settings-section__header p {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+  margin: 0.38rem 0 0;
+}
+
+.settings-section__controls {
+  display: grid;
+  gap: 0.78rem;
+}

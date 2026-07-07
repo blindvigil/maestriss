@@ -1,12 +1,7 @@
 import { Check, GripVertical, ToggleLeft, ToggleRight } from 'lucide-react';
+import { participantPositionOptions } from '../../config/participantPositions';
 import type { Participant, ParticipantPosition } from '../../types/participant';
 import './ParticipantCard.css';
-
-const positionLabels: Record<ParticipantPosition, string> = {
-  first: 'First',
-  standard: 'Standard',
-  final: 'Final',
-};
 
 type ParticipantCardProps = {
   participant: Participant;
@@ -20,6 +15,9 @@ export function ParticipantCard({
   onToggleEnabled,
 }: ParticipantCardProps) {
   const ToggleIcon = participant.enabled ? ToggleRight : ToggleLeft;
+  const selectedPosition = participantPositionOptions.find(
+    (option) => option.value === participant.position,
+  );
 
   return (
     <article className="participant-card">
@@ -29,6 +27,7 @@ export function ParticipantCard({
         </div>
         <div>
           <h3>{participant.name}</h3>
+          <span>Provider/Site</span>
           <p>{participant.provider}</p>
         </div>
       </div>
@@ -54,24 +53,29 @@ export function ParticipantCard({
           <span>{participant.enabled ? 'Enabled' : 'Disabled'}</span>
         </button>
 
-        <div className="participant-card__position" aria-label={`${participant.name} position`}>
-          {(Object.keys(positionLabels) as ParticipantPosition[]).map((position) => {
-            const isSelected = participant.position === position;
+        <div className="participant-card__position-group">
+          <span>Position</span>
+          <div className="participant-card__position" aria-label={`${participant.name} position`}>
+            {participantPositionOptions.map((position) => {
+              const isSelected = participant.position === position.value;
 
-            return (
-              <button
-                aria-pressed={isSelected}
-                className="participant-card__position-option"
-                data-selected={isSelected}
-                key={position}
-                onClick={() => onPositionChange(participant.id, position)}
-                type="button"
-              >
-                {isSelected && <Check size={13} aria-hidden="true" />}
-                <span>{positionLabels[position]}</span>
-              </button>
-            );
-          })}
+              return (
+                <button
+                  aria-pressed={isSelected}
+                  className="participant-card__position-option"
+                  data-selected={isSelected}
+                  key={position.value}
+                  onClick={() => onPositionChange(participant.id, position.value)}
+                  title={position.detail}
+                  type="button"
+                >
+                  {isSelected && <Check size={13} aria-hidden="true" />}
+                  <span>{position.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <strong>{selectedPosition?.detail}</strong>
         </div>
       </div>
     </article>

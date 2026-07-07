@@ -1,0 +1,131 @@
+.drivers-page {
+  display: grid;
+  gap: 1rem;
+  margin: 0 auto;
+  max-width: 1280px;
+}
+
+.drivers-page__hero {
+  align-items: end;
+  background:
+    linear-gradient(135deg, rgba(110, 231, 200, 0.1), rgba(130, 183, 255, 0.07) 46%, transparent),
+    rgba(16, 23, 33, 0.78);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  overflow: hidden;
+  padding: 1.6rem;
+  position: relative;
+}
+
+.drivers-page__hero::after {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.032) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.032) 1px, transparent 1px);
+  background-size: 30px 30px;
+  content: '';
+  inset: 0;
+  mask-image: linear-gradient(90deg, transparent, black 34%, transparent);
+  opacity: 0.36;
+  pointer-events: none;
+  position: absolute;
+}
+
+.drivers-page__intro,
+.drivers-page__button {
+  position: relative;
+  z-index: 1;
+}
+
+.drivers-page__intro h2 {
+  color: var(--text);
+  font-size: clamp(2rem, 4vw, 3.8rem);
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+}
+
+.drivers-page__intro p:last-child {
+  color: var(--muted-strong);
+  font-size: 0.98rem;
+  line-height: 1.65;
+  margin: 0.9rem 0 0;
+  max-width: 690px;
+}
+
+.drivers-page__button {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--muted-strong);
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 680;
+  gap: 0.48rem;
+  height: 40px;
+  justify-content: center;
+  padding: 0 0.86rem;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+  white-space: nowrap;
+}
+
+.drivers-page__button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-strong);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.drivers-page__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.drivers-page__summary div {
+  align-items: center;
+  background: rgba(18, 27, 38, 0.74);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--muted-strong);
+  display: inline-flex;
+  font-size: 0.86rem;
+  gap: 0.45rem;
+  min-height: 36px;
+  padding: 0 0.72rem;
+}
+
+.drivers-page__summary svg {
+  color: var(--accent);
+}
+
+.drivers-page__list {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1050px) {
+  .drivers-page__list,
+  .drivers-page__hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .drivers-page__hero {
+    padding: 1.2rem;
+  }
+
+  .drivers-page__button {
+    width: 100%;
+  }
+}

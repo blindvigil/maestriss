@@ -1,0 +1,37 @@
+.settings-field {
+  display: grid;
+  gap: 0.42rem;
+  min-width: 0;
+}
+
+.settings-field > span {
+  color: var(--muted);
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.settings-field input,
+.settings-field select {
+  background: rgba(8, 12, 17, 0.5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  height: 38px;
+  outline: none;
+  padding: 0 0.62rem;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+  width: 100%;
+}
+
+.settings-field input:focus,
+.settings-field select:focus {
+  border-color: rgba(110, 231, 200, 0.36);
+  box-shadow: 0 0 0 3px rgba(110, 231, 200, 0.08);
+}

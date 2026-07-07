@@ -45,10 +45,20 @@
   margin: 0;
 }
 
+.participant-card__identity span {
+  color: var(--muted);
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-top: 0.38rem;
+  text-transform: uppercase;
+}
+
 .participant-card__identity p {
   color: var(--muted);
   font-size: 0.78rem;
-  margin: 0.24rem 0 0;
+  margin: 0.14rem 0 0;
   overflow-wrap: anywhere;
 }
 
@@ -120,6 +130,27 @@
 .participant-card__toggle:hover {
   background: rgba(255, 255, 255, 0.07);
   border-color: var(--border-strong);
+}
+
+.participant-card__position-group {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.participant-card__position-group > span {
+  color: var(--muted);
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.participant-card__position-group > strong {
+  color: var(--muted-strong);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .participant-card__position {

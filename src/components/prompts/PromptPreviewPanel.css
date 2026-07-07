@@ -1,0 +1,39 @@
+.prompt-preview-panel {
+  align-content: start;
+  background: rgba(18, 27, 38, 0.74);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.prompt-preview-panel__header h3 {
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.prompt-preview-panel__header p:not(.eyebrow) {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin: 0.48rem 0 0;
+}
+
+.prompt-preview-panel pre {
+  background: rgba(8, 12, 17, 0.46);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--muted-strong);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  margin: 0;
+  min-height: 440px;
+  overflow: auto;
+  padding: 0.78rem;
+  white-space: pre-wrap;
+}

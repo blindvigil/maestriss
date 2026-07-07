@@ -1,0 +1,167 @@
+.driver-card {
+  background: linear-gradient(180deg, rgba(23, 34, 48, 0.78), rgba(17, 25, 35, 0.86));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.driver-card__header {
+  align-items: start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.driver-card__header span,
+.driver-card__field span {
+  color: var(--muted);
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.driver-card__header h3 {
+  color: var(--text);
+  font-size: 1.12rem;
+  margin: 0.32rem 0 0;
+}
+
+.driver-card__header p {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin: 0.2rem 0 0;
+}
+
+.driver-card__health {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  padding: 0.3rem 0.46rem;
+}
+
+.driver-card__health[data-health='ready'] {
+  background: rgba(110, 231, 200, 0.12);
+  border-color: rgba(110, 231, 200, 0.24);
+  color: var(--accent);
+}
+
+.driver-card__health[data-health='needs review'] {
+  background: rgba(130, 183, 255, 0.1);
+  border-color: rgba(130, 183, 255, 0.22);
+  color: var(--accent-blue);
+}
+
+.driver-card__health[data-health='untested'] {
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--muted-strong);
+}
+
+.driver-card__grid {
+  display: grid;
+  gap: 0.72rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.driver-card__field {
+  display: grid;
+  gap: 0.42rem;
+  min-width: 0;
+}
+
+.driver-card__field input,
+.driver-card__field select,
+.driver-card__field textarea {
+  background: rgba(8, 12, 17, 0.5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.86rem;
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+  width: 100%;
+}
+
+.driver-card__field input,
+.driver-card__field select {
+  height: 38px;
+  padding: 0 0.62rem;
+}
+
+.driver-card__field textarea {
+  line-height: 1.55;
+  min-height: 94px;
+  padding: 0.72rem;
+  resize: vertical;
+}
+
+.driver-card__field input:focus,
+.driver-card__field select:focus,
+.driver-card__field textarea:focus {
+  border-color: rgba(110, 231, 200, 0.36);
+  box-shadow: 0 0 0 3px rgba(110, 231, 200, 0.08);
+}
+
+.driver-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: flex-end;
+}
+
+.driver-card__actions button {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--muted-strong);
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 680;
+  gap: 0.48rem;
+  height: 38px;
+  justify-content: center;
+  padding: 0 0.78rem;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    filter 160ms ease,
+    transform 160ms ease;
+}
+
+.driver-card__actions button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-strong);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.driver-card__actions .driver-card__test {
+  background: linear-gradient(135deg, var(--accent), #82b7ff);
+  border: 0;
+  color: #071016;
+}
+
+.driver-card__actions .driver-card__test:hover {
+  color: #071016;
+  filter: brightness(1.06);
+}
+
+@media (max-width: 720px) {
+  .driver-card__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .driver-card__actions,
+  .driver-card__actions button {
+    width: 100%;
+  }
+}

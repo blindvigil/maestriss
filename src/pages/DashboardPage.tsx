@@ -9,17 +9,11 @@ import {
   Sparkles,
   UsersRound,
 } from 'lucide-react';
+import { useMemo } from 'react';
 import { FeatureCard } from '../components/ui/FeatureCard';
 import { MetricPanel } from '../components/ui/MetricPanel';
+import { useProject } from '../context/ProjectContext';
 import './DashboardPage.css';
-
-const summaryItems = [
-  { label: 'Project Name', value: 'Maestriss Studio', icon: Sparkles },
-  { label: 'Workflow Name', value: 'Council Draft', icon: GitBranch },
-  { label: 'AI Participants', value: '4 configured', icon: UsersRound },
-  { label: 'Final Editor', value: 'Synthesis Lead', icon: PenLine },
-  { label: 'Randomization', value: 'Enabled', icon: Dice5 },
-];
 
 const cards = [
   {
@@ -38,13 +32,34 @@ const cards = [
     icon: GitBranch,
   },
   {
-    title: 'Recent Runs',
+    title: 'Sessions',
     description: 'Review completed orchestration sessions and inspect the decisions behind the result.',
     icon: History,
   },
 ];
 
 export function DashboardPage() {
+  const { project } = useProject();
+
+  const summaryItems = useMemo(
+    () => [
+      { label: 'Project Name', value: project.metadata.projectName, icon: Sparkles },
+      { label: 'Workflow Name', value: project.metadata.workflowName, icon: GitBranch },
+      {
+        label: 'AI Participants',
+        value: `${project.participants.length} configured`,
+        icon: UsersRound,
+      },
+      { label: 'Final Editor', value: project.workflow.finalEditor, icon: PenLine },
+      {
+        label: 'Randomization',
+        value: project.workflow.randomizeMiddleParticipants ? 'Enabled' : 'Disabled',
+        icon: Dice5,
+      },
+    ],
+    [project],
+  );
+
   return (
     <section className="dashboard-page" aria-labelledby="dashboard-title">
       <div className="dashboard-page__hero">

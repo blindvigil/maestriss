@@ -7,9 +7,11 @@ type PlaceholderPageProps = {
 const pageDescriptions: Record<string, string> = {
   Participants: 'Manage the AI systems available to Maestriss workflows.',
   Profiles: 'Create reusable behavioral profiles for participants and editorial roles.',
+  'Prompt Designer': 'Edit reusable prompt templates for Maestriss orchestration.',
   Workflow: 'Design the sequence of conversation stages and synthesis steps.',
   Drivers: 'Configure model providers, local runtimes, and execution settings.',
-  'Run History': 'Inspect previous orchestration runs and compare outcomes.',
+  Sessions: 'Inspect previous orchestration sessions and compare outcomes.',
+  Export: 'Generate project exports, prompt packs, transcripts, and workflow placeholders.',
   Settings: 'Adjust studio preferences and application-level configuration.',
 };
 

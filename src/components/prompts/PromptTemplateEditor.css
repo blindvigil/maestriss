@@ -1,0 +1,82 @@
+.prompt-template-editor {
+  background: linear-gradient(180deg, rgba(23, 34, 48, 0.78), rgba(17, 25, 35, 0.86));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1.1rem;
+}
+
+.prompt-template-editor__header h3 {
+  color: var(--text);
+  font-size: 1.22rem;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.prompt-template-editor__header p:not(.eyebrow) {
+  color: var(--muted-strong);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  margin: 0.64rem 0 0;
+}
+
+.prompt-template-editor__textarea {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.prompt-template-editor__textarea span,
+.prompt-template-editor__variables > span {
+  color: var(--muted);
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.prompt-template-editor__textarea textarea {
+  background: rgba(8, 12, 17, 0.5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  line-height: 1.58;
+  min-height: 440px;
+  outline: none;
+  padding: 0.86rem;
+  resize: vertical;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+  width: 100%;
+}
+
+.prompt-template-editor__textarea textarea:focus {
+  border-color: rgba(110, 231, 200, 0.36);
+  box-shadow: 0 0 0 3px rgba(110, 231, 200, 0.08);
+}
+
+.prompt-template-editor__variables {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.prompt-template-editor__variables div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.42rem;
+}
+
+.prompt-template-editor__variables code {
+  background: rgba(8, 12, 17, 0.46);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--accent-strong);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.76rem;
+  padding: 0.3rem 0.42rem;
+}

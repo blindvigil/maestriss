@@ -1,0 +1,55 @@
+.run-flow {
+  align-items: stretch;
+  display: flex;
+  gap: 0.54rem;
+  overflow-x: auto;
+  padding: 0.1rem 0 0.3rem;
+}
+
+.run-flow__step {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.54rem;
+}
+
+.run-flow__step article {
+  align-items: center;
+  background: rgba(8, 12, 17, 0.42);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  gap: 0.55rem;
+  min-height: 42px;
+  padding: 0 0.72rem;
+}
+
+.run-flow__step span {
+  align-items: center;
+  background: rgba(130, 183, 255, 0.1);
+  border: 1px solid rgba(130, 183, 255, 0.15);
+  border-radius: var(--radius-sm);
+  color: var(--accent-blue);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 760;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.run-flow__step strong {
+  color: var(--text);
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.run-flow__step svg {
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+
+.run-flow > p {
+  color: var(--muted-strong);
+  margin: 0;
+}

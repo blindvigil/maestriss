@@ -1,0 +1,47 @@
+.prompt-template-selector {
+  align-content: start;
+  display: grid;
+  gap: 0.72rem;
+}
+
+.prompt-template-selector__item {
+  background: linear-gradient(180deg, rgba(23, 34, 48, 0.72), rgba(17, 25, 35, 0.82));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 0.42rem;
+  min-height: 108px;
+  padding: 0.92rem;
+  text-align: left;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.prompt-template-selector__item:hover {
+  border-color: rgba(110, 231, 200, 0.22);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.16);
+  transform: translateY(-1px);
+}
+
+.prompt-template-selector__item[data-selected='true'] {
+  background: linear-gradient(135deg, rgba(110, 231, 200, 0.14), rgba(130, 183, 255, 0.08));
+  border-color: rgba(110, 231, 200, 0.28);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.prompt-template-selector__item span {
+  color: var(--text);
+  font-size: 0.94rem;
+  font-weight: 760;
+}
+
+.prompt-template-selector__item strong {
+  color: var(--muted-strong);
+  font-size: 0.8rem;
+  font-weight: 560;
+  line-height: 1.45;
+}

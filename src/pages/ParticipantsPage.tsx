@@ -1,28 +1,24 @@
 import { Plus, RotateCcw, UsersRound } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { ParticipantCard } from '../components/participants/ParticipantCard';
-import { defaultParticipants } from '../data/defaultParticipants';
+import { participantPositionDetails } from '../config/participantPositions';
+import { useProject } from '../context/ProjectContext';
 import type { Participant, ParticipantPosition } from '../types/participant';
+import { createDefaultParticipants, createParticipant } from '../utils/participants';
+
 import './ParticipantsPage.css';
 
-function createDefaultParticipants() {
-  return defaultParticipants.map((participant) => ({ ...participant }));
-}
-
-function createParticipant(index: number): Participant {
-  return {
-    id: `custom-${Date.now()}-${index}`,
-    name: `New Participant ${index}`,
-    provider: 'custom.ai',
-    role: 'Custom participant awaiting configuration',
-    urlPattern: 'https://custom.ai/?q={prompt}',
-    enabled: true,
-    position: 'standard',
-  };
+function getWorkflowOrder(participants: Participant[]) {
+  return [
+    ...participants.filter((participant) => participant.position === 'first'),
+    ...participants.filter((participant) => participant.position === 'standard'),
+    ...participants.filter((participant) => participant.position === 'final'),
+  ].map((participant) => participant.name);
 }
 
 export function ParticipantsPage() {
-  const [participants, setParticipants] = useState<Participant[]>(() => createDefaultParticipants());
+  const { project, updateProject } = useProject();
+  const { participants } = project;
 
   const enabledCount = useMemo(
     () => participants.filter((participant) => participant.enabled).length,
@@ -34,30 +30,84 @@ export function ParticipantsPage() {
     [participants],
   );
 
+  const randomizedMiddleCount = useMemo(
+    () => participants.filter((participant) => participant.position === 'standard').length,
+    [participants],
+  );
+
   const finalEditor = participants.find((participant) => participant.position === 'final');
 
   const handleAddParticipant = () => {
-    setParticipants((current) => [...current, createParticipant(current.length + 1)]);
+    updateProject((currentProject) => ({
+      ...currentProject,
+      ...(() => {
+        const nextParticipants = [
+          ...currentProject.participants,
+          createParticipant(currentProject.participants.length + 1),
+        ];
+
+        return {
+          participants: nextParticipants,
+          workflow: {
+            ...currentProject.workflow,
+            currentOrder: getWorkflowOrder(nextParticipants),
+          },
+        };
+      })(),
+    }));
   };
 
   const handleResetDefaults = () => {
-    setParticipants(createDefaultParticipants());
+    const defaultParticipants = createDefaultParticipants();
+
+    updateProject((currentProject) => ({
+      ...currentProject,
+      participants: defaultParticipants,
+      workflow: {
+        ...currentProject.workflow,
+        firstParticipant:
+          defaultParticipants.find((participant) => participant.position === 'first')?.name ??
+          currentProject.workflow.firstParticipant,
+        finalEditor:
+          defaultParticipants.find((participant) => participant.position === 'final')?.name ??
+          currentProject.workflow.finalEditor,
+        currentOrder: getWorkflowOrder(defaultParticipants),
+      },
+    }));
   };
 
   const handleToggleEnabled = (id: string) => {
-    setParticipants((current) =>
-      current.map((participant) =>
+    updateProject((currentProject) => ({
+      ...currentProject,
+      participants: currentProject.participants.map((participant) =>
         participant.id === id ? { ...participant, enabled: !participant.enabled } : participant,
       ),
-    );
+    }));
   };
 
   const handlePositionChange = (id: string, position: ParticipantPosition) => {
-    setParticipants((current) =>
-      current.map((participant) =>
-        participant.id === id ? { ...participant, position } : participant,
-      ),
-    );
+    updateProject((currentProject) => ({
+      ...currentProject,
+      ...(() => {
+        const nextParticipants = currentProject.participants.map((participant) =>
+          participant.id === id ? { ...participant, position } : participant,
+        );
+
+        return {
+          participants: nextParticipants,
+          workflow: {
+            ...currentProject.workflow,
+            firstParticipant:
+              nextParticipants.find((participant) => participant.position === 'first')?.name ??
+              currentProject.workflow.firstParticipant,
+            finalEditor:
+              nextParticipants.find((participant) => participant.position === 'final')?.name ??
+              currentProject.workflow.finalEditor,
+            currentOrder: getWorkflowOrder(nextParticipants),
+          },
+        };
+      })(),
+    }));
   };
 
   return (
@@ -93,7 +143,14 @@ export function ParticipantsPage() {
           <span>{enabledCount} enabled</span>
         </div>
         <div>
-          <span>{fixedFirstCount} fixed first</span>
+          <span>
+            {fixedFirstCount} {participantPositionDetails.first.toLowerCase()}
+          </span>
+        </div>
+        <div>
+          <span>
+            {randomizedMiddleCount} {participantPositionDetails.standard.toLowerCase()}
+          </span>
         </div>
         <div>
           <span>Final editor: {finalEditor?.name ?? 'Not assigned'}</span>
