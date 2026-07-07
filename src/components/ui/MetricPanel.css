@@ -1,0 +1,44 @@
+.metric-panel {
+  align-items: flex-start;
+  background: rgba(18, 27, 38, 0.74);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  gap: 0.78rem;
+  min-height: 96px;
+  padding: 1rem;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.metric-panel:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.metric-panel__icon {
+  align-items: center;
+  background: rgba(110, 231, 200, 0.1);
+  border: 1px solid rgba(110, 231, 200, 0.16);
+  border-radius: var(--radius-md);
+  color: var(--accent);
+  display: grid;
+  flex: 0 0 auto;
+  height: 32px;
+  place-items: center;
+  width: 32px;
+}
+
+.metric-panel p {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin: 0 0 0.45rem;
+}
+
+.metric-panel strong {
+  color: var(--text);
+  display: block;
+  font-size: 0.98rem;
+  line-height: 1.25;
+}
