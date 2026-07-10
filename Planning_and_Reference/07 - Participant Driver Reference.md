@@ -52,7 +52,7 @@ Drivers find the composer. This may be a textarea, input, contenteditable region
 
 Drivers paste prompts and verify the paste. A driver must confirm that the prompt text is present after entry. Prompt entry cannot be assumed merely because a fill, keypress, or paste operation completed.
 
-Drivers submit prompts through provider-appropriate techniques. A driver may use DOM clicks, coordinate clicks, keyboard Enter, Ctrl+Enter, Meta+Enter, pointer events, mouse events, form semantics, or fallback chains. Submission must be verified.
+Drivers submit prompts through provider-appropriate techniques. A driver may use DOM clicks, coordinate clicks, keyboard Enter, Ctrl+Enter, Meta+Enter, pointer events, mouse events, form semantics, or fallback chains. Submission should be verified through observable provider state whenever practical. The maturity table identifies providers where submission exists but verification is still an active hardening area.
 
 Drivers wait for generation. They observe provider-specific stop controls, responding indicators, generating labels, stability timers, response candidates, and completion signals.
 
@@ -146,15 +146,15 @@ Submission begins with an enabled send-button strategy where available. Keyboard
 
 Completion detection uses response stability, composer readiness, and stop-control state. The driver avoids treating an in-progress response as complete while an active stop control remains visible.
 
-Response extraction uses the provider's visible conversation text and filters response content from surrounding UI. It returns normalized participant output when the structured extraction method is available.
+Response extraction currently uses the latest visible assistant message selected from ChatGPT conversation selectors. It trims the selected text and returns normalized participant output when the structured extraction method is available. ChatGPT does not yet have a dedicated filter module or provider-specific filter assertion suite comparable to Claude, Gemini, Google, and other more heavily hardened drivers.
 
 Known UI characteristics include contenteditable-style composers, visible send controls, stop controls during generation, and action controls around responses.
 
 Known quirks include the need to verify composer text after input and to avoid relying on a single submission method.
 
-Diagnostics include composer selector, composer strategy, paste verification, submission strategy, completion state, and extraction output.
+Diagnostics include composer selector, composer strategy, paste verification, submission strategy, completion state, and extraction output. Candidate-level filtering diagnostics are less mature than the dedicated detector modules used by several other providers.
 
-Current stability is established at the driver lifecycle level with live smoke validation available through exact-answer prompts.
+Current stability is active at the driver lifecycle level with live smoke validation available through exact-answer prompts. Submission verification and provider-specific filtering remain areas for future hardening.
 
 Future considerations include preserving robustness as ChatGPT changes composer structure, message layout, or stop-control behavior.
 
@@ -188,7 +188,7 @@ Gemini's conversation layout includes prompt bubbles, assistant response content
 
 Composer behavior is contenteditable-oriented. The driver locates the visible composer, verifies pasted prompt text, and submits through the provider's send mechanism.
 
-Submission is verified through prompt acceptance, generation state, and response changes where available.
+Submission is implemented through the visible send mechanism or keyboard fallback after verified prompt entry. Dedicated post-submit verification is not yet as strong as Google, Claude, DeepSeek, or Perplexity and remains an active hardening area.
 
 Notebook UI and Gemini application chrome introduce false-positive risk. Text such as notebook labels, conversation headers, user prompts, and provider disclaimers must be filtered.
 
@@ -200,7 +200,7 @@ Known extraction challenges include avoiding prompt bubbles, rejecting parent co
 
 Diagnostics include response length, stability timing, stop visibility, candidate count, selected preview, geometry, rejected candidate reasons, stop candidates, and debug artifacts when no response is found.
 
-Current stability is regression-backed with dedicated Gemini filter assertions covering chrome rejection, geometry, accessibility prefixes, and valid short answers.
+Current stability is regression-backed with dedicated Gemini filter assertions covering chrome rejection, geometry, accessibility prefixes, and valid short answers. Submission verification should continue to be strengthened as live behavior is observed.
 
 ## Google AI Mode Driver
 
@@ -300,7 +300,7 @@ Filtering removes source labels, related prompts, controls, sign-in or upgrade U
 
 Diagnostics include overlay detection, composer strategy, paste verification, submit strategy, stop visibility, candidate count, top candidate lengths, selected preview, live debug artifacts, and response-not-found artifacts.
 
-Current stability is active with provider-specific driver diagnostics and filtering behavior.
+Current stability is active with provider-specific driver diagnostics and inline filtering behavior. Perplexity filtering has not yet been extracted into a dedicated filtering module with provider-specific assertion scripts.
 
 ## Reka Driver
 
@@ -336,7 +336,7 @@ Pointer and mouse events may be required when providers rely on event sequences 
 
 Form submission may be appropriate when the provider uses standard form semantics, but it must be verified like any other strategy.
 
-Fallback chains are ordered from most precise to least invasive. A driver should try the strategy most clearly associated with the provider's visible send control before broader fallbacks.
+Fallback chains are ordered from the strategy with the strongest provider-specific evidence to broader fallbacks. A driver should try the strategy most clearly associated with the provider's visible send control before using less certain approaches, and it should log the evidence that justified the selected strategy.
 
 Submission verification is always required. A click or keypress is not proof that the provider accepted the prompt. The driver must observe composer clearing, user-message appearance, generation start, response change, stop-control appearance, or another provider-specific success signal.
 
@@ -396,6 +396,8 @@ Geometry often provides more stable signals than CSS class names because provide
 
 Geometry must remain flexible. Viewports change, responsive layouts shift, and valid answers may appear in narrower or more left-aligned regions than expected.
 
+Some current drivers use provider-specific absolute geometry bands when live evidence shows that a provider's answer column is stable enough for that rule to be useful. These are accepted implementation heuristics, not universal architecture. They should remain documented as provider-specific and should be revisited when diagnostics show legitimate answers being rejected by position alone.
+
 ## Diagnostics
 
 Every driver should emit diagnostics that make failures understandable without stepping through code.
@@ -430,9 +432,9 @@ Drivers should not duplicate shared browser lifecycle, participant resolution, t
 
 Failures should be informative. A driver should identify the failed stage and preserve diagnostics.
 
-Fallbacks should be ordered from least invasive to most invasive.
+Fallbacks should be ordered from strongest provider-specific evidence to broader fallbacks.
 
-Submission should always be verified.
+Submission should be verified whenever practical, and unverified submission paths should be treated as active hardening targets rather than fully mature behavior.
 
 Extraction should prioritize correctness over speed.
 
@@ -480,9 +482,9 @@ Maturity levels:
 
 | Participant | Submission | Completion Detection | Extraction | Filtering | Diagnostics | Overall Stability |
 | --- | --- | --- | --- | --- | --- | --- |
-| ChatGPT | Established | Active | Active | Active | Active | Active |
+| ChatGPT | Active | Active | Active | Developing | Active | Active |
 | Claude | Established | Established | Established | Established | Established | Established |
-| Gemini | Established | Established | Established | Established | Established | Established |
+| Gemini | Active | Established | Established | Established | Established | Established |
 | Google AI Mode | Established | Established | Established | Established | Established | Established |
 | DeepSeek | Established | Active | Active | Established | Active | Active |
 | Grok | Established | Active | Active | Established | Active | Active |

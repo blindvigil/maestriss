@@ -163,7 +163,7 @@ Regression tests should be precise. They should capture the behavior that matter
 
 Response-filter regression tests are deterministic tests for provider-specific extraction behavior. They validate how raw candidate text becomes accepted response text or rejected non-answer text.
 
-Every provider should have its own filter assertions when it has nontrivial response detection. Provider-specific tests preserve provider-specific behavior without contaminating other drivers.
+Every provider should have its own filter assertions when it has nontrivial response detection. Provider-specific tests preserve provider-specific behavior without contaminating other drivers. The current coverage is uneven: several providers have dedicated assertion scripts, while ChatGPT and Perplexity remain candidates for additional provider-specific filter coverage.
 
 Filter tests should cover prompt echoes. The submitted user prompt appears in the conversation and must not be returned as the assistant response.
 
@@ -395,7 +395,7 @@ Rate limiting should be reported as provider state when detected. It should not 
 
 Health checks improve reliability by detecting problems before workflows begin.
 
-Browser connection health confirms that the runner is connected to Chrome through CDP.
+Browser connection health confirms that the runner's browser session is currently usable. In CDP mode this means the runner can communicate with the attached Chrome instance; in persistent-profile mode it means the Playwright-managed browser context remains usable.
 
 Participant availability checks whether expected participant tabs exist or can be opened.
 

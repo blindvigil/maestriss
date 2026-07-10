@@ -39,7 +39,6 @@ type GrokResponseDiagnostics = {
     width: number;
     height: number;
   }>;
-  rejectedAnswerLikeTrap: boolean;
   selectedCandidate?: {
     text: string;
     x: number;
@@ -656,16 +655,11 @@ async function grokResponseDiagnostics(page: Page, submittedPrompt = '') {
 
     const selectedText = candidates[0]?.text || '';
     const rejectedCandidates = candidateDump.filter((candidate) => candidate.reason);
-    const rejectedAnswerLikeTrap = candidates.length === 0 &&
-      rejectedCandidates.length > 0 &&
-      rejectedCandidates.every((candidate) => candidate.wordCount >= 1 && candidate.wordCount <= 20) &&
-      rejectedCandidates.some((candidate) => normalize(candidate.preview).includes('grok ok'));
 
     return {
       candidateCount: candidates.length,
       rejectedTop,
       candidateDump,
-      rejectedAnswerLikeTrap,
       selectedText,
       selectedCandidate: candidates[0]
         ? {
@@ -706,27 +700,6 @@ function cleanGrokText(text: string) {
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-}
-
-function logGrokCandidateDump(diagnostics: GrokResponseDiagnostics) {
-  console.log('Grok candidate geometry dump:');
-
-  if (diagnostics.candidateDump.length === 0) {
-    console.log('  (no candidates)');
-    return;
-  }
-
-  diagnostics.candidateDump.forEach((candidate, index) => {
-    console.log(
-      `  [${index}] reason=${candidate.reason || 'accepted'} ` +
-      `words=${candidate.wordCount} ` +
-      `x=${Math.round(candidate.x)} ` +
-      `y=${Math.round(candidate.y)} ` +
-      `width=${Math.round(candidate.width)} ` +
-      `height=${Math.round(candidate.height)} ` +
-      `preview=${candidate.preview}`,
-    );
-  });
 }
 
 async function findGrokSubmitTarget(page: Page): Promise<GrokSubmitTarget> {
@@ -1013,11 +986,6 @@ export const grokDriver = {
       diagnostics.rejectedTop.forEach((candidate) => {
         console.log(`Grok rejected candidate reason: ${candidate.reason} ${candidate.preview}`);
       });
-
-      if (diagnostics.rejectedAnswerLikeTrap) {
-        logGrokCandidateDump(diagnostics);
-        throw new Error('grok-extraction-debug-stop: answer-like rejected candidate found; inspect Grok candidate geometry dump.');
-      }
 
       if (responseLength > 5 && stableForMs >= stableMs && !stopVisible) {
         return;

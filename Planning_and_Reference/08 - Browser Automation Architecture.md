@@ -5,7 +5,7 @@
 1. [Purpose](#purpose)
 2. [High-Level Architecture](#high-level-architecture)
 3. [Browser Lifecycle](#browser-lifecycle)
-4. [Why CDP Instead of Launching Chrome](#why-cdp-instead-of-launching-chrome)
+4. [Browser Execution Modes](#browser-execution-modes)
 5. [Chrome Profile Strategy](#chrome-profile-strategy)
 6. [Browser Startup](#browser-startup)
 7. [Runner Lifecycle](#runner-lifecycle)
@@ -59,7 +59,7 @@ Playwright
 Chrome DevTools Protocol
  |
  v
-Chrome Browser
+Persistent Browser Session
  |
  v
 Participant Tabs
@@ -76,9 +76,9 @@ The server owns orchestration. It accepts requests, resolves participants, manag
 
 Playwright is the automation library used by the runner. It provides page objects, locators, navigation, evaluation, mouse input, keyboard input, screenshots, and browser-context operations.
 
-Chrome DevTools Protocol is the connection layer between Playwright and the running browser. CDP enables control of an existing Chrome instance, page enumeration, DOM evaluation, screenshot capture, tab focus, and input simulation.
+Chrome DevTools Protocol is the connection layer when Playwright attaches to an externally started Chrome instance. The runner can also launch a Playwright-managed persistent Chromium profile without CDP.
 
-Chrome is the live browser environment. It contains the persistent profile, authenticated provider sessions, participant tabs, conversations, cookies, and visible UI.
+The persistent browser session is the live browser environment. It contains the profile, authenticated provider sessions, participant tabs, conversations, cookies, and visible UI.
 
 Participant tabs are long-lived pages associated with configured AI participants. Each tab is the operational workspace for one provider.
 
@@ -86,15 +86,15 @@ AI websites are the external provider products. They are dynamic, changing, huma
 
 ## Browser Lifecycle
 
-The browser lifecycle begins with Chrome startup. Chrome is started with a remote debugging port and a dedicated persistent profile. This makes the browser controllable through CDP and preserves provider sessions across requests.
+The browser lifecycle begins with establishing a persistent browser session. In CDP mode, Chrome is started with a remote debugging port and a dedicated persistent profile. In persistent-profile mode, the runner launches a Playwright-managed Chromium context using `runner/.user-data`.
 
-Remote debugging exposes the CDP endpoint that the runner uses to connect. Without this endpoint, the runner cannot enumerate tabs or control pages in the existing browser.
+Remote debugging exposes the CDP endpoint that the runner uses to connect to an existing Chrome process. Without this endpoint, CDP mode cannot enumerate tabs or control pages in the existing browser.
 
 Profile loading initializes the persistent browser state. Cookies, logins, provider sessions, preferences, and conversation continuity are restored from the dedicated profile.
 
 Runner startup begins the Maestriss runtime. The runner creates the server, connects to the browser, discovers pages, opens missing participant tabs, cleans blank startup tabs, and begins listening for requests.
 
-CDP connection attaches the automation layer to the browser. The connection allows Playwright to operate the existing Chrome instance rather than launching an unrelated temporary browser.
+Browser session creation attaches the automation layer to the browser. CDP mode allows Playwright to operate an existing Chrome instance. Persistent-profile mode creates the browser context directly through Playwright.
 
 Participant discovery identifies which open tabs belong to configured participants. Discovery occurs during startup and during request processing.
 
@@ -104,13 +104,19 @@ Graceful shutdown should allow the runner to stop without corrupting browser sta
 
 Unexpected termination can occur if the runner crashes, Chrome closes, the CDP connection drops, or a tab crashes. The system should surface the failure clearly and allow restart.
 
-Restart reestablishes a clean runtime. The restart process stops old runner processes, starts Chrome with the persistent profile and CDP port, connects the runner, closes startup blank tabs, and restores participant availability.
+Restart reestablishes a clean runtime. The standard restart script uses CDP mode: it stops old runner processes, closes Chrome, force-kills remaining Chrome processes if needed, starts Chrome with the persistent profile and CDP port, connects the runner, closes startup blank tabs, and restores participant availability.
 
 Each stage exists to make browser automation repeatable. A predictable lifecycle reduces hidden state, preserves sessions, and makes failures diagnosable.
 
-## Why CDP Instead of Launching Chrome
+## Browser Execution Modes
 
-Maestriss connects to an existing browser over CDP because the browser is a durable workspace, not a disposable test fixture.
+Maestriss supports two browser execution modes. Both are built around persistent visible browser state because the browser is a durable workspace, not a disposable test fixture.
+
+In CDP mode, Maestriss connects to an existing Chrome browser over Chrome DevTools Protocol. This is the mode used by `restart-runner.ps1`. It uses installed Chrome, remote debugging port `9222`, and the dedicated profile `%LOCALAPPDATA%\MaestrissChromeProfile`.
+
+In persistent-profile mode, Maestriss launches a Playwright-managed Chromium browser context directly. This is the default server mode when no `--connect-cdp` flag is provided. It uses the profile directory `runner/.user-data`.
+
+These modes use different profiles. Authentication and provider state established in one mode do not automatically transfer to the other.
 
 Persistent logins are the primary benefit. Providers often require account authentication, multi-factor verification, account selection, or security checks. A persistent browser allows the user to authenticate manually and lets Maestriss reuse the authenticated session.
 
@@ -126,11 +132,11 @@ Manual intervention is possible. Login, security verification, provider onboardi
 
 Recovery after crashes is more practical. The restart path reconnects to a known profile and restores the participant workspace rather than rebuilding everything from scratch.
 
-Launching temporary browser instances was rejected as the primary architecture because it discards authentication, slows requests, creates repeated provider startup friction, hides state from the user, and weakens the participant-tab model.
+Launching disposable temporary browser instances was rejected as the primary architecture because it discards authentication, slows requests, creates repeated provider startup friction, hides state from the user, and weakens the participant-tab model. A Playwright-launched persistent profile remains compatible with the architecture because it preserves profile state and participant tabs.
 
 ## Chrome Profile Strategy
 
-Maestriss uses a dedicated persistent Chrome profile for automation. The profile isolates Maestriss provider sessions from unrelated browser activity while preserving state across requests and restarts.
+Maestriss uses dedicated persistent browser profiles for automation. CDP mode uses a dedicated Chrome profile. Persistent-profile mode uses a Playwright Chromium profile under the runner directory. The profile isolates Maestriss provider sessions from unrelated browser activity while preserving state across requests and restarts.
 
 The dedicated profile stores authentication state. Users log in manually to providers within this profile. Maestriss does not manage credentials.
 
@@ -148,11 +154,11 @@ Maestriss should never depend on temporary profiles for normal operation. Tempor
 
 ## Browser Startup
 
-Browser startup prepares Chrome for automation. The browser is launched with a remote debugging port so the runner can connect through CDP.
+Browser startup prepares the persistent browser session for automation. In CDP mode, Chrome is launched with a remote debugging port so the runner can connect through CDP. In persistent-profile mode, the runner launches Chromium through Playwright.
 
-The remote debugging port is the control endpoint. The runner uses it to attach to Chrome, enumerate pages, and create or reuse tabs.
+The remote debugging port is the control endpoint for CDP mode. The runner uses it to attach to Chrome, enumerate pages, and create or reuse tabs.
 
-Command-line arguments configure Chrome for reliable automation. They define the user data directory, suppress first-run friction, avoid default-browser prompts, reduce crash-restore interruptions, and open a predictable startup page.
+Command-line arguments configure Chrome for reliable CDP-mode automation. They define the user data directory, suppress first-run friction, avoid default-browser prompts, reduce crash-restore interruptions, and open a predictable startup page.
 
 Restore suppression matters because Chrome may otherwise show crash recovery prompts or restore bubbles. These prompts can interfere with participant tabs and automation visibility.
 
@@ -496,7 +502,7 @@ Maestriss automates public provider interfaces deliberately and visibly.
 
 APIs are useful but not sufficient for the Maestriss architecture.
 
-CDP-connected persistent browsers are the normal operating model.
+Persistent visible browser sessions are the normal operating model. CDP-attached Chrome is the standard restart-script path; Playwright-managed persistent Chromium is also supported.
 
 Provider sessions belong in persistent browser profiles.
 

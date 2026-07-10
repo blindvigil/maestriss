@@ -125,6 +125,41 @@ async function saveAskFailureArtifacts(page: Page, participantName: string) {
   return { htmlPath, screenshotPath };
 }
 
+async function buildHealthResponse(
+  context: BrowserContext,
+  browserSession: BrowserSession,
+  options: RunnerServerOptions,
+  focusActiveParticipant: boolean,
+  activeAskRequests: Map<string, ActiveAskRequest>,
+): Promise<HealthResponse> {
+  try {
+    const matchedPages = await listParticipantPages(context, participants);
+    const browser = context.browser();
+
+    return {
+      browserMode: browserSession.mode,
+      browserChannel: options.browserChannel,
+      connected: browser ? browser.isConnected() : true,
+      focusActiveParticipant,
+      participantCount: matchedPages.length,
+      activeRequestIds: Array.from(activeAskRequests.values()).map((activeRequest) => (
+        `${activeRequest.requestId}:${activeRequest.participant}`
+      )),
+    };
+  } catch {
+    return {
+      browserMode: browserSession.mode,
+      browserChannel: options.browserChannel,
+      connected: false,
+      focusActiveParticipant,
+      participantCount: 0,
+      activeRequestIds: Array.from(activeAskRequests.values()).map((activeRequest) => (
+        `${activeRequest.requestId}:${activeRequest.participant}`
+      )),
+    };
+  }
+}
+
 export function shuffleParticipants(participantIds: string[]) {
   const shuffled = [...participantIds];
 
@@ -1038,23 +1073,14 @@ export async function startRunnerServer(options: RunnerServerOptions) {
 
     if (request.method === 'GET' && immediateUrl.pathname === '/health') {
       void (async () => {
-        try {
-          const matchedPages = await listParticipantPages(context, participants);
-          const health: HealthResponse = {
-            browserMode: browserSession.mode,
-            browserChannel: options.browserChannel,
-            connected: true,
-            focusActiveParticipant,
-            participantCount: matchedPages.length,
-            activeRequestIds: Array.from(activeAskRequests.values()).map((activeRequest) => (
-              `${activeRequest.requestId}:${activeRequest.participant}`
-            )),
-          };
-          jsonResponse(response, 200, health);
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          jsonResponse(response, 500, { error: message });
-        }
+        const health = await buildHealthResponse(
+          context,
+          browserSession,
+          options,
+          focusActiveParticipant,
+          activeAskRequests,
+        );
+        jsonResponse(response, 200, health);
       })();
       return;
     }
@@ -1080,17 +1106,13 @@ export async function startRunnerServer(options: RunnerServerOptions) {
 
       try {
         if (request.method === 'GET' && url.pathname === '/health') {
-          const matchedPages = await listParticipantPages(context, participants);
-          const health: HealthResponse = {
-            browserMode: browserSession.mode,
-            browserChannel: options.browserChannel,
-            connected: true,
+          const health = await buildHealthResponse(
+            context,
+            browserSession,
+            options,
             focusActiveParticipant,
-            participantCount: matchedPages.length,
-            activeRequestIds: Array.from(activeAskRequests.values()).map((activeRequest) => (
-              `${activeRequest.requestId}:${activeRequest.participant}`
-            )),
-          };
+            activeAskRequests,
+          );
           jsonResponse(response, 200, health);
           return;
         }

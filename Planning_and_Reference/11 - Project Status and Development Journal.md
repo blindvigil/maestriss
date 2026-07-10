@@ -52,9 +52,9 @@ This section is intended to be updated frequently.
 
 **Automation Status:** Browser automation is operational across the supported participant set. Drivers exist for ChatGPT, Claude, DeepSeek, Gemini, Google AI Mode, Grok, Copilot, Perplexity, and Reka Chat. Driver maturity varies by provider.
 
-**Testing Status:** Build verification is active. Provider-specific filter and regression tests exist for several drivers. Live smoke tests are used to validate exact-answer asks against provider pages.
+**Testing Status:** Build verification is active. Provider-specific filter and regression tests exist for several drivers, with ChatGPT and Perplexity still needing fuller dedicated filter assertion coverage. Live smoke tests are used to validate exact-answer asks against provider pages.
 
-**Documentation Status:** The Planning and Reference series is substantially developed. Documents 01 through 11 now define design philosophy, system architecture, driver lifecycle, browser management, response detection, testing, participant drivers, browser automation, diagnostics, future vision, and project status.
+**Documentation Status:** The Planning and Reference series is substantially developed. Documents 01 through 14 now define design philosophy, system architecture, driver lifecycle, browser management, response detection, testing, participant drivers, browser automation, diagnostics, future vision, project status, engineering standards, AI collaboration, and operations.
 
 **Known Stability:** The core runner and several drivers are stable enough for continued development and smoke testing. Provider UI changes remain the primary ongoing risk.
 
@@ -67,7 +67,7 @@ This section is intended to be updated frequently.
 | Runner Architecture | Active | Substantially | Server, CLI, browser session, request lifecycle, health checks, and cancellation foundation exist. |
 | Participant Drivers | Active | Partially | Nine supported participants have drivers; maturity varies by provider. |
 | Shared Driver Framework | Active | Substantially | Common lifecycle exists; continued extraction of safe shared helpers is expected. |
-| Chrome CDP Support | Active | Substantially | Persistent Chrome profile and CDP runner flow are established. |
+| Browser Session Support | Active | Substantially | CDP-attached Chrome and Playwright-managed persistent Chromium modes are implemented. |
 | Regression Testing | Active | Partially | Provider filter assertions exist for several drivers; expansion should continue. |
 | Diagnostics | Active | Substantially | Candidate diagnostics, geometry, screenshots, HTML artifacts, and lifecycle logs exist. |
 | Browser Automation | Active | Substantially | Tab reuse, tab focus, participant opening, and browser diagnostics are implemented. |
@@ -79,14 +79,14 @@ This section is intended to be updated frequently.
 
 | Participant | Submission | Completion Detection | Extraction | Filtering | Diagnostics | Overall Stability | Known Issues | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| ChatGPT | Established | Active | Active | Active | Active | Active | Provider UI changes remain possible. | Exact-answer smoke testing is the main live validation. |
+| ChatGPT | Active | Active | Active | Developing | Active | Active | Provider UI changes remain possible; dedicated filter assertions are not yet present. | Exact-answer smoke testing is the main live validation. |
 | Claude | Established | Established | Established | Established | Established | Established | Narrow viewport geometry required regression hardening. | Strong diagnostics and regression coverage. |
 | DeepSeek | Established | Active | Active | Established | Active | Active | Continued live validation needed. | Overlay handling and geometry diagnostics are important. |
-| Gemini | Established | Established | Established | Established | Established | Established | Provider layout changes remain possible. | Dedicated detector and filter regressions exist. |
+| Gemini | Active | Established | Established | Established | Established | Established | Submission verification should continue to be strengthened. | Dedicated detector and filter regressions exist. |
 | Google AI Mode | Established | Established | Established | Established | Established | Established | Must remain in AI Mode; ordinary search extraction is invalid. | Consecutive exact-answer smoke tests have passed. |
 | Grok | Established | Active | Active | Established | Active | Active | Capacity/runtime states require continued attention. | Overlay and runtime diagnostics are important. |
 | Copilot | Established | Established | Established | Established | Established | Established | Static status text must not be treated as active stop controls. | Stop detection is regression-backed. |
-| Perplexity | Active | Active | Active | Active | Active | Active | Overlay behavior can affect submission. | Source-oriented UI requires careful filtering. |
+| Perplexity | Active | Active | Active | Active | Active | Active | Overlay behavior can affect submission; filtering is inline rather than a dedicated assertion-backed module. | Source-oriented UI requires careful filtering. |
 | Reka Chat | Established | Active | Active | Established | Established | Active | Coordinate submission remains an important area to monitor. | Detailed coordinate and event diagnostics exist. |
 | Future Participant | Planned | Planned | Planned | Planned | Planned | Planned | To be defined. | Add new participants here as they are introduced. |
 
@@ -124,7 +124,7 @@ Entries should be added chronologically, newest at the top.
 
 **Lessons Learned:** Geometry is evidence, not dogma. Parent rejection should rely on stronger evidence such as size, chrome, prompt content, or smaller valid child candidates.
 
-### 2026-07-09
+### 2026-07-10
 
 **Area:** Gemini Driver
 
@@ -134,7 +134,7 @@ Entries should be added chronologically, newest at the top.
 
 **Lessons Learned:** Browser-evaluated detector code must avoid transformed runtime artifacts and should emit structured candidate diagnostics.
 
-### 2026-07-09
+### 2026-07-10
 
 **Area:** Runner Browser Experience
 
@@ -154,7 +154,7 @@ Entries should be added chronologically, newest at the top.
 | Use candidate-based response detection and filtering. | 2026-07-10 | AI websites contain many plausible text nodes. | Single-selector extraction. | Better false-positive and false-negative control. | Continue improving with provider evidence. |
 | Treat diagnostics as first-class architecture. | 2026-07-10 | Browser automation failures require evidence. | Minimal logging. | Faster debugging, safer maintenance, better regressions. | Expand structured diagnostics over time. |
 | Convert discovered bugs into regressions where practical. | 2026-07-10 | Provider edge cases recur unless preserved. | Manual memory or comments only. | Permanent project knowledge. | Continue expanding test coverage. |
-| Focus active participant tabs by default. | 2026-07-09 | Users benefit from watching prompts, submissions, and responses. | Background-only execution. | Transparency, debugging, confidence. | Review for parallel execution workflows. |
+| Focus active participant tabs by default. | 2026-07-10 | Users benefit from watching prompts, submissions, and responses. | Background-only execution. | Transparency, debugging, confidence. | Review for parallel execution workflows. |
 
 ## Outstanding Work
 
@@ -210,7 +210,7 @@ Entries should be added chronologically, newest at the top.
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-10 | Claude filtering | Valid `Claude OK` answer rejected in narrow viewport. | Width and x-position geometry assumptions were too strict. | Accepted narrow valid child candidates and rejected parents using stronger evidence. | Yes | Geometry is evidence, not dogma. |
 | 2026-07-10 | Google AI Mode filtering | Google returned visible answer but extraction selected chrome or old text. | AI Mode response candidates were mixed with search UI, feedback, and suggestions. | Added dedicated AI Mode detector, cleaning, scoring, and filter assertions. | Yes | Exact-answer smoke tests expose full lifecycle failures. |
-| 2026-07-09 | Gemini detector | Browser-evaluated detector failed or lacked useful diagnostics. | Browser-side evaluate logic and candidate selection were insufficiently robust. | Added safe detector script, diagnostics, geometry fixes, and filter assertions. | Yes | Detector code must be safe inside browser context. |
+| 2026-07-10 | Gemini detector | Browser-evaluated detector failed or lacked useful diagnostics. | Browser-side evaluate logic and candidate selection were insufficiently robust. | Added safe detector script, diagnostics, geometry fixes, and filter assertions. | Yes | Detector code must be safe inside browser context. |
 | 2026-07-09 | Copilot wait logic | Static stopped-generation text blocked completion. | Static status text was treated like an active stop control. | Count only active clickable stop controls. | Yes | Active controls and historical labels are different signals. |
 
 ## Driver Evolution
@@ -329,7 +329,7 @@ Entries should be added chronologically, newest at the top.
 | --- | --- | --- | --- |
 | 2026-07-10 | Google | Added Google filter assertions. | Covered acceptance, rejection, cleanup, chrome, status labels, and geometry behavior. |
 | 2026-07-10 | Claude | Expanded Claude filter assertions. | Covered transient thinking labels, accessibility prefixes, prompt rejection, and geometry regression. |
-| 2026-07-09 | Gemini | Added Gemini filter assertions. | Covered shell text, prompt rejection, accessibility prefixes, and geometry. |
+| 2026-07-10 | Gemini | Added Gemini filter assertions. | Covered shell text, prompt rejection, accessibility prefixes, and geometry. |
 | 2026-07-09 | Copilot | Added Copilot stopped-generation regression. | Protected completion logic from static status text. |
 | 2026-07-09 | Build | Continued TypeScript build verification. | `npm run build` remains the baseline static verification. |
 
@@ -348,6 +348,9 @@ Entries should be added chronologically, newest at the top.
 | 09 - Testing, Validation, and Diagnostics.md | Complete | 2026-07-10 | Periodic | QA and diagnostics reference. |
 | 10 - Future Roadmap and Vision.md | Complete | 2026-07-10 | Periodic | Strategic roadmap. |
 | 11 - Project Status and Development Journal.md | Active | 2026-07-10 | Continuous | Living status document. |
+| 12 - Development Workflow and Engineering Standards.md | Complete | 2026-07-10 | Periodic | Engineering workflow and standards reference. |
+| 13 - Prompt Engineering and AI Collaboration.md | Complete | 2026-07-10 | Periodic | AI collaboration and prompt reference. |
+| 14 - Operational Runbook.md | Complete | 2026-07-10 | Frequent | Operational procedures and troubleshooting reference. |
 
 ## Future Development Queue
 
@@ -395,7 +398,7 @@ Entries should be added chronologically, newest at the top.
 | Driver diagnostics are not fully uniform. | Drivers matured at different times. | Harder cross-provider debugging. | Medium | Define common diagnostic vocabulary and retrofit providers incrementally. | High |
 | Some providers have less regression coverage than others. | Regressions were added as bugs were discovered. | Known edge cases may be unevenly protected. | Medium | Add acceptance, rejection, cleanup, and geometry cases for every provider. | High |
 | Workflow architecture is still early. | Driver and browser foundations came first. | Advanced orchestration is limited. | Medium | Design workflow engine after driver stability. | Medium |
-| Studio and runner are not yet fully integrated. | Runner development advanced quickly. | UI may lag behind native capabilities. | Medium | Expose runner state and configuration through Studio. | Medium |
+| Studio and runner are not directly integrated yet. | Runner development advanced quickly and currently operates through CLI/server paths. | UI cannot yet launch native runner workflows or display live runner state directly. | Medium | Expose runner state and configuration through Studio. | Medium |
 | Debug artifacts may need indexing. | Artifact capture exists before artifact management. | Long-term artifact browsing may become difficult. | Low | Add artifact metadata and run IDs. | Low |
 
 ## Lessons Learned

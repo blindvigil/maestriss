@@ -34,18 +34,18 @@ Browser management belongs to shared infrastructure rather than individual drive
 
 ## Browser Architecture
 
-Maestriss uses a shared browser architecture centered on a long-running Chrome instance controlled through Chrome DevTools Protocol. The runner connects to this browser, enumerates pages, resolves participant tabs, and delegates provider-specific interaction to drivers.
+Maestriss uses a shared browser architecture centered on a long-running persistent browser session controlled through Playwright. The runner either launches a Playwright-managed persistent Chromium profile or connects to an externally started Chrome instance through Chrome DevTools Protocol. In both modes, the runner enumerates pages, resolves participant tabs, and delegates provider-specific interaction to drivers.
 
 ```text
                          +--------------------+
                          | Runner / Server    |
                          +---------+----------+
                                    |
-                                   | CDP connection
+                                   | Playwright control
                                    v
                          +---------+----------+
-                         | Long-running Chrome|
-                         | Persistent Profile |
+                         | Persistent Browser |
+                         | Profile           |
                          +---------+----------+
                                    |
                   +----------------+----------------+
@@ -63,11 +63,11 @@ Maestriss uses a shared browser architecture centered on a long-running Chrome i
           +--------------+ +--------------+ +--------------+
 ```
 
-Chrome DevTools Protocol provides the control channel. Through CDP, Maestriss can connect to the browser, enumerate pages, navigate tabs, evaluate JavaScript, inspect the DOM, capture screenshots, save HTML, focus tabs, and synthesize mouse or keyboard interaction through Playwright.
+Playwright provides the browser automation API used by drivers and shared infrastructure. In CDP mode, Chrome DevTools Protocol provides the connection channel to an externally started Chrome instance. Through Playwright, Maestriss can enumerate pages, navigate tabs, evaluate JavaScript, inspect the DOM, capture screenshots, save HTML, focus tabs, and synthesize mouse or keyboard interaction.
 
 The persistent browser profile stores session state. Cookies, logins, provider preferences, account state, and conversation continuity live in the profile. This allows Maestriss to operate providers in the same way a user operates them across requests.
 
-The architecture uses a single long-running browser rather than one browser per request. This design reduces overhead, preserves authentication, improves observability, and keeps the participant model stable.
+The architecture uses a single long-running browser session rather than one browser per request. This design reduces overhead, preserves authentication, improves observability, and keeps the participant model stable.
 
 The browser connection is shared by the runner server. Drivers receive page objects that have already been resolved. They do not create independent browser connections.
 
@@ -75,7 +75,7 @@ Participant tabs are long-lived browser pages associated with registered partici
 
 Drivers interact with participant tabs through the page object supplied by the framework. They implement provider-specific DOM interaction, while the framework owns browser lifecycle and tab management.
 
-The runner coordinates browser startup and server connection. It may connect to an externally started Chrome instance over CDP, and the restart workflow provides a predictable development path for refreshing Chrome and the runner together.
+The runner coordinates browser startup and server connection. It may launch its own persistent Chromium profile, or it may connect to an externally started Chrome instance over CDP. The restart workflow provides a predictable CDP-mode development path for refreshing Chrome and the runner together.
 
 This architecture was chosen because it aligns with the product reality of independent AI systems: they are web applications with session state, changing interfaces, and visible user workflows. Maestriss must manage the browser as a durable operating environment.
 
@@ -97,9 +97,13 @@ Ephemeral browser instances were rejected because they break the participant mod
 
 ## Chrome DevTools Protocol
 
-Chrome DevTools Protocol is the browser control layer used by Maestriss. It allows the runner to attach to a Chrome process and operate pages through a rich automation interface.
+Chrome DevTools Protocol is the browser connection layer used when Maestriss attaches to an externally started Chrome process. It allows the runner to operate existing Chrome pages through Playwright while preserving a dedicated Chrome profile.
 
-CDP fulfills several responsibilities. It allows the framework to enumerate open pages, identify participant tabs, navigate pages, inspect URLs and titles, execute browser-side JavaScript, interact with the DOM, capture screenshots, save HTML, bring pages to the foreground, synthesize mouse clicks, send keyboard input, and work with clipboard-driven or event-driven provider interaction.
+CDP mode is the standard watched-development path used by `restart-runner.ps1`. That script launches installed Chrome with `--remote-debugging-port=9222` and `--user-data-dir=%LOCALAPPDATA%\MaestrissChromeProfile`, then starts the runner with `--connect-cdp http://127.0.0.1:9222`.
+
+The runner also supports persistent-profile mode without CDP. In that mode, `npm run dev -- serve` launches a Playwright-managed Chromium profile under `runner/.user-data`. This mode is useful for direct runner operation, but it uses a different profile from the CDP restart script.
+
+Browser automation fulfills several responsibilities. It allows the framework to enumerate open pages, identify participant tabs, navigate pages, inspect URLs and titles, execute browser-side JavaScript, interact with the DOM, capture screenshots, save HTML, bring pages to the foreground, synthesize mouse clicks, send keyboard input, and work with clipboard-driven or event-driven provider interaction.
 
 Page enumeration is required for tab discovery and reuse. The framework must know which tabs are already open before deciding whether to open a new participant page.
 
@@ -113,7 +117,7 @@ Screenshots and HTML capture are required for diagnostics. When automation fails
 
 Focus, mouse, keyboard, and clipboard control allow Maestriss to behave like a careful human user. Some providers respond best to keyboard input. Some require clicking a specific send button. Some require focus-sensitive input behavior.
 
-CDP is preferred over less capable browser automation techniques because Maestriss needs full browser observability and control. Simple HTTP requests cannot operate authenticated web applications as products. Basic UI scripting cannot reliably inspect DOM state, capture artifacts, or coordinate multiple tabs. CDP provides the depth needed for durable browser automation.
+Playwright and CDP-capable browser control are preferred over less capable automation techniques because Maestriss needs full browser observability and control. Simple HTTP requests cannot operate authenticated web applications as products. Basic UI scripting cannot reliably inspect DOM state, capture artifacts, or coordinate multiple tabs.
 
 ## Participant Tabs
 
@@ -201,7 +205,7 @@ Focus belongs to shared orchestration. Drivers should not implement independent 
 
 Startup establishes the browser environment and participant workspace.
 
-The runner connects to Chrome through CDP. If using an externally started browser, the runner connects to the configured debugging endpoint. The connection must be established before participant pages can be enumerated or controlled.
+The runner establishes a browser session before participant pages can be enumerated or controlled. In persistent-profile mode, the runner launches Chromium and creates the browser context. In CDP mode, it connects to the configured debugging endpoint for an already running Chrome instance.
 
 The framework finds existing browser pages after connection. It uses participant metadata and matching rules to determine which participant tabs are already present.
 
@@ -213,7 +217,7 @@ Missing tabs are opened through the participant manager. The framework navigates
 
 Startup blank tabs are closed after participant pages are established. This keeps the browser workspace clean and prevents unrelated blank pages from interfering with discovery or user experience.
 
-Startup verification should report the browser connection state and participant tab count. Logs should make it clear whether the browser connected successfully and how many participant tabs are available.
+Startup verification should report the browser mode, connection state, and participant tab count. Logs should make it clear whether the browser connected successfully and how many participant tabs are currently matched.
 
 ## Blank Tab Cleanup
 
@@ -298,7 +302,7 @@ Focus event logs confirm that the active participant tab was brought forward. Fo
 
 Navigation logs should identify important provider target URLs, fallback URLs, redirects, or mode checks when those operations are part of participant resolution or readiness.
 
-Connection logs report whether the runner is connected to the browser, which browser channel or CDP endpoint is being used, and whether the server is listening.
+Connection logs report whether the runner is connected to the browser, which browser mode, browser channel, or CDP endpoint is being used, and whether the server is listening.
 
 Browser diagnostics are separate from driver diagnostics because they answer different questions. Browser diagnostics explain tab and session management. Driver diagnostics explain provider-specific interaction inside a page. Keeping them distinct makes failures easier to locate.
 
@@ -306,9 +310,9 @@ Browser diagnostics are separate from driver diagnostics because they answer dif
 
 The browser architecture should allow future expansion without changing the participant driver contract.
 
-Microsoft Edge and other Chromium variants may be supported through the same Playwright and CDP-oriented abstraction. Browser channel selection should remain a runner or browser-manager concern, not a driver concern.
+Microsoft Edge is already selectable as a Chromium-family browser channel through runner options, and other Chromium variants may be supportable through the same Playwright and CDP-oriented abstraction. Browser channel selection should remain a runner or browser-manager concern, not a driver concern.
 
-Remote browsers may be supported through CDP endpoints. The same architecture can apply if the runner connects to a browser running elsewhere, provided the browser exposes the required control and session behavior.
+Remote browsers may be supported through CDP endpoints. The same architecture can apply if the runner connects to a browser running elsewhere, provided the browser exposes the required control and session behavior. The current local runner already accepts a CDP endpoint, but distributed remote-browser operation remains future work.
 
 Headless execution may be possible for some workflows, but it must preserve the same lifecycle guarantees. Headless mode should not weaken diagnostics, readiness checks, response detection, or session integrity. Because Maestriss values user visibility, headed operation remains central to the current experience.
 

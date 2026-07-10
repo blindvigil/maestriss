@@ -56,6 +56,8 @@ Maestriss is composed of several operational components:
 ```text
 Studio UI
    |
+   | current: configuration and export surface
+   | future: direct runner integration
    v
 Runner CLI / Server
    |
@@ -76,6 +78,10 @@ AI Provider Websites
 ```
 
 The Studio application is the graphical configuration and monitoring surface. It is built with React, TypeScript, and Vite.
+
+The current Studio application is not yet wired directly into the native runner. It can manage project configuration and export-oriented workflows, while live browser automation is operated through the runner CLI and local runner server. Direct Studio-to-runner execution is a future integration goal, not a current operational dependency.
+
+The Automa exporter is a separate Studio-side output path. It generates browser-automation workflow artifacts from Studio configuration. It is not the same runtime as the native Playwright runner, and operators should not assume that a runner driver change automatically changes exported Automa behavior.
 
 The runner is the native automation service. It exposes commands, starts a local server, connects to Chrome, resolves participants, invokes drivers, and returns responses.
 
@@ -126,9 +132,10 @@ Install runner dependencies if needed from the runner directory:
 ```text
 cd runner
 npm install
+npx playwright install chromium
 ```
 
-Chrome must be installed because the runner uses Chrome DevTools Protocol and a persistent Chrome profile for normal operation.
+Chrome is required for the CDP-attached workflow used by `restart-runner.ps1`. The runner can also launch a Playwright-managed persistent Chromium profile when started without `--connect-cdp`; that default mode requires Playwright's Chromium browser to be installed through `npx playwright install chromium`.
 
 Verify the Studio build from the repository root:
 
@@ -149,9 +156,16 @@ A successful installation has dependencies installed, builds passing, Chrome ava
 
 Initial configuration establishes the browser profile, provider sessions, and participant tabs.
 
-Use a dedicated Chrome profile for Maestriss. The profile preserves cookies, authentication, provider sessions, and browser settings without mixing them with unrelated browsing.
+Use a dedicated browser profile for Maestriss. The profile preserves cookies, authentication, provider sessions, and browser settings without mixing them with unrelated browsing.
 
-Start Chrome with remote debugging enabled. The runner connects to Chrome through the configured CDP endpoint.
+There are two supported browser execution modes:
+
+- **CDP mode:** `restart-runner.ps1` starts installed Chrome with remote debugging on port `9222` and profile `%LOCALAPPDATA%\MaestrissChromeProfile`, then starts the runner with `--connect-cdp http://127.0.0.1:9222`.
+- **Persistent-profile mode:** `npm run dev -- serve` from `runner/` launches a Playwright-managed persistent Chromium context using `runner/.user-data`.
+
+These modes use different profiles. Provider logins established in one profile do not automatically appear in the other.
+
+When using CDP mode, start Chrome with remote debugging enabled. The runner connects to Chrome through the configured CDP endpoint.
 
 Log in manually to each provider in the Maestriss Chrome profile. Maestriss does not manage provider credentials. Authentication remains a user-controlled browser session activity.
 
@@ -171,6 +185,8 @@ Use a dedicated profile. This prevents Maestriss automation from interfering wit
 
 Enable remote debugging on a known port. The runner connects to this port over CDP.
 
+The standard CDP endpoint is `http://127.0.0.1:9222`.
+
 Preserve sessions. Cookies, local storage, and provider settings should remain intact across restarts.
 
 Use restore suppression where practical. Browser restore prompts and crash bubbles can interfere with startup and participant discovery.
@@ -185,7 +201,16 @@ Security matters. The Chrome profile contains authenticated provider sessions an
 
 Normal startup begins with Chrome and then starts the runner server.
 
-The restart script provides the standard development startup path. It stops stale runner processes, starts Chrome with CDP and the dedicated profile, waits briefly, and starts the runner server connected to Chrome.
+The restart script provides the standard watched development startup path:
+
+```text
+cd runner
+.\restart-runner.ps1
+```
+
+The script clears the terminal, stops stale Maestriss runner Node processes, closes Chrome, force-kills remaining `chrome.exe` processes if they do not exit, patches the dedicated Chrome profile's Preferences file to suppress crash-restore prompts, starts Chrome with CDP on port `9222`, waits briefly, and starts the runner server connected to Chrome.
+
+Because the script force-kills remaining `chrome.exe` processes, it can close unrelated personal Chrome windows. Operators should use the dedicated Maestriss Chrome profile and avoid keeping unrelated Chrome work open when running the full restart script.
 
 Expected successful startup includes logs similar to:
 
@@ -208,7 +233,9 @@ npm run dev -- health
 
 Verify that the expected participant tabs exist and that the browser is visible and usable.
 
-Successful startup means the runner is listening, CDP is connected, participant tabs are present, and health output reports a connected browser.
+Successful CDP-mode startup means the runner is listening, CDP is connected, participant tabs are present, and health output reports a connected browser.
+
+The local runner server listens on `http://127.0.0.1:4137`. Health output reports the browser mode, browser channel, whether the browser connection is currently usable, active tab focusing state, matched participant tab count, and active ask request identifiers.
 
 ## Normal Daily Workflow
 
@@ -217,6 +244,8 @@ A normal development day should follow a consistent operational flow.
 Start the runner and browser using the standard restart procedure.
 
 Verify runner health.
+
+Be prepared for manual provider security verification. If a participant shows a security or human-verification page, the runner may pause and wait for confirmation in the runner terminal before continuing. Resolve the browser challenge manually, then press Enter in the runner terminal when prompted.
 
 Run targeted smoke tests for any provider affected by recent work.
 
@@ -241,6 +270,8 @@ Use a runner restart when code changes affect the server, drivers, participant r
 Use a Chrome restart when the browser is stale, disconnected, full of invalid tabs, or affected by crash-restore state.
 
 Use a full restart when both runner and Chrome state may be stale. This is the standard recovery path during active driver development.
+
+Use `.\restart-runner.ps1` for the full CDP-mode restart path. Use it deliberately because it closes Chrome processes on the machine before opening the dedicated Maestriss profile.
 
 Use crash recovery when Chrome or the runner terminated unexpectedly. Restart Chrome with the persistent profile, reconnect the runner, and verify participant tabs.
 
@@ -315,6 +346,8 @@ Participant tabs should remain present and should not multiply unnecessarily.
 
 Health checks should report a connected browser and expected participant count.
 
+`participantCount` is the number of currently matched participant tabs, not the number of participants configured in source code. A configured set of nine participants can report a lower count when tabs are missing or not recognizable.
+
 Performance should be monitored informally through startup time, ask duration, completion time, and repeated retries.
 
 Operators should routinely observe whether the system is failing at browser connection, readiness, paste, submit, wait, extraction, filtering, or response return.
@@ -349,6 +382,8 @@ Check that dependencies are installed. Run the runner build. Verify the command 
 
 Verify Chrome is running with remote debugging enabled. Confirm the CDP endpoint is correct. Restart Chrome and runner using the standard restart procedure.
 
+For CDP mode, confirm Chrome was launched with `--remote-debugging-port=9222` and the runner was started with `--connect-cdp http://127.0.0.1:9222`. For persistent-profile mode, confirm Playwright Chromium is installed.
+
 ### Participant Missing
 
 Check participant tab count. Inspect browser tabs. Verify participant metadata. Reopen missing participant tabs through runner startup or an ask request.
@@ -372,6 +407,8 @@ Review selected submit control, click coordinates, fallback attempts, composer c
 ### Completion Timeout
 
 Review response length, stable timers, stop indicators, generating indicators, and candidate previews. Determine whether generation continued, the answer was present but rejected, or submission never started.
+
+If the runner appears to hang before readiness, check the runner terminal for a manual security-verification prompt. HTTP clients cannot answer that prompt; the operator must use the terminal attached to the runner process.
 
 ### Extraction Failure
 
@@ -602,9 +639,9 @@ Update regression tests when bugs are fixed.
 
 ## Frequently Asked Questions
 
-### Why use Chrome CDP?
+### Why use browser automation and CDP?
 
-Chrome DevTools Protocol allows Maestriss to connect to a persistent visible browser, enumerate pages, operate tabs, evaluate DOM state, capture screenshots, and preserve provider sessions.
+Browser automation allows Maestriss to operate persistent visible provider sessions, enumerate pages, operate tabs, evaluate DOM state, capture screenshots, and preserve provider sessions. CDP mode adds the ability to attach to an externally started Chrome profile, which is the standard restart-script workflow.
 
 ### Why keep browser sessions alive?
 

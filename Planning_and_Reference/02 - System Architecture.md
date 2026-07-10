@@ -4,17 +4,18 @@
 
 1. [Purpose](#purpose)
 2. [High-Level Architecture](#high-level-architecture)
-3. [Overall Execution Flow](#overall-execution-flow)
-4. [Shared Infrastructure](#shared-infrastructure)
-5. [Driver Layer](#driver-layer)
-6. [Browser Layer](#browser-layer)
-7. [Participant Layer](#participant-layer)
-8. [Request Processing Pipeline](#request-processing-pipeline)
-9. [Diagnostics Architecture](#diagnostics-architecture)
-10. [Testing Architecture](#testing-architecture)
-11. [Error Handling Architecture](#error-handling-architecture)
-12. [Extensibility](#extensibility)
-13. [Architectural Principles](#architectural-principles)
+3. [Studio, Native Runner, and Automa Exporter](#studio-native-runner-and-automa-exporter)
+4. [Overall Execution Flow](#overall-execution-flow)
+5. [Shared Infrastructure](#shared-infrastructure)
+6. [Driver Layer](#driver-layer)
+7. [Browser Layer](#browser-layer)
+8. [Participant Layer](#participant-layer)
+9. [Request Processing Pipeline](#request-processing-pipeline)
+10. [Diagnostics Architecture](#diagnostics-architecture)
+11. [Testing Architecture](#testing-architecture)
+12. [Error Handling Architecture](#error-handling-architecture)
+13. [Extensibility](#extensibility)
+14. [Architectural Principles](#architectural-principles)
 
 ## Purpose
 
@@ -37,7 +38,7 @@ Maestriss is composed of cooperating subsystems. Each subsystem has a narrow res
                                            |
                                            v
 +--------+       +--------+       +--------+--------+       +----------------+
-|  CLI   +------>| Runner +------>| Runner Server  +------>| Browser (CDP)  |
+|  CLI   +------>| Runner +------>| Runner Server  +------>| Browser Session|
 +--------+       +--------+       +--------+--------+       +--------+-------+
                                            |                         |
                                            v                         v
@@ -75,7 +76,7 @@ The runner process contains the command-line entry point and starts or communica
 
 The runner server is the central orchestration layer. It exposes HTTP endpoints, manages active requests, owns cancellation, resolves participants, applies shared lifecycle behavior, focuses tabs, invokes drivers, collects responses, handles failures, and returns structured output.
 
-The browser layer is the controlled Chrome environment. Maestriss connects to Chrome over Chrome DevTools Protocol and operates provider tabs through Playwright. The browser contains the real provider sessions, login state, user account state, and live participant interfaces.
+The browser layer is the controlled browser environment. Maestriss can connect to an externally started Chrome instance over Chrome DevTools Protocol or launch a Playwright-managed persistent Chromium profile. The browser contains the real provider sessions, login state, user account state, and live participant interfaces.
 
 The participant manager is responsible for registered participant metadata and page resolution. It knows which participants exist, what URL each participant prefers, and how existing tabs are matched or reused.
 
@@ -90,6 +91,43 @@ Diagnostics are a first-class subsystem. Logs, screenshots, saved HTML, candidat
 Regression tests preserve discovered knowledge. Filter tests, geometry tests, smoke tests, and build verification prevent the system from forgetting known provider behaviors.
 
 Reference documentation records architectural decisions, design philosophy, and system structure so future contributors can work from stable project knowledge rather than reconstructed context.
+
+## Studio, Native Runner, and Automa Exporter
+
+Maestriss currently contains three related but distinct implementation surfaces: Maestriss Studio, the native runner, and the Automa exporter.
+
+Maestriss Studio is the React, TypeScript, and Vite graphical application. It contains the project configuration experience, participant and profile editing surfaces, workflow-oriented UI, run-history views, prompt templates, and export controls. It is the intended long-term configuration and operating surface for users.
+
+The native runner is the Playwright-based automation service in `runner/`. It owns live browser execution today. It provides the CLI, local HTTP server, participant resolution, browser session management, driver invocation, response extraction, diagnostics, and smoke-testable ask workflows.
+
+The Automa exporter is a Studio-side export adapter. It generates Automa workflow artifacts from Maestriss configuration and reference fixtures. It is not the same runtime as the native runner. Automa export support and native runner support should be treated as sibling execution paths that can share product concepts while maintaining separate implementation details.
+
+Current integration is limited. The Studio application does not yet directly call the native runner server for live execution, provider health, run history, or participant status. The runner can be operated independently through its CLI and local server. Studio-to-runner integration is future work and should not be assumed by operators or engineers reading the current code.
+
+The participant roster and prompt-template vocabulary currently exist in more than one place. The runner has its own participant metadata and prompt-template rendering for native workflows. Studio has its own participant defaults, prompt-variable catalog, and exporter-oriented prompt construction. This duplication is a known transitional state. Future integration should consolidate or explicitly map these concepts so configuration and execution remain consistent.
+
+```text
+                         +----------------------+
+                         | Maestriss Studio     |
+                         | React / TS / Vite    |
+                         +----------+-----------+
+                                    |
+                current export path | future live integration
+                                    |
+                 +------------------+------------------+
+                 |                                     |
+                 v                                     v
+       +---------+----------+                +---------+----------+
+       | Automa Exporter    |                | Native Runner      |
+       | Workflow Artifacts |                | CLI / HTTP Server  |
+       +--------------------+                +---------+----------+
+                                                        |
+                                                        v
+                                             +----------+----------+
+                                             | Playwright Browser |
+                                             | Session + Drivers  |
+                                             +--------------------+
+```
 
 ## Overall Execution Flow
 
@@ -112,6 +150,9 @@ Browser tab reuse or creation
     |
     v
 Active tab focus
+    |
+    v
+Manual security verification gate
     |
     v
 Provider driver
@@ -142,6 +183,8 @@ Participant resolution maps the requested participant to registered metadata and
 The browser tab is reused or opened. Reuse is preferred because provider sessions, conversation state, authentication, and account state live in the browser. Opening a new tab is reserved for cases where no suitable reusable tab exists.
 
 The active participant tab is brought to the front when focus is enabled. This makes the runner observable to the user and helps reveal unexpected provider states such as login pages, redirects, security checks, or changed layouts.
+
+Before driver interaction, the runner may pause for manual security verification when a participant appears blocked by a human-verification flow. The user resolves the challenge in the browser and confirms in the runner terminal. This protects the driver lifecycle from submitting into a blocked provider page.
 
 The provider driver then owns the provider-specific interaction. The server invokes the driver's lifecycle methods in order. The driver waits for the interface to become usable, finds the composer, enters the prompt, verifies the prompt, submits it, waits for completion, extracts the response, and returns normalized output.
 
@@ -189,9 +232,9 @@ Drivers should be easy to inspect. A future engineer should be able to open a dr
 
 ## Browser Layer
 
-Maestriss uses Chrome DevTools Protocol as the connection mechanism for browser automation. CDP allows the runner to connect to an existing Chrome process, preserve a persistent user profile, and operate provider pages through Playwright.
+Maestriss uses Playwright as its browser automation layer. The runner supports two browser execution modes: a Playwright-managed persistent Chromium profile and a CDP-attached Chrome process. CDP mode allows the runner to connect to an existing Chrome process, preserve a dedicated Chrome user profile, and operate provider pages through Playwright.
 
-The browser lifecycle is managed by the runner environment. The restart script stops old runner processes, starts Chrome with a remote debugging port, uses a dedicated user data directory, suppresses crash-restore friction where practical, and starts the runner server connected to the CDP endpoint.
+The browser lifecycle is managed by the runner environment. In CDP mode, the restart script stops old runner processes, starts Chrome with a remote debugging port, uses a dedicated user data directory, suppresses crash-restore friction where practical, and starts the runner server connected to the CDP endpoint. In persistent-profile mode, the runner launches a Playwright Chromium context using the runner's local `.user-data` directory.
 
 Persistent profiles are important because provider sessions depend on browser state. Login state, cookies, account preferences, provider onboarding, and security verification status often live inside the browser profile. Starting from a fresh anonymous browser for every request would be slower, more fragile, and less representative of real user operation.
 
@@ -199,7 +242,7 @@ Tab reuse is preferred over launching new tabs for every request. Reuse preserve
 
 Opening new participants is still necessary when no reusable page exists. At server startup, the runner can open configured participant pages. During requests, it can open a participant tab on demand. Opening is centralized so that drivers do not create unmanaged browser state.
 
-Recovery from crashes is handled at the operational layer. The restart script cleans up old runner and Chrome state, launches Chrome with a known profile and CDP port, and starts the runner server. This provides a predictable recovery path during development and live testing.
+Recovery from crashes is handled at the operational layer. The restart script cleans up old runner and Chrome state, launches Chrome with a known profile and CDP port, and starts the runner server. This provides a predictable recovery path during development and live testing, but it can close unrelated Chrome windows because it terminates remaining `chrome.exe` processes.
 
 Focus management is part of the browser layer's user experience. Bringing the active participant tab to the front allows users to watch prompt entry and generation. It also makes failures easier to diagnose because the visible browser state matches the active participant.
 
