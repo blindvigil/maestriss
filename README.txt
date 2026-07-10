@@ -13,7 +13,8 @@ TWO PARTS
    Tests: npm run test:<provider>-filter   Build check: npm run build
 
 DOCS
-Documentation\Reference\01-15: permanent engineering reference (philosophy, architecture, drivers, testing, ops runbook)
-Documentation\Reviews\: audits/reconciliations
-docs\: strategy notes
-runner\README.md: runner detail
+Documentation\Reference\01-16: permanent engineering reference
+  (start at 16 - AI Session Bootstrap)
+Documentation\Handoffs\: milestone snapshots
+Documentation\Reviews\: audits
+docs\: strategy notes; runner\README.md: runner detail
