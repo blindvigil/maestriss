@@ -1,0 +1,32 @@
+{
+  "name": "AI Roundtable - Skeleton",
+  "description": "Skeleton for right-to-left AI handoff: Reka -> Perplexity -> Copilot -> Grok -> Gemini -> DeepSeek -> Claude -> ChatGPT. This is a planning skeleton; block internals may need to be regenerated from your Automa version.",
+  "version": "SKELETON_ONLY",
+  "notes": [
+    "Start with cursor focused in Reka prompt box.",
+    "Manual seed prompt is already typed/pasted.",
+    "Each cycle: Enter, wait, select/copy conversation, switch one tab left, paste prepended handoff text plus copied content, Enter.",
+    "Use keyboard-only blocks first; replace with selectors later once proven."
+  ],
+  "chain": [
+    { "current": "Reka", "next": "Perplexity", "wait_ms": 180000 },
+    { "current": "Perplexity", "next": "Copilot", "wait_ms": 180000 },
+    { "current": "Copilot", "next": "Grok", "wait_ms": 180000 },
+    { "current": "Grok", "next": "Gemini", "wait_ms": 180000 },
+    { "current": "Gemini", "next": "DeepSeek", "wait_ms": 180000 },
+    { "current": "DeepSeek", "next": "Claude", "wait_ms": 180000 },
+    { "current": "Claude", "next": "ChatGPT", "wait_ms": 180000 }
+  ],
+  "cycle_template": [
+    { "block": "press-key", "keys": "Enter", "purpose": "submit prompt in current AI tab" },
+    { "block": "delay", "time_ms": "{{wait_ms}}", "purpose": "allow response to finish" },
+    { "block": "press-key", "keys": "Ctrl+A", "purpose": "select page/conversation content" },
+    { "block": "press-key", "keys": "Ctrl+C", "purpose": "copy current AI question and response" },
+    { "block": "press-key", "keys": "Ctrl+Shift+Tab", "purpose": "move one tab left" },
+    { "block": "delay", "time_ms": 1500, "purpose": "allow adjacent tab to focus" },
+    { "block": "manual-or-selector", "purpose": "focus prompt field on next AI" },
+    { "block": "clipboard-or-type-text", "text": "Hi {{next}}, this was {{current}}'s response to the following query. Could you please consider it, and respond with your questions, comments, queries, and anything else you have to offer. This will be passed to the next AI.\n\n", "purpose": "prepend handoff instruction" },
+    { "block": "press-key", "keys": "Ctrl+V", "purpose": "paste copied prior conversation" },
+    { "block": "press-key", "keys": "Enter", "purpose": "submit to next AI" }
+  ]
+}

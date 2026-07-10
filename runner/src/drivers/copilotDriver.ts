@@ -1,7 +1,7 @@
 import type { Page } from 'playwright';
 import type { RunnerParticipant } from '../participants.js';
 import type { ParticipantResponse } from '../types.js';
-import { evaluateCopilotCandidateText, isCopilotShellOrStatusText } from './copilotFiltering.js';
+import { cleanCopilotResponseText, evaluateCopilotCandidateText } from './copilotFiltering.js';
 import { createGenericAiDriver } from './genericAiDriver.js';
 
 const noResponseText = '[No response text detected]';
@@ -22,6 +22,11 @@ type CopilotAnswerDiagnostics = {
   candidateCount: number;
 };
 
+type CopilotStopDiagnostics = {
+  visible: boolean;
+  candidate: string;
+};
+
 function isCopilotParticipant(participant: RunnerParticipant) {
   if (participant.id === 'copilot') {
     return true;
@@ -37,28 +42,7 @@ function isCopilotParticipant(participant: RunnerParticipant) {
 }
 
 function cleanCopilotText(text: string) {
-  const seen = new Set<string>();
-
-  return text
-    .replace(/\r/g, '\n')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .filter((line) => !/^(new chat|search|library|share|copy|feedback|regenerate|retry|sources?|related|settings|show all|more|microsoft|copilot)$/i.test(line))
-    .filter((line) => !isCopilotShellOrStatusText(line))
-    .filter((line) => {
-      const normalized = line.toLowerCase().replace(/\s+/g, ' ');
-
-      if (seen.has(normalized)) {
-        return false;
-      }
-
-      seen.add(normalized);
-      return true;
-    })
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  return cleanCopilotResponseText(text);
 }
 
 async function composerText(page: Page) {
@@ -87,8 +71,8 @@ async function composerText(page: Page) {
   })()`);
 }
 
-async function generationStarted(page: Page) {
-  return page.evaluate<boolean>(`(() => {
+async function activeCopilotStopDiagnostics(page: Page): Promise<CopilotStopDiagnostics> {
+  return page.evaluate<CopilotStopDiagnostics>(`(() => {
     function visible(el) {
       const rect = el.getBoundingClientRect();
       const style = getComputedStyle(el);
@@ -96,34 +80,51 @@ async function generationStarted(page: Page) {
         rect.height > 0 &&
         style.display !== 'none' &&
         style.visibility !== 'hidden' &&
-        style.opacity !== '0';
+          style.opacity !== '0';
     }
 
-    return Array.from(document.querySelectorAll('button, [role="button"], [aria-label], [title], [data-testid], [class]'))
+    function normalized(value) {
+      return String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+    }
+
+    function labelParts(element) {
+      return [
+        element.textContent,
+        element.getAttribute('aria-label'),
+        element.getAttribute('title')
+      ].filter(Boolean);
+    }
+
+    function debugLabel(element) {
+      return [
+        'text=' + JSON.stringify(String(element.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 120)),
+        'aria=' + JSON.stringify(String(element.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().slice(0, 120)),
+        'class=' + JSON.stringify(String(element.getAttribute('class') || '').replace(/\\s+/g, ' ').trim().slice(0, 160))
+      ].join(' ');
+    }
+
+    const selected = Array.from(document.querySelectorAll('button, [role="button"]'))
       .filter(visible)
-      .some((element) => {
-        const text = [
-          element.textContent,
-          element.getAttribute('aria-label'),
-          element.getAttribute('title'),
-          element.getAttribute('data-testid'),
-          element.getAttribute('class')
-        ].filter(Boolean).join(' ').toLowerCase();
-
+      .find((element) => {
         const enabled = !element.hasAttribute('disabled') && element.getAttribute('aria-disabled') !== 'true';
-        const hasActiveStopSemantics = text.includes('stop generating') ||
-          text.includes('stop responding') ||
-          text.includes('cancel response') ||
-          text.includes('cancel generation');
-        const staticStoppedStatus = text.includes('stopped generating');
+        if (!enabled) return false;
 
-        return enabled &&
-          !staticStoppedStatus &&
-          (hasActiveStopSemantics ||
-            text.includes('generating response') ||
-            text.includes('loading'));
+        return labelParts(element).some((part) => {
+          const label = normalized(part);
+
+          return label === 'stop' || label === 'stop generating';
+        });
       });
+
+    return {
+      visible: Boolean(selected),
+      candidate: selected ? debugLabel(selected) : ''
+    };
   })()`);
+}
+
+async function generationStarted(page: Page) {
+  return (await activeCopilotStopDiagnostics(page)).visible;
 }
 
 async function findCopilotSendTarget(page: Page): Promise<CopilotSendTarget> {
@@ -492,7 +493,8 @@ export const copilotDriver = {
         stableSince = Date.now();
       }
 
-      const stopVisible = await generationStarted(page);
+      const stopDiagnostics = await activeCopilotStopDiagnostics(page);
+      const stopVisible = stopDiagnostics.visible;
       const stableForMs = Date.now() - stableSince;
 
       console.log(
@@ -502,6 +504,10 @@ export const copilotDriver = {
         `candidateCount=${diagnostics.candidateCount} ` +
         `preview=${diagnostics.selectedPreview || '(none)'}`,
       );
+
+      if (stopVisible) {
+        console.log(`Copilot stop candidate: ${stopDiagnostics.candidate || '(none)'}`);
+      }
 
       if (cleanedText.length > 5 && stableForMs >= stableMs && !stopVisible) {
         return;

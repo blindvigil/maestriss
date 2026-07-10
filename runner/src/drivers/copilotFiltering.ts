@@ -21,6 +21,31 @@ export function isCopilotShellOrStatusText(text: string) {
     normalized.includes('microsoft 365 copilot');
 }
 
+export function cleanCopilotResponseText(text: string) {
+  const seen = new Set<string>();
+
+  return text
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/^(new chat|search|library|share|copy|feedback|regenerate|retry|sources?|related|settings|show all|more|microsoft|copilot)$/i.test(line))
+    .filter((line) => !isCopilotShellOrStatusText(line))
+    .filter((line) => {
+      const normalized = normalizeCopilotCandidateText(line);
+
+      if (seen.has(normalized)) {
+        return false;
+      }
+
+      seen.add(normalized);
+      return true;
+    })
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export function isCopilotPromptOnly(text: string, promptNeedle = '') {
   if (!promptNeedle) {
     return false;

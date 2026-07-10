@@ -22,6 +22,7 @@ export type HealthResponse = {
   browserMode: BrowserMode;
   browserChannel: BrowserChannel;
   connected: boolean;
+  focusActiveParticipant: boolean;
   participantCount: number;
   activeRequestIds: string[];
 };
@@ -77,6 +78,7 @@ type JsonRecord = Record<string, unknown>;
 type RunnerServerOptions = {
   browserChannel: BrowserChannel;
   connectCdpUrl?: string;
+  focusActiveParticipant?: boolean;
   runnerRoot: string;
   userDataDir: string;
 };
@@ -167,6 +169,27 @@ function logAskStep(requestId: string | undefined, message: string) {
     console.log(`[${requestId}] ${message}`);
   } else {
     console.log(message);
+  }
+}
+
+async function focusParticipantTab(
+  page: Page,
+  participant: RunnerParticipant,
+  options: { focusActiveParticipant: boolean; log?: boolean },
+) {
+  if (!options.focusActiveParticipant || page.isClosed()) {
+    return;
+  }
+
+  try {
+    await page.bringToFront();
+
+    if (options.log !== false) {
+      console.log(`Brought ${participant.name} tab to front`);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`Could not bring ${participant.name} tab to front: ${message}`);
   }
 }
 
@@ -497,7 +520,7 @@ async function askParticipantResponse(
   prompt: string,
   requestId?: string,
   signal?: AbortSignal,
-  options: { debugClick?: boolean } = {},
+  options: { debugClick?: boolean; focusActiveParticipant: boolean } = { focusActiveParticipant: true },
 ): Promise<ParticipantRunResponse> {
   throwIfAborted(signal, requestId);
   const driver = getDriver(participantName);
@@ -531,10 +554,17 @@ async function askParticipantResponse(
     );
   }
 
+  logAskStep(requestId, `Opening ${participant.name}...`);
   const result = await runCancellableStep(ensureParticipantPage(context, participant), signal, requestId);
-  logAskStep(requestId, `driver found: ${activeDriver.name}`);
-  logAskStep(requestId, `${result.status === 'reused' ? 'Reusing' : 'Opening'} ${result.participant.name}...`);
-  logAskStep(requestId, `participant: ${result.participant.id}`);
+  logAskStep(
+    requestId,
+    result.status === 'reused'
+      ? `Reusing ${result.participant.name}...`
+      : `Opening new ${result.participant.name} tab...`,
+  );
+  await focusParticipantTab(result.page, result.participant, {
+    focusActiveParticipant: options.focusActiveParticipant,
+  });
   const startedAt = Date.now();
 
   async function extractPartialResponse() {
@@ -581,6 +611,10 @@ async function askParticipantResponse(
     logAskStep(requestId, 'step: pastePrompt');
     await runCancellableStep(pastePrompt(result.page, prompt), signal, requestId);
     throwIfAborted(signal, requestId);
+    await focusParticipantTab(result.page, result.participant, {
+      focusActiveParticipant: options.focusActiveParticipant,
+      log: false,
+    });
     logAskStep(requestId, 'step: submitPrompt');
     await runCancellableStep(submitPrompt(result.page), signal, requestId);
     throwIfAborted(signal, requestId);
@@ -654,7 +688,7 @@ async function askParticipant(
   prompt: string,
   requestId?: string,
   signal?: AbortSignal,
-  options: { debugClick?: boolean } = {},
+  options: { debugClick?: boolean; focusActiveParticipant: boolean } = { focusActiveParticipant: true },
 ): Promise<AskResponse> {
   const normalizedResponse = await askParticipantResponse(context, participantName, prompt, requestId, signal, options);
 
@@ -668,6 +702,7 @@ async function askParticipant(
 async function extractParticipantResponse(
   context: BrowserContext,
   participantName: string,
+  focusActiveParticipant: boolean,
   question = '',
 ) {
   const driver = getDriver(participantName);
@@ -682,8 +717,14 @@ async function extractParticipantResponse(
     throw new Error(`No participant matches driver "${driver.name}".`);
   }
 
+  console.log(`Opening ${participant.name}...`);
   const result = await ensureParticipantPage(context, participant);
-  console.log(`${result.status === 'reused' ? 'Reusing' : 'Opening'} ${result.participant.name}...`);
+  console.log(
+    result.status === 'reused'
+      ? `Reusing ${result.participant.name}...`
+      : `Opening new ${result.participant.name} tab...`,
+  );
+  await focusParticipantTab(result.page, result.participant, { focusActiveParticipant });
 
   if (driver.extractParticipantResponse) {
     return driver.extractParticipantResponse(result.page, {
@@ -762,6 +803,7 @@ function buildFinalPrompt(originalPrompt: string, responses: ParticipantRunRespo
 async function runRandomWorkflow(
   context: BrowserContext,
   originalPrompt: string,
+  options: { focusActiveParticipant: boolean },
 ): Promise<RandomRunResponse> {
   const providerStatuses = await getProviderStatuses(context);
   const statusByParticipant = new Map(providerStatuses.map((status) => [status.participant, status]));
@@ -804,7 +846,7 @@ async function runRandomWorkflow(
     console.log('Running: Google');
 
     try {
-      previousResponse = await askParticipantResponse(context, 'google', originalPrompt);
+      previousResponse = await askParticipantResponse(context, 'google', originalPrompt, undefined, undefined, options);
       if (!('status' in previousResponse)) {
         latestCompletedResponse = previousResponse;
       }
@@ -860,7 +902,7 @@ async function runRandomWorkflow(
 
     try {
       const handoffPrompt = buildHandoffPrompt(latestCompletedResponse);
-      previousResponse = await askParticipantResponse(context, participant, handoffPrompt);
+      previousResponse = await askParticipantResponse(context, participant, handoffPrompt, undefined, undefined, options);
       responses.push(previousResponse);
       if (!('status' in previousResponse)) {
         latestCompletedResponse = previousResponse;
@@ -881,7 +923,7 @@ async function runRandomWorkflow(
     const finalPrompt = buildFinalPrompt(originalPrompt, responses);
 
     try {
-      finalResponse = await askParticipantResponse(context, 'chatgpt', finalPrompt);
+      finalResponse = await askParticipantResponse(context, 'chatgpt', finalPrompt, undefined, undefined, options);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.log(`Failed: ChatGPT final - ${message}`);
@@ -911,6 +953,7 @@ async function chainParticipants(
   context: BrowserContext,
   from: string,
   to: string,
+  options: { focusActiveParticipant: boolean },
   prompt?: string,
 ): Promise<ChainResponse> {
   if (from.toLowerCase() !== 'google' || to.toLowerCase() !== 'chatgpt') {
@@ -918,10 +961,10 @@ async function chainParticipants(
   }
 
   const source = prompt
-    ? await askParticipantResponse(context, from, prompt)
-    : await extractParticipantResponse(context, from);
+    ? await askParticipantResponse(context, from, prompt, undefined, undefined, options)
+    : await extractParticipantResponse(context, from, options.focusActiveParticipant);
   const handoffPrompt = buildHandoffPrompt(source);
-  const target = await askParticipantResponse(context, to, handoffPrompt);
+  const target = await askParticipantResponse(context, to, handoffPrompt, undefined, undefined, options);
 
   return {
     from: source.participant,
@@ -938,6 +981,7 @@ async function inspectParticipant(
   context: BrowserContext,
   participantName: string,
   runnerRoot: string,
+  focusActiveParticipant: boolean,
 ): Promise<InspectResponse> {
   const participant = findParticipantByName(participantName);
 
@@ -945,8 +989,14 @@ async function inspectParticipant(
     throw new Error(`Unknown participant "${participantName}".`);
   }
 
+  console.log(`Opening ${participant.name}...`);
   const result = await ensureParticipantPage(context, participant);
-  console.log(`${result.status === 'reused' ? 'Reusing' : 'Opening'} ${result.participant.name}...`);
+  console.log(
+    result.status === 'reused'
+      ? `Reusing ${result.participant.name}...`
+      : `Opening new ${result.participant.name} tab...`,
+  );
+  await focusParticipantTab(result.page, result.participant, { focusActiveParticipant });
 
   const securityStatus = await waitForManualSecurityVerification(
     result.page,
@@ -966,6 +1016,7 @@ async function inspectParticipant(
 
 export async function startRunnerServer(options: RunnerServerOptions) {
   assertAskCapableDriversResolve();
+  const focusActiveParticipant = options.focusActiveParticipant ?? true;
   const browserSession = await createBrowserSession(options);
   const { context } = browserSession;
   const opened = await openParticipants(context, participants);
@@ -993,6 +1044,7 @@ export async function startRunnerServer(options: RunnerServerOptions) {
             browserMode: browserSession.mode,
             browserChannel: options.browserChannel,
             connected: true,
+            focusActiveParticipant,
             participantCount: matchedPages.length,
             activeRequestIds: Array.from(activeAskRequests.values()).map((activeRequest) => (
               `${activeRequest.requestId}:${activeRequest.participant}`
@@ -1033,6 +1085,7 @@ export async function startRunnerServer(options: RunnerServerOptions) {
             browserMode: browserSession.mode,
             browserChannel: options.browserChannel,
             connected: true,
+            focusActiveParticipant,
             participantCount: matchedPages.length,
             activeRequestIds: Array.from(activeAskRequests.values()).map((activeRequest) => (
               `${activeRequest.requestId}:${activeRequest.participant}`
@@ -1105,8 +1158,10 @@ export async function startRunnerServer(options: RunnerServerOptions) {
             controller,
             startedAt: Date.now(),
           });
-          logAskStep(requestId, `participant: ${participantName}`);
-          const askTask = askParticipant(context, participantName, prompt, requestId, controller.signal, { debugClick })
+          const askTask = askParticipant(context, participantName, prompt, requestId, controller.signal, {
+            debugClick,
+            focusActiveParticipant,
+          })
             .finally(() => {
               const currentRequest = activeAskRequests.get(participantKey);
 
@@ -1174,7 +1229,13 @@ export async function startRunnerServer(options: RunnerServerOptions) {
             return;
           }
 
-          const result = await chainParticipants(context, body.from, body.to, prompt);
+          const result = await chainParticipants(
+            context,
+            body.from,
+            body.to,
+            { focusActiveParticipant },
+            prompt,
+          );
           jsonResponse(response, 200, result);
           return;
         }
@@ -1189,7 +1250,12 @@ export async function startRunnerServer(options: RunnerServerOptions) {
             return;
           }
 
-          const result = await inspectParticipant(context, body.participant, options.runnerRoot);
+          const result = await inspectParticipant(
+            context,
+            body.participant,
+            options.runnerRoot,
+            focusActiveParticipant,
+          );
           jsonResponse(response, 200, result);
           return;
         }
@@ -1204,7 +1270,9 @@ export async function startRunnerServer(options: RunnerServerOptions) {
             return;
           }
 
-          const result = await runRandomWorkflow(context, body.prompt);
+          const result = await runRandomWorkflow(context, body.prompt, {
+            focusActiveParticipant,
+          });
           jsonResponse(response, 200, result);
           return;
         }

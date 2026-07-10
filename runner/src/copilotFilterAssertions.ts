@@ -1,4 +1,4 @@
-import { evaluateCopilotCandidateText } from './drivers/copilotFiltering.js';
+import { cleanCopilotResponseText, evaluateCopilotCandidateText } from './drivers/copilotFiltering.js';
 
 type CopilotCase = {
   text: string;
@@ -15,6 +15,17 @@ const cases: CopilotCase[] = [
   {
     text: 'Copilot OK',
     expected: 'accepted',
+  },
+];
+
+const cleanCases = [
+  {
+    text: 'Copilot OK\nStopped generating',
+    expected: 'Copilot OK',
+  },
+  {
+    text: 'Stopped generating',
+    expected: '',
   },
 ];
 
@@ -35,6 +46,17 @@ for (const testCase of cases) {
     );
   } else {
     console.log(`PASS copilot candidate: ${testCase.expected}: ${testCase.text}`);
+  }
+}
+
+for (const testCase of cleanCases) {
+  const actual = cleanCopilotResponseText(testCase.text);
+
+  if (actual !== testCase.expected) {
+    failureCount += 1;
+    console.error(`FAIL copilot clean: expected ${JSON.stringify(testCase.expected)}, got ${JSON.stringify(actual)}`);
+  } else {
+    console.log(`PASS copilot clean: ${JSON.stringify(testCase.expected)}`);
   }
 }
 

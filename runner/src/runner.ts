@@ -13,6 +13,30 @@ function participantUrl(participant: RunnerParticipant) {
   return new URL(participant.url);
 }
 
+function isGoogleHost(hostname: string) {
+  const normalized = hostname.toLowerCase();
+  return normalized === 'google.com' || normalized === 'www.google.com';
+}
+
+function isGooglePageUrl(pageUrl: string) {
+  try {
+    const actual = new URL(pageUrl);
+    return isGoogleHost(actual.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function isGoogleAiModeUrl(pageUrl: string) {
+  try {
+    const actual = new URL(pageUrl);
+    return isGoogleHost(actual.hostname) &&
+      (actual.pathname === '/ai' || actual.searchParams.get('udm') === '50');
+  } catch {
+    return false;
+  }
+}
+
 function pageMatchesParticipant(page: Page, participant: RunnerParticipant) {
   const pageUrl = page.url();
 
@@ -29,6 +53,10 @@ function pageMatchesParticipant(page: Page, participant: RunnerParticipant) {
         (actual.hostname.toLowerCase() === 'm365.cloud.microsoft' && actual.pathname.startsWith('/chat'));
     }
 
+    if (participant.id === 'google') {
+      return isGooglePageUrl(pageUrl);
+    }
+
     return actual.hostname.toLowerCase() === expected.hostname.toLowerCase();
   } catch {
     return false;
@@ -36,6 +64,10 @@ function pageMatchesParticipant(page: Page, participant: RunnerParticipant) {
 }
 
 function participantPagePreference(page: Page, participant: RunnerParticipant) {
+  if (participant.id === 'google') {
+    return isGoogleAiModeUrl(page.url()) ? 0 : 1;
+  }
+
   if (participant.id !== 'copilot') {
     return 0;
   }
@@ -75,6 +107,10 @@ export async function ensureParticipantPage(
   const existingPage = findParticipantPage(context, participant);
 
   if (existingPage) {
+    if (participant.id === 'google' && !isGoogleAiModeUrl(existingPage.url())) {
+      await existingPage.goto(participant.url, { waitUntil: 'domcontentloaded' });
+    }
+
     return {
       participant,
       page: existingPage,

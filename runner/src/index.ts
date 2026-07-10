@@ -21,6 +21,7 @@ const userDataDir = path.join(runnerRoot, '.user-data');
 type CliOptions = {
   browserChannel: BrowserChannel;
   connectCdpUrl?: string;
+  focusActiveParticipant: boolean;
   verbose: boolean;
   args: string[];
 };
@@ -29,6 +30,7 @@ function parseCliOptions(args: string[]): CliOptions {
   const parsedArgs: string[] = [];
   let browserChannel: BrowserChannel = 'chromium';
   let connectCdpUrl: string | undefined;
+  let focusActiveParticipant = true;
   let verbose = false;
 
   for (let index = 0; index < args.length; index += 1) {
@@ -63,12 +65,23 @@ function parseCliOptions(args: string[]): CliOptions {
       continue;
     }
 
+    if (arg === '--focus-tabs') {
+      focusActiveParticipant = true;
+      continue;
+    }
+
+    if (arg === '--no-focus-tabs') {
+      focusActiveParticipant = false;
+      continue;
+    }
+
     parsedArgs.push(arg);
   }
 
   return {
     browserChannel,
     connectCdpUrl,
+    focusActiveParticipant,
     verbose,
     args: parsedArgs,
   };
@@ -365,6 +378,7 @@ async function runHealthClient() {
   console.log(`Browser mode: ${result.browserMode}`);
   console.log(`Browser channel: ${result.browserChannel}`);
   console.log(`Connected: ${result.connected ? 'yes' : 'no'}`);
+  console.log(`Focus active participant: ${result.focusActiveParticipant ? 'yes' : 'no'}`);
   console.log(`Participant count: ${result.participantCount}`);
   console.log(`Active requests: ${result.activeRequestIds.length > 0 ? result.activeRequestIds.join(', ') : '(none)'}`);
 }
@@ -389,7 +403,7 @@ async function runCancelAllClient() {
 
 function printUsage() {
   console.log('Usage:');
-  console.log('  npm run dev -- serve');
+  console.log('  npm run dev -- serve [--focus-tabs|--no-focus-tabs]');
   console.log('  npm run dev -- health');
   console.log('  npm run dev -- cancel-all');
   console.log('  npm run dev -- check-providers [--verbose]');
@@ -406,6 +420,7 @@ async function main() {
   const {
     browserChannel,
     connectCdpUrl,
+    focusActiveParticipant,
     verbose,
     args: [command, target, ...args],
   } = parseCliOptions(process.argv.slice(2));
@@ -420,6 +435,7 @@ async function main() {
     await startRunnerServer({
       browserChannel,
       connectCdpUrl,
+      focusActiveParticipant,
       runnerRoot,
       userDataDir,
     });

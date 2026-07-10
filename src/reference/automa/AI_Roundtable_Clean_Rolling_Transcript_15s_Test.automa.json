@@ -1,0 +1,1732 @@
+{
+  "extVersion": "1.29.12",
+  "icon": "riGlobalLine",
+  "table": [],
+  "version": "1.29.12",
+  "settings": {},
+  "globalData": "",
+  "includedWorkflows": {},
+  "name": "AI Roundtable - Clean Rolling Transcript 15s Test",
+  "description": "Starts after Reka has answered, extracts a cleaned rolling transcript, switches by tab-title through the AI clients, submits each handoff, waits 15 seconds, and appends cleaned responses.",
+  "drawflow": {
+    "nodes": [
+      {
+        "id": "trig001",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "data": {
+          "activeInInput": false,
+          "contextMenuName": "",
+          "contextTypes": [],
+          "date": "",
+          "days": [],
+          "delay": 5,
+          "description": "START AFTER Reka has answered. Click the Reka page, then run this. The workflow builds a cleaned rolling transcript and chains through the open AI tabs.",
+          "disableBlock": false,
+          "interval": 60,
+          "isUrlRegex": false,
+          "observeElement": {
+            "baseElOptions": {
+              "attributeFilter": [],
+              "attributes": false,
+              "characterData": false,
+              "childList": true,
+              "subtree": false
+            },
+            "baseSelector": "",
+            "matchPattern": "",
+            "selector": "",
+            "targetOptions": {
+              "attributeFilter": [],
+              "attributes": false,
+              "characterData": false,
+              "childList": true,
+              "subtree": false
+            }
+          },
+          "parameters": [],
+          "preferParamsInTab": false,
+          "shortcut": "",
+          "time": "00:00",
+          "type": "manual",
+          "url": ""
+        },
+        "label": "trigger"
+      },
+      {
+        "id": "act_reka",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 0,
+          "y": 130
+        },
+        "data": {
+          "description": "Attach to active Reka tab",
+          "disableBlock": false
+        },
+        "label": "active-tab"
+      },
+      {
+        "id": "init001",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 0,
+          "y": 260
+        },
+        "data": {
+          "code": "(() => {\n  const existing = automaRefData('variables', 'originalPrompt') || '';\n  let seed = existing;\n  if (!seed) {\n    const text = document.body ? document.body.innerText : '';\n    const lines = text.split(/\\r?\\n/).map(x => x.trim()).filter(Boolean);\n    const junk = new Set(['Edge','Research','Chat','Speech','New Chat','Sign In','PROMPT TYPE','Clear','Image analysis','Code analysis','Multilingual chat','API Documentation','API Platform','Talk to Sales']);\n    const useful = lines.filter(x => !junk.has(x));\n    seed = useful.find(x => x.length > 8 && !/^Responses may be inaccurate/i.test(x)) || '[Original prompt not captured - edit originalPrompt variable manually if needed]';\n  }\n  automaSetVariable('originalPrompt', seed);\n  automaSetVariable('roundtableTranscript', `====================\\nORIGINAL PROMPT\\n====================\\n\\n${seed}\\n`);\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Initialize original prompt and roundtable transcript",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 20000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "extract_reka",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 0,
+          "y": 420
+        },
+        "data": {
+          "code": "(async () => {\n  const aiName = \"Reka Chat\";\n  const originalPrompt = automaRefData('variables', 'originalPrompt') || '';\n  function cleanText(raw) {\n    let text = String(raw || '').replace(/\\r/g, '\\n');\n    const uiExact = new Set([\n      'Edge','Research','Chat','Speech','New Chat','Sign In','PROMPT TYPE','Clear',\n      'Image analysis','Code analysis','Multilingual chat','API Documentation','API Platform','Talk to Sales',\n      'Responses may be inaccurate. Verify important information.','Pro','Free preview of advanced search enabled.',\n      'Home','Discover','Spaces','Library','Upgrade','Try Pro','Attach','Voice','Send','Submit','Stop generating',\n      'Regenerate','Share','Copy','Copied','Like','Dislike','Sources','Related','Ask follow-up','Search',\n      'Terms','Privacy','Help','Settings','Account','Log in','Login','Sign up','Get app','Apps'\n    ]);\n    let lines = text.split(/\\n+/).map(s => s.trim()).filter(Boolean);\n    lines = lines.filter(line => !uiExact.has(line));\n    text = lines.join('\\n');\n    const endMarker = '----- END PREVIOUS CONVERSATION -----';\n    const idx = text.lastIndexOf(endMarker);\n    if (idx >= 0) text = text.slice(idx + endMarker.length);\n    const beginMarker = '----- BEGIN PREVIOUS CONVERSATION -----';\n    const idx2 = text.lastIndexOf(beginMarker);\n    if (idx2 >= 0) text = text.slice(idx2 + beginMarker.length);\n    text = text\n      .replace(/^Hi\\s+[^,]+,?/i, '')\n      .replace(/The following is the original prompt[\\s\\S]{0,1200}?discussion\\./i, '')\n      .replace(/Please do not simply summarize[\\s\\S]{0,1200}?where appropriate\\./i, '')\n      .replace(/Treat this as collaborative peer review[\\s\\S]{0,500}?discussion\\./i, '')\n      .replace(/={5,}\\s*(ORIGINAL PROMPT|REKA CHAT|REKA|PERPLEXITY|COPILOT|GROK|GEMINI|DEEPSEEK|CLAUDE|CHATGPT)\\s*={5,}/ig, '')\n      .trim();\n    if (originalPrompt) {\n      text = text.replace(originalPrompt, '').trim();\n    }\n    text = text.replace(/\\n{3,}/g, '\\n\\n').trim();\n    return text;\n  }\n  const raw = document.body ? document.body.innerText : '';\n  let latest = cleanText(raw);\n  if (!latest) latest = '[No clean response text was detected. Full page copy may be needed here.]';\n  let transcript = automaRefData('variables', 'roundtableTranscript') || '';\n  if (!transcript) {\n    transcript = `====================\\nORIGINAL PROMPT\\n====================\\n\\n${originalPrompt || '[Original prompt not captured]'}\\n`;\n  }\n  transcript += `\\n\\n====================\\n${aiName}\\n====================\\n\\n${latest}\\n`;\n  automaSetVariable('latestResponse', latest);\n  automaSetVariable('roundtableTranscript', transcript);\n  try { await navigator.clipboard.writeText(transcript); } catch(e) {}\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Extract and clean latest Reka response; append to transcript",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 30000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "switch_01",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 330,
+          "y": 0
+        },
+        "data": {
+          "activeTab": true,
+          "createIfNoMatch": false,
+          "description": "Switch to Perplexity tab by title",
+          "disableBlock": false,
+          "findTabBy": "tab-title",
+          "matchPattern": "*://www.perplexity.ai/*",
+          "tabIndex": 0,
+          "tabTitle": "Perplexity",
+          "url": ""
+        },
+        "label": "switch-tab"
+      },
+      {
+        "id": "act_01",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 330,
+          "y": 120
+        },
+        "data": {
+          "description": "Attach to Perplexity tab",
+          "disableBlock": false
+        },
+        "label": "active-tab"
+      },
+      {
+        "id": "paste_01",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 330,
+          "y": 250
+        },
+        "data": {
+          "code": "(async () => {\n  const currentAI = \"Perplexity\";\n  const previousAI = \"Reka Chat\";\n  const nextAI = \"Copilot\";\n  const transcript = automaRefData('variables', 'roundtableTranscript') || '';\n  const prompt = `Hi ${currentAI},\n\nThe following is an ongoing AI roundtable discussion. The original prompt and all previous AI contributions are included below.\n\nPlease do not simply summarize or agree. Instead:\n\n- Evaluate the accuracy and reasoning so far.\n- Point out errors, omissions, weak assumptions, or unsupported claims.\n- Add missing knowledge, perspectives, or evidence.\n- Challenge conclusions you disagree with and explain why.\n- Expand upon strong ideas.\n- Suggest better approaches or alternatives where appropriate.\n- Avoid repeating points already made unless you are refining or correcting them.\n\nYour complete response will be appended to the transcript${nextAI ? ` and forwarded to ${nextAI}` : ''}.\n\n----- BEGIN ROUNDTABLE TRANSCRIPT -----\n\n${transcript}\n\n----- END ROUNDTABLE TRANSCRIPT -----`;\n\n  function visible(el) {\n    const r = el.getBoundingClientRect();\n    const s = getComputedStyle(el);\n    return r.width > 80 && r.height > 15 && s.visibility !== 'hidden' && s.display !== 'none' && !el.disabled;\n  }\n  function setNativeValue(el, value) {\n    const proto = Object.getPrototypeOf(el);\n    const desc = Object.getOwnPropertyDescriptor(proto, 'value');\n    if (desc && desc.set) desc.set.call(el, value); else el.value = value;\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n  }\n  const candidates = [...document.querySelectorAll('textarea, div[contenteditable=\"true\"], [role=\"textbox\"], input[type=\"text\"], input:not([type])')]\n    .filter(visible)\n    .sort((a,b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom);\n  const promptBox = candidates[0];\n  if (!promptBox) throw new Error('Could not find prompt box on ' + currentAI);\n  promptBox.focus();\n  if (promptBox.isContentEditable || promptBox.getAttribute('contenteditable') === 'true') {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, prompt);\n  } else {\n    setNativeValue(promptBox, prompt);\n  }\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Paste cleaned roundtable transcript into Perplexity",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 30000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "submitdelay_01",
+        "type": "BlockDelay",
+        "initialized": false,
+        "position": {
+          "x": 330,
+          "y": 410
+        },
+        "data": {
+          "disableBlock": false,
+          "time": "1000",
+          "description": "Small pause before submit"
+        },
+        "label": "delay"
+      },
+      {
+        "id": "submit_01",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 330,
+          "y": 520
+        },
+        "data": {
+          "code": "(() => {\n  function visible(el) {\n    const r = el.getBoundingClientRect();\n    const s = getComputedStyle(el);\n    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none';\n  }\n  const labels = ['submit', 'send', 'ask', 'arrow'];\n  const buttons = [...document.querySelectorAll('button, [role=\"button\"]')].filter(visible);\n  let btn = buttons.find(b => {\n    const text = (b.innerText || '').toLowerCase();\n    const aria = (b.getAttribute('aria-label') || '').toLowerCase();\n    const title = (b.getAttribute('title') || '').toLowerCase();\n    const combined = `${text} ${aria} ${title}`;\n    return labels.some(x => combined.includes(x)) && !b.disabled && b.getAttribute('aria-disabled') !== 'true';\n  });\n  if (!btn) {\n    btn = buttons.filter(b => !b.disabled && b.getAttribute('aria-disabled') !== 'true')\n      .sort((a, b) => {\n        const ar = a.getBoundingClientRect();\n        const br = b.getBoundingClientRect();\n        return (br.bottom - ar.bottom) || (br.right - ar.right);\n      })[0];\n  }\n  if (btn) btn.click();\n  else {\n    const active = document.activeElement;\n    active && active.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', code:'Enter', bubbles:true, cancelable:true}));\n  }\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Submit Perplexity prompt",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 20000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "wait_01",
+        "type": "BlockDelay",
+        "initialized": false,
+        "position": {
+          "x": 330,
+          "y": 680
+        },
+        "data": {
+          "disableBlock": false,
+          "time": "15000",
+          "description": "Test wait for Perplexity response"
+        },
+        "label": "delay"
+      },
+      {
+        "id": "extract_01",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 330,
+          "y": 820
+        },
+        "data": {
+          "code": "(async () => {\n  const aiName = \"Perplexity\";\n  const originalPrompt = automaRefData('variables', 'originalPrompt') || '';\n  function cleanText(raw) {\n    let text = String(raw || '').replace(/\\r/g, '\\n');\n    const uiExact = new Set([\n      'Edge','Research','Chat','Speech','New Chat','Sign In','PROMPT TYPE','Clear',\n      'Image analysis','Code analysis','Multilingual chat','API Documentation','API Platform','Talk to Sales',\n      'Responses may be inaccurate. Verify important information.','Pro','Free preview of advanced search enabled.',\n      'Home','Discover','Spaces','Library','Upgrade','Try Pro','Attach','Voice','Send','Submit','Stop generating',\n      'Regenerate','Share','Copy','Copied','Like','Dislike','Sources','Related','Ask follow-up','Search',\n      'Terms','Privacy','Help','Settings','Account','Log in','Login','Sign up','Get app','Apps'\n    ]);\n    let lines = text.split(/\\n+/).map(s => s.trim()).filter(Boolean);\n    lines = lines.filter(line => !uiExact.has(line));\n    text = lines.join('\\n');\n    const endMarker = '----- END PREVIOUS CONVERSATION -----';\n    const idx = text.lastIndexOf(endMarker);\n    if (idx >= 0) text = text.slice(idx + endMarker.length);\n    const beginMarker = '----- BEGIN PREVIOUS CONVERSATION -----';\n    const idx2 = text.lastIndexOf(beginMarker);\n    if (idx2 >= 0) text = text.slice(idx2 + beginMarker.length);\n    text = text\n      .replace(/^Hi\\s+[^,]+,?/i, '')\n      .replace(/The following is the original prompt[\\s\\S]{0,1200}?discussion\\./i, '')\n      .replace(/Please do not simply summarize[\\s\\S]{0,1200}?where appropriate\\./i, '')\n      .replace(/Treat this as collaborative peer review[\\s\\S]{0,500}?discussion\\./i, '')\n      .replace(/={5,}\\s*(ORIGINAL PROMPT|REKA CHAT|REKA|PERPLEXITY|COPILOT|GROK|GEMINI|DEEPSEEK|CLAUDE|CHATGPT)\\s*={5,}/ig, '')\n      .trim();\n    if (originalPrompt) {\n      text = text.replace(originalPrompt, '').trim();\n    }\n    text = text.replace(/\\n{3,}/g, '\\n\\n').trim();\n    return text;\n  }\n  const raw = document.body ? document.body.innerText : '';\n  let latest = cleanText(raw);\n  if (!latest) latest = '[No clean response text was detected. Full page copy may be needed here.]';\n  let transcript = automaRefData('variables', 'roundtableTranscript') || '';\n  if (!transcript) {\n    transcript = `====================\\nORIGINAL PROMPT\\n====================\\n\\n${originalPrompt || '[Original prompt not captured]'}\\n`;\n  }\n  transcript += `\\n\\n====================\\n${aiName}\\n====================\\n\\n${latest}\\n`;\n  automaSetVariable('latestResponse', latest);\n  automaSetVariable('roundtableTranscript', transcript);\n  try { await navigator.clipboard.writeText(transcript); } catch(e) {}\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Extract and clean latest Perplexity response; append to transcript",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 30000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "switch_02",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 690,
+          "y": 0
+        },
+        "data": {
+          "activeTab": true,
+          "createIfNoMatch": false,
+          "description": "Switch to Copilot tab by title",
+          "disableBlock": false,
+          "findTabBy": "tab-title",
+          "matchPattern": "*://copilot.microsoft.com/*",
+          "tabIndex": 0,
+          "tabTitle": "Copilot",
+          "url": ""
+        },
+        "label": "switch-tab"
+      },
+      {
+        "id": "act_02",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 690,
+          "y": 120
+        },
+        "data": {
+          "description": "Attach to Copilot tab",
+          "disableBlock": false
+        },
+        "label": "active-tab"
+      },
+      {
+        "id": "paste_02",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 690,
+          "y": 250
+        },
+        "data": {
+          "code": "(async () => {\n  const currentAI = \"Copilot\";\n  const previousAI = \"Perplexity\";\n  const nextAI = \"Grok\";\n  const transcript = automaRefData('variables', 'roundtableTranscript') || '';\n  const prompt = `Hi ${currentAI},\n\nThe following is an ongoing AI roundtable discussion. The original prompt and all previous AI contributions are included below.\n\nPlease do not simply summarize or agree. Instead:\n\n- Evaluate the accuracy and reasoning so far.\n- Point out errors, omissions, weak assumptions, or unsupported claims.\n- Add missing knowledge, perspectives, or evidence.\n- Challenge conclusions you disagree with and explain why.\n- Expand upon strong ideas.\n- Suggest better approaches or alternatives where appropriate.\n- Avoid repeating points already made unless you are refining or correcting them.\n\nYour complete response will be appended to the transcript${nextAI ? ` and forwarded to ${nextAI}` : ''}.\n\n----- BEGIN ROUNDTABLE TRANSCRIPT -----\n\n${transcript}\n\n----- END ROUNDTABLE TRANSCRIPT -----`;\n\n  function visible(el) {\n    const r = el.getBoundingClientRect();\n    const s = getComputedStyle(el);\n    return r.width > 80 && r.height > 15 && s.visibility !== 'hidden' && s.display !== 'none' && !el.disabled;\n  }\n  function setNativeValue(el, value) {\n    const proto = Object.getPrototypeOf(el);\n    const desc = Object.getOwnPropertyDescriptor(proto, 'value');\n    if (desc && desc.set) desc.set.call(el, value); else el.value = value;\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n  }\n  const candidates = [...document.querySelectorAll('textarea, div[contenteditable=\"true\"], [role=\"textbox\"], input[type=\"text\"], input:not([type])')]\n    .filter(visible)\n    .sort((a,b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom);\n  const promptBox = candidates[0];\n  if (!promptBox) throw new Error('Could not find prompt box on ' + currentAI);\n  promptBox.focus();\n  if (promptBox.isContentEditable || promptBox.getAttribute('contenteditable') === 'true') {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, prompt);\n  } else {\n    setNativeValue(promptBox, prompt);\n  }\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Paste cleaned roundtable transcript into Copilot",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 30000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "submitdelay_02",
+        "type": "BlockDelay",
+        "initialized": false,
+        "position": {
+          "x": 690,
+          "y": 410
+        },
+        "data": {
+          "disableBlock": false,
+          "time": "1000",
+          "description": "Small pause before submit"
+        },
+        "label": "delay"
+      },
+      {
+        "id": "submit_02",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 690,
+          "y": 520
+        },
+        "data": {
+          "code": "(() => {\n  function visible(el) {\n    const r = el.getBoundingClientRect();\n    const s = getComputedStyle(el);\n    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none';\n  }\n  const labels = ['submit', 'send', 'ask', 'arrow'];\n  const buttons = [...document.querySelectorAll('button, [role=\"button\"]')].filter(visible);\n  let btn = buttons.find(b => {\n    const text = (b.innerText || '').toLowerCase();\n    const aria = (b.getAttribute('aria-label') || '').toLowerCase();\n    const title = (b.getAttribute('title') || '').toLowerCase();\n    const combined = `${text} ${aria} ${title}`;\n    return labels.some(x => combined.includes(x)) && !b.disabled && b.getAttribute('aria-disabled') !== 'true';\n  });\n  if (!btn) {\n    btn = buttons.filter(b => !b.disabled && b.getAttribute('aria-disabled') !== 'true')\n      .sort((a, b) => {\n        const ar = a.getBoundingClientRect();\n        const br = b.getBoundingClientRect();\n        return (br.bottom - ar.bottom) || (br.right - ar.right);\n      })[0];\n  }\n  if (btn) btn.click();\n  else {\n    const active = document.activeElement;\n    active && active.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', code:'Enter', bubbles:true, cancelable:true}));\n  }\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Submit Copilot prompt",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 20000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "wait_02",
+        "type": "BlockDelay",
+        "initialized": false,
+        "position": {
+          "x": 690,
+          "y": 680
+        },
+        "data": {
+          "disableBlock": false,
+          "time": "15000",
+          "description": "Test wait for Copilot response"
+        },
+        "label": "delay"
+      },
+      {
+        "id": "extract_02",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 690,
+          "y": 820
+        },
+        "data": {
+          "code": "(async () => {\n  const aiName = \"Copilot\";\n  const originalPrompt = automaRefData('variables', 'originalPrompt') || '';\n  function cleanText(raw) {\n    let text = String(raw || '').replace(/\\r/g, '\\n');\n    const uiExact = new Set([\n      'Edge','Research','Chat','Speech','New Chat','Sign In','PROMPT TYPE','Clear',\n      'Image analysis','Code analysis','Multilingual chat','API Documentation','API Platform','Talk to Sales',\n      'Responses may be inaccurate. Verify important information.','Pro','Free preview of advanced search enabled.',\n      'Home','Discover','Spaces','Library','Upgrade','Try Pro','Attach','Voice','Send','Submit','Stop generating',\n      'Regenerate','Share','Copy','Copied','Like','Dislike','Sources','Related','Ask follow-up','Search',\n      'Terms','Privacy','Help','Settings','Account','Log in','Login','Sign up','Get app','Apps'\n    ]);\n    let lines = text.split(/\\n+/).map(s => s.trim()).filter(Boolean);\n    lines = lines.filter(line => !uiExact.has(line));\n    text = lines.join('\\n');\n    const endMarker = '----- END PREVIOUS CONVERSATION -----';\n    const idx = text.lastIndexOf(endMarker);\n    if (idx >= 0) text = text.slice(idx + endMarker.length);\n    const beginMarker = '----- BEGIN PREVIOUS CONVERSATION -----';\n    const idx2 = text.lastIndexOf(beginMarker);\n    if (idx2 >= 0) text = text.slice(idx2 + beginMarker.length);\n    text = text\n      .replace(/^Hi\\s+[^,]+,?/i, '')\n      .replace(/The following is the original prompt[\\s\\S]{0,1200}?discussion\\./i, '')\n      .replace(/Please do not simply summarize[\\s\\S]{0,1200}?where appropriate\\./i, '')\n      .replace(/Treat this as collaborative peer review[\\s\\S]{0,500}?discussion\\./i, '')\n      .replace(/={5,}\\s*(ORIGINAL PROMPT|REKA CHAT|REKA|PERPLEXITY|COPILOT|GROK|GEMINI|DEEPSEEK|CLAUDE|CHATGPT)\\s*={5,}/ig, '')\n      .trim();\n    if (originalPrompt) {\n      text = text.replace(originalPrompt, '').trim();\n    }\n    text = text.replace(/\\n{3,}/g, '\\n\\n').trim();\n    return text;\n  }\n  const raw = document.body ? document.body.innerText : '';\n  let latest = cleanText(raw);\n  if (!latest) latest = '[No clean response text was detected. Full page copy may be needed here.]';\n  let transcript = automaRefData('variables', 'roundtableTranscript') || '';\n  if (!transcript) {\n    transcript = `====================\\nORIGINAL PROMPT\\n====================\\n\\n${originalPrompt || '[Original prompt not captured]'}\\n`;\n  }\n  transcript += `\\n\\n====================\\n${aiName}\\n====================\\n\\n${latest}\\n`;\n  automaSetVariable('latestResponse', latest);\n  automaSetVariable('roundtableTranscript', transcript);\n  try { await navigator.clipboard.writeText(transcript); } catch(e) {}\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Extract and clean latest Copilot response; append to transcript",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 30000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "switch_03",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 1050,
+          "y": 0
+        },
+        "data": {
+          "activeTab": true,
+          "createIfNoMatch": false,
+          "description": "Switch to Grok tab by title",
+          "disableBlock": false,
+          "findTabBy": "tab-title",
+          "matchPattern": "*://grok.com/*",
+          "tabIndex": 0,
+          "tabTitle": "Grok",
+          "url": ""
+        },
+        "label": "switch-tab"
+      },
+      {
+        "id": "act_03",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 1050,
+          "y": 120
+        },
+        "data": {
+          "description": "Attach to Grok tab",
+          "disableBlock": false
+        },
+        "label": "active-tab"
+      },
+      {
+        "id": "paste_03",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 1050,
+          "y": 250
+        },
+        "data": {
+          "code": "(async () => {\n  const currentAI = \"Grok\";\n  const previousAI = \"Copilot\";\n  const nextAI = \"Gemini\";\n  const transcript = automaRefData('variables', 'roundtableTranscript') || '';\n  const prompt = `Hi ${currentAI},\n\nThe following is an ongoing AI roundtable discussion. The original prompt and all previous AI contributions are included below.\n\nPlease do not simply summarize or agree. Instead:\n\n- Evaluate the accuracy and reasoning so far.\n- Point out errors, omissions, weak assumptions, or unsupported claims.\n- Add missing knowledge, perspectives, or evidence.\n- Challenge conclusions you disagree with and explain why.\n- Expand upon strong ideas.\n- Suggest better approaches or alternatives where appropriate.\n- Avoid repeating points already made unless you are refining or correcting them.\n\nYour complete response will be appended to the transcript${nextAI ? ` and forwarded to ${nextAI}` : ''}.\n\n----- BEGIN ROUNDTABLE TRANSCRIPT -----\n\n${transcript}\n\n----- END ROUNDTABLE TRANSCRIPT -----`;\n\n  function visible(el) {\n    const r = el.getBoundingClientRect();\n    const s = getComputedStyle(el);\n    return r.width > 80 && r.height > 15 && s.visibility !== 'hidden' && s.display !== 'none' && !el.disabled;\n  }\n  function setNativeValue(el, value) {\n    const proto = Object.getPrototypeOf(el);\n    const desc = Object.getOwnPropertyDescriptor(proto, 'value');\n    if (desc && desc.set) desc.set.call(el, value); else el.value = value;\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n  }\n  const candidates = [...document.querySelectorAll('textarea, div[contenteditable=\"true\"], [role=\"textbox\"], input[type=\"text\"], input:not([type])')]\n    .filter(visible)\n    .sort((a,b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom);\n  const promptBox = candidates[0];\n  if (!promptBox) throw new Error('Could not find prompt box on ' + currentAI);\n  promptBox.focus();\n  if (promptBox.isContentEditable || promptBox.getAttribute('contenteditable') === 'true') {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, prompt);\n  } else {\n    setNativeValue(promptBox, prompt);\n  }\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Paste cleaned roundtable transcript into Grok",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 30000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "submitdelay_03",
+        "type": "BlockDelay",
+        "initialized": false,
+        "position": {
+          "x": 1050,
+          "y": 410
+        },
+        "data": {
+          "disableBlock": false,
+          "time": "1000",
+          "description": "Small pause before submit"
+        },
+        "label": "delay"
+      },
+      {
+        "id": "submit_03",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 1050,
+          "y": 520
+        },
+        "data": {
+          "code": "(() => {\n  function visible(el) {\n    const r = el.getBoundingClientRect();\n    const s = getComputedStyle(el);\n    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none';\n  }\n  const labels = ['submit', 'send', 'ask', 'arrow'];\n  const buttons = [...document.querySelectorAll('button, [role=\"button\"]')].filter(visible);\n  let btn = buttons.find(b => {\n    const text = (b.innerText || '').toLowerCase();\n    const aria = (b.getAttribute('aria-label') || '').toLowerCase();\n    const title = (b.getAttribute('title') || '').toLowerCase();\n    const combined = `${text} ${aria} ${title}`;\n    return labels.some(x => combined.includes(x)) && !b.disabled && b.getAttribute('aria-disabled') !== 'true';\n  });\n  if (!btn) {\n    btn = buttons.filter(b => !b.disabled && b.getAttribute('aria-disabled') !== 'true')\n      .sort((a, b) => {\n        const ar = a.getBoundingClientRect();\n        const br = b.getBoundingClientRect();\n        return (br.bottom - ar.bottom) || (br.right - ar.right);\n      })[0];\n  }\n  if (btn) btn.click();\n  else {\n    const active = document.activeElement;\n    active && active.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', code:'Enter', bubbles:true, cancelable:true}));\n  }\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Submit Grok prompt",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 20000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "wait_03",
+        "type": "BlockDelay",
+        "initialized": false,
+        "position": {
+          "x": 1050,
+          "y": 680
+        },
+        "data": {
+          "disableBlock": false,
+          "time": "15000",
+          "description": "Test wait for Grok response"
+        },
+        "label": "delay"
+      },
+      {
+        "id": "extract_03",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 1050,
+          "y": 820
+        },
+        "data": {
+          "code": "(async () => {\n  const aiName = \"Grok\";\n  const originalPrompt = automaRefData('variables', 'originalPrompt') || '';\n  function cleanText(raw) {\n    let text = String(raw || '').replace(/\\r/g, '\\n');\n    const uiExact = new Set([\n      'Edge','Research','Chat','Speech','New Chat','Sign In','PROMPT TYPE','Clear',\n      'Image analysis','Code analysis','Multilingual chat','API Documentation','API Platform','Talk to Sales',\n      'Responses may be inaccurate. Verify important information.','Pro','Free preview of advanced search enabled.',\n      'Home','Discover','Spaces','Library','Upgrade','Try Pro','Attach','Voice','Send','Submit','Stop generating',\n      'Regenerate','Share','Copy','Copied','Like','Dislike','Sources','Related','Ask follow-up','Search',\n      'Terms','Privacy','Help','Settings','Account','Log in','Login','Sign up','Get app','Apps'\n    ]);\n    let lines = text.split(/\\n+/).map(s => s.trim()).filter(Boolean);\n    lines = lines.filter(line => !uiExact.has(line));\n    text = lines.join('\\n');\n    const endMarker = '----- END PREVIOUS CONVERSATION -----';\n    const idx = text.lastIndexOf(endMarker);\n    if (idx >= 0) text = text.slice(idx + endMarker.length);\n    const beginMarker = '----- BEGIN PREVIOUS CONVERSATION -----';\n    const idx2 = text.lastIndexOf(beginMarker);\n    if (idx2 >= 0) text = text.slice(idx2 + beginMarker.length);\n    text = text\n      .replace(/^Hi\\s+[^,]+,?/i, '')\n      .replace(/The following is the original prompt[\\s\\S]{0,1200}?discussion\\./i, '')\n      .replace(/Please do not simply summarize[\\s\\S]{0,1200}?where appropriate\\./i, '')\n      .replace(/Treat this as collaborative peer review[\\s\\S]{0,500}?discussion\\./i, '')\n      .replace(/={5,}\\s*(ORIGINAL PROMPT|REKA CHAT|REKA|PERPLEXITY|COPILOT|GROK|GEMINI|DEEPSEEK|CLAUDE|CHATGPT)\\s*={5,}/ig, '')\n      .trim();\n    if (originalPrompt) {\n      text = text.replace(originalPrompt, '').trim();\n    }\n    text = text.replace(/\\n{3,}/g, '\\n\\n').trim();\n    return text;\n  }\n  const raw = document.body ? document.body.innerText : '';\n  let latest = cleanText(raw);\n  if (!latest) latest = '[No clean response text was detected. Full page copy may be needed here.]';\n  let transcript = automaRefData('variables', 'roundtableTranscript') || '';\n  if (!transcript) {\n    transcript = `====================\\nORIGINAL PROMPT\\n====================\\n\\n${originalPrompt || '[Original prompt not captured]'}\\n`;\n  }\n  transcript += `\\n\\n====================\\n${aiName}\\n====================\\n\\n${latest}\\n`;\n  automaSetVariable('latestResponse', latest);\n  automaSetVariable('roundtableTranscript', transcript);\n  try { await navigator.clipboard.writeText(transcript); } catch(e) {}\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Extract and clean latest Grok response; append to transcript",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 30000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "switch_04",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 1410,
+          "y": 0
+        },
+        "data": {
+          "activeTab": true,
+          "createIfNoMatch": false,
+          "description": "Switch to Gemini tab by title",
+          "disableBlock": false,
+          "findTabBy": "tab-title",
+          "matchPattern": "*://gemini.google.com/*",
+          "tabIndex": 0,
+          "tabTitle": "Gemini",
+          "url": ""
+        },
+        "label": "switch-tab"
+      },
+      {
+        "id": "act_04",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 1410,
+          "y": 120
+        },
+        "data": {
+          "description": "Attach to Gemini tab",
+          "disableBlock": false
+        },
+        "label": "active-tab"
+      },
+      {
+        "id": "paste_04",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 1410,
+          "y": 250
+        },
+        "data": {
+          "code": "(async () => {\n  const currentAI = \"Gemini\";\n  const previousAI = \"Grok\";\n  const nextAI = \"DeepSeek\";\n  const transcript = automaRefData('variables', 'roundtableTranscript') || '';\n  const prompt = `Hi ${currentAI},\n\nThe following is an ongoing AI roundtable discussion. The original prompt and all previous AI contributions are included below.\n\nPlease do not simply summarize or agree. Instead:\n\n- Evaluate the accuracy and reasoning so far.\n- Point out errors, omissions, weak assumptions, or unsupported claims.\n- Add missing knowledge, perspectives, or evidence.\n- Challenge conclusions you disagree with and explain why.\n- Expand upon strong ideas.\n- Suggest better approaches or alternatives where appropriate.\n- Avoid repeating points already made unless you are refining or correcting them.\n\nYour complete response will be appended to the transcript${nextAI ? ` and forwarded to ${nextAI}` : ''}.\n\n----- BEGIN ROUNDTABLE TRANSCRIPT -----\n\n${transcript}\n\n----- END ROUNDTABLE TRANSCRIPT -----`;\n\n  function visible(el) {\n    const r = el.getBoundingClientRect();\n    const s = getComputedStyle(el);\n    return r.width > 80 && r.height > 15 && s.visibility !== 'hidden' && s.display !== 'none' && !el.disabled;\n  }\n  function setNativeValue(el, value) {\n    const proto = Object.getPrototypeOf(el);\n    const desc = Object.getOwnPropertyDescriptor(proto, 'value');\n    if (desc && desc.set) desc.set.call(el, value); else el.value = value;\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n  }\n  const candidates = [...document.querySelectorAll('textarea, div[contenteditable=\"true\"], [role=\"textbox\"], input[type=\"text\"], input:not([type])')]\n    .filter(visible)\n    .sort((a,b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom);\n  const promptBox = candidates[0];\n  if (!promptBox) throw new Error('Could not find prompt box on ' + currentAI);\n  promptBox.focus();\n  if (promptBox.isContentEditable || promptBox.getAttribute('contenteditable') === 'true') {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, prompt);\n  } else {\n    setNativeValue(promptBox, prompt);\n  }\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Paste cleaned roundtable transcript into Gemini",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 30000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "submitdelay_04",
+        "type": "BlockDelay",
+        "initialized": false,
+        "position": {
+          "x": 1410,
+          "y": 410
+        },
+        "data": {
+          "disableBlock": false,
+          "time": "1000",
+          "description": "Small pause before submit"
+        },
+        "label": "delay"
+      },
+      {
+        "id": "submit_04",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 1410,
+          "y": 520
+        },
+        "data": {
+          "code": "(() => {\n  function visible(el) {\n    const r = el.getBoundingClientRect();\n    const s = getComputedStyle(el);\n    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none';\n  }\n  const labels = ['submit', 'send', 'ask', 'arrow'];\n  const buttons = [...document.querySelectorAll('button, [role=\"button\"]')].filter(visible);\n  let btn = buttons.find(b => {\n    const text = (b.innerText || '').toLowerCase();\n    const aria = (b.getAttribute('aria-label') || '').toLowerCase();\n    const title = (b.getAttribute('title') || '').toLowerCase();\n    const combined = `${text} ${aria} ${title}`;\n    return labels.some(x => combined.includes(x)) && !b.disabled && b.getAttribute('aria-disabled') !== 'true';\n  });\n  if (!btn) {\n    btn = buttons.filter(b => !b.disabled && b.getAttribute('aria-disabled') !== 'true')\n      .sort((a, b) => {\n        const ar = a.getBoundingClientRect();\n        const br = b.getBoundingClientRect();\n        return (br.bottom - ar.bottom) || (br.right - ar.right);\n      })[0];\n  }\n  if (btn) btn.click();\n  else {\n    const active = document.activeElement;\n    active && active.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', code:'Enter', bubbles:true, cancelable:true}));\n  }\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Submit Gemini prompt",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 20000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "wait_04",
+        "type": "BlockDelay",
+        "initialized": false,
+        "position": {
+          "x": 1410,
+          "y": 680
+        },
+        "data": {
+          "disableBlock": false,
+          "time": "15000",
+          "description": "Test wait for Gemini response"
+        },
+        "label": "delay"
+      },
+      {
+        "id": "extract_04",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 1410,
+          "y": 820
+        },
+        "data": {
+          "code": "(async () => {\n  const aiName = \"Gemini\";\n  const originalPrompt = automaRefData('variables', 'originalPrompt') || '';\n  function cleanText(raw) {\n    let text = String(raw || '').replace(/\\r/g, '\\n');\n    const uiExact = new Set([\n      'Edge','Research','Chat','Speech','New Chat','Sign In','PROMPT TYPE','Clear',\n      'Image analysis','Code analysis','Multilingual chat','API Documentation','API Platform','Talk to Sales',\n      'Responses may be inaccurate. Verify important information.','Pro','Free preview of advanced search enabled.',\n      'Home','Discover','Spaces','Library','Upgrade','Try Pro','Attach','Voice','Send','Submit','Stop generating',\n      'Regenerate','Share','Copy','Copied','Like','Dislike','Sources','Related','Ask follow-up','Search',\n      'Terms','Privacy','Help','Settings','Account','Log in','Login','Sign up','Get app','Apps'\n    ]);\n    let lines = text.split(/\\n+/).map(s => s.trim()).filter(Boolean);\n    lines = lines.filter(line => !uiExact.has(line));\n    text = lines.join('\\n');\n    const endMarker = '----- END PREVIOUS CONVERSATION -----';\n    const idx = text.lastIndexOf(endMarker);\n    if (idx >= 0) text = text.slice(idx + endMarker.length);\n    const beginMarker = '----- BEGIN PREVIOUS CONVERSATION -----';\n    const idx2 = text.lastIndexOf(beginMarker);\n    if (idx2 >= 0) text = text.slice(idx2 + beginMarker.length);\n    text = text\n      .replace(/^Hi\\s+[^,]+,?/i, '')\n      .replace(/The following is the original prompt[\\s\\S]{0,1200}?discussion\\./i, '')\n      .replace(/Please do not simply summarize[\\s\\S]{0,1200}?where appropriate\\./i, '')\n      .replace(/Treat this as collaborative peer review[\\s\\S]{0,500}?discussion\\./i, '')\n      .replace(/={5,}\\s*(ORIGINAL PROMPT|REKA CHAT|REKA|PERPLEXITY|COPILOT|GROK|GEMINI|DEEPSEEK|CLAUDE|CHATGPT)\\s*={5,}/ig, '')\n      .trim();\n    if (originalPrompt) {\n      text = text.replace(originalPrompt, '').trim();\n    }\n    text = text.replace(/\\n{3,}/g, '\\n\\n').trim();\n    return text;\n  }\n  const raw = document.body ? document.body.innerText : '';\n  let latest = cleanText(raw);\n  if (!latest) latest = '[No clean response text was detected. Full page copy may be needed here.]';\n  let transcript = automaRefData('variables', 'roundtableTranscript') || '';\n  if (!transcript) {\n    transcript = `====================\\nORIGINAL PROMPT\\n====================\\n\\n${originalPrompt || '[Original prompt not captured]'}\\n`;\n  }\n  transcript += `\\n\\n====================\\n${aiName}\\n====================\\n\\n${latest}\\n`;\n  automaSetVariable('latestResponse', latest);\n  automaSetVariable('roundtableTranscript', transcript);\n  try { await navigator.clipboard.writeText(transcript); } catch(e) {}\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Extract and clean latest Gemini response; append to transcript",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 30000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "switch_05",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 1770,
+          "y": 0
+        },
+        "data": {
+          "activeTab": true,
+          "createIfNoMatch": false,
+          "description": "Switch to DeepSeek tab by title",
+          "disableBlock": false,
+          "findTabBy": "tab-title",
+          "matchPattern": "*://chat.deepseek.com/*",
+          "tabIndex": 0,
+          "tabTitle": "DeepSeek",
+          "url": ""
+        },
+        "label": "switch-tab"
+      },
+      {
+        "id": "act_05",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 1770,
+          "y": 120
+        },
+        "data": {
+          "description": "Attach to DeepSeek tab",
+          "disableBlock": false
+        },
+        "label": "active-tab"
+      },
+      {
+        "id": "paste_05",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 1770,
+          "y": 250
+        },
+        "data": {
+          "code": "(async () => {\n  const currentAI = \"DeepSeek\";\n  const previousAI = \"Gemini\";\n  const nextAI = \"Claude\";\n  const transcript = automaRefData('variables', 'roundtableTranscript') || '';\n  const prompt = `Hi ${currentAI},\n\nThe following is an ongoing AI roundtable discussion. The original prompt and all previous AI contributions are included below.\n\nPlease do not simply summarize or agree. Instead:\n\n- Evaluate the accuracy and reasoning so far.\n- Point out errors, omissions, weak assumptions, or unsupported claims.\n- Add missing knowledge, perspectives, or evidence.\n- Challenge conclusions you disagree with and explain why.\n- Expand upon strong ideas.\n- Suggest better approaches or alternatives where appropriate.\n- Avoid repeating points already made unless you are refining or correcting them.\n\nYour complete response will be appended to the transcript${nextAI ? ` and forwarded to ${nextAI}` : ''}.\n\n----- BEGIN ROUNDTABLE TRANSCRIPT -----\n\n${transcript}\n\n----- END ROUNDTABLE TRANSCRIPT -----`;\n\n  function visible(el) {\n    const r = el.getBoundingClientRect();\n    const s = getComputedStyle(el);\n    return r.width > 80 && r.height > 15 && s.visibility !== 'hidden' && s.display !== 'none' && !el.disabled;\n  }\n  function setNativeValue(el, value) {\n    const proto = Object.getPrototypeOf(el);\n    const desc = Object.getOwnPropertyDescriptor(proto, 'value');\n    if (desc && desc.set) desc.set.call(el, value); else el.value = value;\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n  }\n  const candidates = [...document.querySelectorAll('textarea, div[contenteditable=\"true\"], [role=\"textbox\"], input[type=\"text\"], input:not([type])')]\n    .filter(visible)\n    .sort((a,b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom);\n  const promptBox = candidates[0];\n  if (!promptBox) throw new Error('Could not find prompt box on ' + currentAI);\n  promptBox.focus();\n  if (promptBox.isContentEditable || promptBox.getAttribute('contenteditable') === 'true') {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, prompt);\n  } else {\n    setNativeValue(promptBox, prompt);\n  }\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Paste cleaned roundtable transcript into DeepSeek",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 30000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "submitdelay_05",
+        "type": "BlockDelay",
+        "initialized": false,
+        "position": {
+          "x": 1770,
+          "y": 410
+        },
+        "data": {
+          "disableBlock": false,
+          "time": "1000",
+          "description": "Small pause before submit"
+        },
+        "label": "delay"
+      },
+      {
+        "id": "submit_05",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 1770,
+          "y": 520
+        },
+        "data": {
+          "code": "(() => {\n  function visible(el) {\n    const r = el.getBoundingClientRect();\n    const s = getComputedStyle(el);\n    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none';\n  }\n  const labels = ['submit', 'send', 'ask', 'arrow'];\n  const buttons = [...document.querySelectorAll('button, [role=\"button\"]')].filter(visible);\n  let btn = buttons.find(b => {\n    const text = (b.innerText || '').toLowerCase();\n    const aria = (b.getAttribute('aria-label') || '').toLowerCase();\n    const title = (b.getAttribute('title') || '').toLowerCase();\n    const combined = `${text} ${aria} ${title}`;\n    return labels.some(x => combined.includes(x)) && !b.disabled && b.getAttribute('aria-disabled') !== 'true';\n  });\n  if (!btn) {\n    btn = buttons.filter(b => !b.disabled && b.getAttribute('aria-disabled') !== 'true')\n      .sort((a, b) => {\n        const ar = a.getBoundingClientRect();\n        const br = b.getBoundingClientRect();\n        return (br.bottom - ar.bottom) || (br.right - ar.right);\n      })[0];\n  }\n  if (btn) btn.click();\n  else {\n    const active = document.activeElement;\n    active && active.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', code:'Enter', bubbles:true, cancelable:true}));\n  }\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Submit DeepSeek prompt",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 20000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "wait_05",
+        "type": "BlockDelay",
+        "initialized": false,
+        "position": {
+          "x": 1770,
+          "y": 680
+        },
+        "data": {
+          "disableBlock": false,
+          "time": "15000",
+          "description": "Test wait for DeepSeek response"
+        },
+        "label": "delay"
+      },
+      {
+        "id": "extract_05",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 1770,
+          "y": 820
+        },
+        "data": {
+          "code": "(async () => {\n  const aiName = \"DeepSeek\";\n  const originalPrompt = automaRefData('variables', 'originalPrompt') || '';\n  function cleanText(raw) {\n    let text = String(raw || '').replace(/\\r/g, '\\n');\n    const uiExact = new Set([\n      'Edge','Research','Chat','Speech','New Chat','Sign In','PROMPT TYPE','Clear',\n      'Image analysis','Code analysis','Multilingual chat','API Documentation','API Platform','Talk to Sales',\n      'Responses may be inaccurate. Verify important information.','Pro','Free preview of advanced search enabled.',\n      'Home','Discover','Spaces','Library','Upgrade','Try Pro','Attach','Voice','Send','Submit','Stop generating',\n      'Regenerate','Share','Copy','Copied','Like','Dislike','Sources','Related','Ask follow-up','Search',\n      'Terms','Privacy','Help','Settings','Account','Log in','Login','Sign up','Get app','Apps'\n    ]);\n    let lines = text.split(/\\n+/).map(s => s.trim()).filter(Boolean);\n    lines = lines.filter(line => !uiExact.has(line));\n    text = lines.join('\\n');\n    const endMarker = '----- END PREVIOUS CONVERSATION -----';\n    const idx = text.lastIndexOf(endMarker);\n    if (idx >= 0) text = text.slice(idx + endMarker.length);\n    const beginMarker = '----- BEGIN PREVIOUS CONVERSATION -----';\n    const idx2 = text.lastIndexOf(beginMarker);\n    if (idx2 >= 0) text = text.slice(idx2 + beginMarker.length);\n    text = text\n      .replace(/^Hi\\s+[^,]+,?/i, '')\n      .replace(/The following is the original prompt[\\s\\S]{0,1200}?discussion\\./i, '')\n      .replace(/Please do not simply summarize[\\s\\S]{0,1200}?where appropriate\\./i, '')\n      .replace(/Treat this as collaborative peer review[\\s\\S]{0,500}?discussion\\./i, '')\n      .replace(/={5,}\\s*(ORIGINAL PROMPT|REKA CHAT|REKA|PERPLEXITY|COPILOT|GROK|GEMINI|DEEPSEEK|CLAUDE|CHATGPT)\\s*={5,}/ig, '')\n      .trim();\n    if (originalPrompt) {\n      text = text.replace(originalPrompt, '').trim();\n    }\n    text = text.replace(/\\n{3,}/g, '\\n\\n').trim();\n    return text;\n  }\n  const raw = document.body ? document.body.innerText : '';\n  let latest = cleanText(raw);\n  if (!latest) latest = '[No clean response text was detected. Full page copy may be needed here.]';\n  let transcript = automaRefData('variables', 'roundtableTranscript') || '';\n  if (!transcript) {\n    transcript = `====================\\nORIGINAL PROMPT\\n====================\\n\\n${originalPrompt || '[Original prompt not captured]'}\\n`;\n  }\n  transcript += `\\n\\n====================\\n${aiName}\\n====================\\n\\n${latest}\\n`;\n  automaSetVariable('latestResponse', latest);\n  automaSetVariable('roundtableTranscript', transcript);\n  try { await navigator.clipboard.writeText(transcript); } catch(e) {}\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Extract and clean latest DeepSeek response; append to transcript",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 30000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "switch_06",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 2130,
+          "y": 0
+        },
+        "data": {
+          "activeTab": true,
+          "createIfNoMatch": false,
+          "description": "Switch to Claude tab by title",
+          "disableBlock": false,
+          "findTabBy": "tab-title",
+          "matchPattern": "*://claude.ai/*",
+          "tabIndex": 0,
+          "tabTitle": "Claude",
+          "url": ""
+        },
+        "label": "switch-tab"
+      },
+      {
+        "id": "act_06",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 2130,
+          "y": 120
+        },
+        "data": {
+          "description": "Attach to Claude tab",
+          "disableBlock": false
+        },
+        "label": "active-tab"
+      },
+      {
+        "id": "paste_06",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 2130,
+          "y": 250
+        },
+        "data": {
+          "code": "(async () => {\n  const currentAI = \"Claude\";\n  const previousAI = \"DeepSeek\";\n  const nextAI = \"ChatGPT\";\n  const transcript = automaRefData('variables', 'roundtableTranscript') || '';\n  const prompt = `Hi ${currentAI},\n\nThe following is an ongoing AI roundtable discussion. The original prompt and all previous AI contributions are included below.\n\nPlease do not simply summarize or agree. Instead:\n\n- Evaluate the accuracy and reasoning so far.\n- Point out errors, omissions, weak assumptions, or unsupported claims.\n- Add missing knowledge, perspectives, or evidence.\n- Challenge conclusions you disagree with and explain why.\n- Expand upon strong ideas.\n- Suggest better approaches or alternatives where appropriate.\n- Avoid repeating points already made unless you are refining or correcting them.\n\nYour complete response will be appended to the transcript${nextAI ? ` and forwarded to ${nextAI}` : ''}.\n\n----- BEGIN ROUNDTABLE TRANSCRIPT -----\n\n${transcript}\n\n----- END ROUNDTABLE TRANSCRIPT -----`;\n\n  function visible(el) {\n    const r = el.getBoundingClientRect();\n    const s = getComputedStyle(el);\n    return r.width > 80 && r.height > 15 && s.visibility !== 'hidden' && s.display !== 'none' && !el.disabled;\n  }\n  function setNativeValue(el, value) {\n    const proto = Object.getPrototypeOf(el);\n    const desc = Object.getOwnPropertyDescriptor(proto, 'value');\n    if (desc && desc.set) desc.set.call(el, value); else el.value = value;\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n  }\n  const candidates = [...document.querySelectorAll('textarea, div[contenteditable=\"true\"], [role=\"textbox\"], input[type=\"text\"], input:not([type])')]\n    .filter(visible)\n    .sort((a,b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom);\n  const promptBox = candidates[0];\n  if (!promptBox) throw new Error('Could not find prompt box on ' + currentAI);\n  promptBox.focus();\n  if (promptBox.isContentEditable || promptBox.getAttribute('contenteditable') === 'true') {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, prompt);\n  } else {\n    setNativeValue(promptBox, prompt);\n  }\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Paste cleaned roundtable transcript into Claude",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 30000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "submitdelay_06",
+        "type": "BlockDelay",
+        "initialized": false,
+        "position": {
+          "x": 2130,
+          "y": 410
+        },
+        "data": {
+          "disableBlock": false,
+          "time": "1000",
+          "description": "Small pause before submit"
+        },
+        "label": "delay"
+      },
+      {
+        "id": "submit_06",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 2130,
+          "y": 520
+        },
+        "data": {
+          "code": "(() => {\n  function visible(el) {\n    const r = el.getBoundingClientRect();\n    const s = getComputedStyle(el);\n    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none';\n  }\n  const labels = ['submit', 'send', 'ask', 'arrow'];\n  const buttons = [...document.querySelectorAll('button, [role=\"button\"]')].filter(visible);\n  let btn = buttons.find(b => {\n    const text = (b.innerText || '').toLowerCase();\n    const aria = (b.getAttribute('aria-label') || '').toLowerCase();\n    const title = (b.getAttribute('title') || '').toLowerCase();\n    const combined = `${text} ${aria} ${title}`;\n    return labels.some(x => combined.includes(x)) && !b.disabled && b.getAttribute('aria-disabled') !== 'true';\n  });\n  if (!btn) {\n    btn = buttons.filter(b => !b.disabled && b.getAttribute('aria-disabled') !== 'true')\n      .sort((a, b) => {\n        const ar = a.getBoundingClientRect();\n        const br = b.getBoundingClientRect();\n        return (br.bottom - ar.bottom) || (br.right - ar.right);\n      })[0];\n  }\n  if (btn) btn.click();\n  else {\n    const active = document.activeElement;\n    active && active.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', code:'Enter', bubbles:true, cancelable:true}));\n  }\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Submit Claude prompt",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 20000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "wait_06",
+        "type": "BlockDelay",
+        "initialized": false,
+        "position": {
+          "x": 2130,
+          "y": 680
+        },
+        "data": {
+          "disableBlock": false,
+          "time": "15000",
+          "description": "Test wait for Claude response"
+        },
+        "label": "delay"
+      },
+      {
+        "id": "extract_06",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 2130,
+          "y": 820
+        },
+        "data": {
+          "code": "(async () => {\n  const aiName = \"Claude\";\n  const originalPrompt = automaRefData('variables', 'originalPrompt') || '';\n  function cleanText(raw) {\n    let text = String(raw || '').replace(/\\r/g, '\\n');\n    const uiExact = new Set([\n      'Edge','Research','Chat','Speech','New Chat','Sign In','PROMPT TYPE','Clear',\n      'Image analysis','Code analysis','Multilingual chat','API Documentation','API Platform','Talk to Sales',\n      'Responses may be inaccurate. Verify important information.','Pro','Free preview of advanced search enabled.',\n      'Home','Discover','Spaces','Library','Upgrade','Try Pro','Attach','Voice','Send','Submit','Stop generating',\n      'Regenerate','Share','Copy','Copied','Like','Dislike','Sources','Related','Ask follow-up','Search',\n      'Terms','Privacy','Help','Settings','Account','Log in','Login','Sign up','Get app','Apps'\n    ]);\n    let lines = text.split(/\\n+/).map(s => s.trim()).filter(Boolean);\n    lines = lines.filter(line => !uiExact.has(line));\n    text = lines.join('\\n');\n    const endMarker = '----- END PREVIOUS CONVERSATION -----';\n    const idx = text.lastIndexOf(endMarker);\n    if (idx >= 0) text = text.slice(idx + endMarker.length);\n    const beginMarker = '----- BEGIN PREVIOUS CONVERSATION -----';\n    const idx2 = text.lastIndexOf(beginMarker);\n    if (idx2 >= 0) text = text.slice(idx2 + beginMarker.length);\n    text = text\n      .replace(/^Hi\\s+[^,]+,?/i, '')\n      .replace(/The following is the original prompt[\\s\\S]{0,1200}?discussion\\./i, '')\n      .replace(/Please do not simply summarize[\\s\\S]{0,1200}?where appropriate\\./i, '')\n      .replace(/Treat this as collaborative peer review[\\s\\S]{0,500}?discussion\\./i, '')\n      .replace(/={5,}\\s*(ORIGINAL PROMPT|REKA CHAT|REKA|PERPLEXITY|COPILOT|GROK|GEMINI|DEEPSEEK|CLAUDE|CHATGPT)\\s*={5,}/ig, '')\n      .trim();\n    if (originalPrompt) {\n      text = text.replace(originalPrompt, '').trim();\n    }\n    text = text.replace(/\\n{3,}/g, '\\n\\n').trim();\n    return text;\n  }\n  const raw = document.body ? document.body.innerText : '';\n  let latest = cleanText(raw);\n  if (!latest) latest = '[No clean response text was detected. Full page copy may be needed here.]';\n  let transcript = automaRefData('variables', 'roundtableTranscript') || '';\n  if (!transcript) {\n    transcript = `====================\\nORIGINAL PROMPT\\n====================\\n\\n${originalPrompt || '[Original prompt not captured]'}\\n`;\n  }\n  transcript += `\\n\\n====================\\n${aiName}\\n====================\\n\\n${latest}\\n`;\n  automaSetVariable('latestResponse', latest);\n  automaSetVariable('roundtableTranscript', transcript);\n  try { await navigator.clipboard.writeText(transcript); } catch(e) {}\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Extract and clean latest Claude response; append to transcript",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 30000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "switch_07",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 2490,
+          "y": 0
+        },
+        "data": {
+          "activeTab": true,
+          "createIfNoMatch": false,
+          "description": "Switch to ChatGPT tab by title",
+          "disableBlock": false,
+          "findTabBy": "tab-title",
+          "matchPattern": "*://chatgpt.com/*",
+          "tabIndex": 0,
+          "tabTitle": "ChatGPT",
+          "url": ""
+        },
+        "label": "switch-tab"
+      },
+      {
+        "id": "act_07",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 2490,
+          "y": 120
+        },
+        "data": {
+          "description": "Attach to ChatGPT tab",
+          "disableBlock": false
+        },
+        "label": "active-tab"
+      },
+      {
+        "id": "paste_07",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 2490,
+          "y": 250
+        },
+        "data": {
+          "code": "(async () => {\n  const currentAI = \"ChatGPT\";\n  const previousAI = \"Claude\";\n  const nextAI = \"\";\n  const transcript = automaRefData('variables', 'roundtableTranscript') || '';\n  const prompt = `Hi ${currentAI},\n\nThe following is an ongoing AI roundtable discussion. The original prompt and all previous AI contributions are included below.\n\nPlease do not simply summarize or agree. Instead:\n\n- Evaluate the accuracy and reasoning so far.\n- Point out errors, omissions, weak assumptions, or unsupported claims.\n- Add missing knowledge, perspectives, or evidence.\n- Challenge conclusions you disagree with and explain why.\n- Expand upon strong ideas.\n- Suggest better approaches or alternatives where appropriate.\n- Avoid repeating points already made unless you are refining or correcting them.\n\nYour complete response will be appended to the transcript${nextAI ? ` and forwarded to ${nextAI}` : ''}.\n\n----- BEGIN ROUNDTABLE TRANSCRIPT -----\n\n${transcript}\n\n----- END ROUNDTABLE TRANSCRIPT -----`;\n\n  function visible(el) {\n    const r = el.getBoundingClientRect();\n    const s = getComputedStyle(el);\n    return r.width > 80 && r.height > 15 && s.visibility !== 'hidden' && s.display !== 'none' && !el.disabled;\n  }\n  function setNativeValue(el, value) {\n    const proto = Object.getPrototypeOf(el);\n    const desc = Object.getOwnPropertyDescriptor(proto, 'value');\n    if (desc && desc.set) desc.set.call(el, value); else el.value = value;\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n  }\n  const candidates = [...document.querySelectorAll('textarea, div[contenteditable=\"true\"], [role=\"textbox\"], input[type=\"text\"], input:not([type])')]\n    .filter(visible)\n    .sort((a,b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom);\n  const promptBox = candidates[0];\n  if (!promptBox) throw new Error('Could not find prompt box on ' + currentAI);\n  promptBox.focus();\n  if (promptBox.isContentEditable || promptBox.getAttribute('contenteditable') === 'true') {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, prompt);\n  } else {\n    setNativeValue(promptBox, prompt);\n  }\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Paste cleaned roundtable transcript into ChatGPT",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 30000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "submitdelay_07",
+        "type": "BlockDelay",
+        "initialized": false,
+        "position": {
+          "x": 2490,
+          "y": 410
+        },
+        "data": {
+          "disableBlock": false,
+          "time": "1000",
+          "description": "Small pause before submit"
+        },
+        "label": "delay"
+      },
+      {
+        "id": "submit_07",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 2490,
+          "y": 520
+        },
+        "data": {
+          "code": "(() => {\n  function visible(el) {\n    const r = el.getBoundingClientRect();\n    const s = getComputedStyle(el);\n    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none';\n  }\n  const labels = ['submit', 'send', 'ask', 'arrow'];\n  const buttons = [...document.querySelectorAll('button, [role=\"button\"]')].filter(visible);\n  let btn = buttons.find(b => {\n    const text = (b.innerText || '').toLowerCase();\n    const aria = (b.getAttribute('aria-label') || '').toLowerCase();\n    const title = (b.getAttribute('title') || '').toLowerCase();\n    const combined = `${text} ${aria} ${title}`;\n    return labels.some(x => combined.includes(x)) && !b.disabled && b.getAttribute('aria-disabled') !== 'true';\n  });\n  if (!btn) {\n    btn = buttons.filter(b => !b.disabled && b.getAttribute('aria-disabled') !== 'true')\n      .sort((a, b) => {\n        const ar = a.getBoundingClientRect();\n        const br = b.getBoundingClientRect();\n        return (br.bottom - ar.bottom) || (br.right - ar.right);\n      })[0];\n  }\n  if (btn) btn.click();\n  else {\n    const active = document.activeElement;\n    active && active.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', code:'Enter', bubbles:true, cancelable:true}));\n  }\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Submit ChatGPT prompt",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 20000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "wait_07",
+        "type": "BlockDelay",
+        "initialized": false,
+        "position": {
+          "x": 2490,
+          "y": 680
+        },
+        "data": {
+          "disableBlock": false,
+          "time": "15000",
+          "description": "Test wait for ChatGPT response"
+        },
+        "label": "delay"
+      },
+      {
+        "id": "extract_07",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 2490,
+          "y": 820
+        },
+        "data": {
+          "code": "(async () => {\n  const aiName = \"ChatGPT\";\n  const originalPrompt = automaRefData('variables', 'originalPrompt') || '';\n  function cleanText(raw) {\n    let text = String(raw || '').replace(/\\r/g, '\\n');\n    const uiExact = new Set([\n      'Edge','Research','Chat','Speech','New Chat','Sign In','PROMPT TYPE','Clear',\n      'Image analysis','Code analysis','Multilingual chat','API Documentation','API Platform','Talk to Sales',\n      'Responses may be inaccurate. Verify important information.','Pro','Free preview of advanced search enabled.',\n      'Home','Discover','Spaces','Library','Upgrade','Try Pro','Attach','Voice','Send','Submit','Stop generating',\n      'Regenerate','Share','Copy','Copied','Like','Dislike','Sources','Related','Ask follow-up','Search',\n      'Terms','Privacy','Help','Settings','Account','Log in','Login','Sign up','Get app','Apps'\n    ]);\n    let lines = text.split(/\\n+/).map(s => s.trim()).filter(Boolean);\n    lines = lines.filter(line => !uiExact.has(line));\n    text = lines.join('\\n');\n    const endMarker = '----- END PREVIOUS CONVERSATION -----';\n    const idx = text.lastIndexOf(endMarker);\n    if (idx >= 0) text = text.slice(idx + endMarker.length);\n    const beginMarker = '----- BEGIN PREVIOUS CONVERSATION -----';\n    const idx2 = text.lastIndexOf(beginMarker);\n    if (idx2 >= 0) text = text.slice(idx2 + beginMarker.length);\n    text = text\n      .replace(/^Hi\\s+[^,]+,?/i, '')\n      .replace(/The following is the original prompt[\\s\\S]{0,1200}?discussion\\./i, '')\n      .replace(/Please do not simply summarize[\\s\\S]{0,1200}?where appropriate\\./i, '')\n      .replace(/Treat this as collaborative peer review[\\s\\S]{0,500}?discussion\\./i, '')\n      .replace(/={5,}\\s*(ORIGINAL PROMPT|REKA CHAT|REKA|PERPLEXITY|COPILOT|GROK|GEMINI|DEEPSEEK|CLAUDE|CHATGPT)\\s*={5,}/ig, '')\n      .trim();\n    if (originalPrompt) {\n      text = text.replace(originalPrompt, '').trim();\n    }\n    text = text.replace(/\\n{3,}/g, '\\n\\n').trim();\n    return text;\n  }\n  const raw = document.body ? document.body.innerText : '';\n  let latest = cleanText(raw);\n  if (!latest) latest = '[No clean response text was detected. Full page copy may be needed here.]';\n  let transcript = automaRefData('variables', 'roundtableTranscript') || '';\n  if (!transcript) {\n    transcript = `====================\\nORIGINAL PROMPT\\n====================\\n\\n${originalPrompt || '[Original prompt not captured]'}\\n`;\n  }\n  transcript += `\\n\\n====================\\n${aiName}\\n====================\\n\\n${latest}\\n`;\n  automaSetVariable('latestResponse', latest);\n  automaSetVariable('roundtableTranscript', transcript);\n  try { await navigator.clipboard.writeText(transcript); } catch(e) {}\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Extract and clean latest ChatGPT response; append to transcript",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 30000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "finalcopy",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 2850,
+          "y": 420
+        },
+        "data": {
+          "code": "(async () => {\n  const transcript = automaRefData('variables', 'roundtableTranscript') || '';\n  const finalText = transcript + '\\n\\n====================\\nEND OF ROUNDTABLE\\n====================\\n';\n  try { await navigator.clipboard.writeText(finalText); }\n  catch(e) {\n    const ta = document.createElement('textarea');\n    ta.value = finalText; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();\n  }\n  automaNextBlock();\n})();",
+          "context": "website",
+          "description": "Copy final cleaned roundtable transcript to clipboard",
+          "disableBlock": false,
+          "everyNewTab": false,
+          "preloadScripts": [],
+          "runBeforeLoad": false,
+          "timeout": 20000
+        },
+        "label": "javascript-code"
+      },
+      {
+        "id": "done001",
+        "type": "BlockBasic",
+        "initialized": false,
+        "position": {
+          "x": 2850,
+          "y": 580
+        },
+        "data": {
+          "description": "AI Roundtable complete",
+          "disableBlock": false,
+          "message": "Final cleaned roundtable transcript has been copied to the clipboard.",
+          "title": "AI Roundtable complete",
+          "type": "success"
+        },
+        "label": "notification"
+      }
+    ],
+    "edges": [
+      {
+        "data": {},
+        "id": "vueflow__edge-trig001-act_reka",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "trig001",
+        "sourceHandle": "trig001-output-1",
+        "target": "act_reka",
+        "targetHandle": "act_reka-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-act_reka-init001",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "act_reka",
+        "sourceHandle": "act_reka-output-1",
+        "target": "init001",
+        "targetHandle": "init001-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-init001-extract_reka",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "init001",
+        "sourceHandle": "init001-output-1",
+        "target": "extract_reka",
+        "targetHandle": "extract_reka-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-extract_reka-switch_01",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "extract_reka",
+        "sourceHandle": "extract_reka-output-1",
+        "target": "switch_01",
+        "targetHandle": "switch_01-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-switch_01-act_01",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "switch_01",
+        "sourceHandle": "switch_01-output-1",
+        "target": "act_01",
+        "targetHandle": "act_01-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-act_01-paste_01",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "act_01",
+        "sourceHandle": "act_01-output-1",
+        "target": "paste_01",
+        "targetHandle": "paste_01-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-paste_01-submitdelay_01",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "paste_01",
+        "sourceHandle": "paste_01-output-1",
+        "target": "submitdelay_01",
+        "targetHandle": "submitdelay_01-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-submitdelay_01-submit_01",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "submitdelay_01",
+        "sourceHandle": "submitdelay_01-output-1",
+        "target": "submit_01",
+        "targetHandle": "submit_01-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-submit_01-wait_01",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "submit_01",
+        "sourceHandle": "submit_01-output-1",
+        "target": "wait_01",
+        "targetHandle": "wait_01-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-wait_01-extract_01",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "wait_01",
+        "sourceHandle": "wait_01-output-1",
+        "target": "extract_01",
+        "targetHandle": "extract_01-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-extract_01-switch_02",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "extract_01",
+        "sourceHandle": "extract_01-output-1",
+        "target": "switch_02",
+        "targetHandle": "switch_02-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-switch_02-act_02",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "switch_02",
+        "sourceHandle": "switch_02-output-1",
+        "target": "act_02",
+        "targetHandle": "act_02-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-act_02-paste_02",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "act_02",
+        "sourceHandle": "act_02-output-1",
+        "target": "paste_02",
+        "targetHandle": "paste_02-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-paste_02-submitdelay_02",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "paste_02",
+        "sourceHandle": "paste_02-output-1",
+        "target": "submitdelay_02",
+        "targetHandle": "submitdelay_02-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-submitdelay_02-submit_02",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "submitdelay_02",
+        "sourceHandle": "submitdelay_02-output-1",
+        "target": "submit_02",
+        "targetHandle": "submit_02-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-submit_02-wait_02",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "submit_02",
+        "sourceHandle": "submit_02-output-1",
+        "target": "wait_02",
+        "targetHandle": "wait_02-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-wait_02-extract_02",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "wait_02",
+        "sourceHandle": "wait_02-output-1",
+        "target": "extract_02",
+        "targetHandle": "extract_02-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-extract_02-switch_03",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "extract_02",
+        "sourceHandle": "extract_02-output-1",
+        "target": "switch_03",
+        "targetHandle": "switch_03-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-switch_03-act_03",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "switch_03",
+        "sourceHandle": "switch_03-output-1",
+        "target": "act_03",
+        "targetHandle": "act_03-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-act_03-paste_03",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "act_03",
+        "sourceHandle": "act_03-output-1",
+        "target": "paste_03",
+        "targetHandle": "paste_03-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-paste_03-submitdelay_03",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "paste_03",
+        "sourceHandle": "paste_03-output-1",
+        "target": "submitdelay_03",
+        "targetHandle": "submitdelay_03-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-submitdelay_03-submit_03",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "submitdelay_03",
+        "sourceHandle": "submitdelay_03-output-1",
+        "target": "submit_03",
+        "targetHandle": "submit_03-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-submit_03-wait_03",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "submit_03",
+        "sourceHandle": "submit_03-output-1",
+        "target": "wait_03",
+        "targetHandle": "wait_03-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-wait_03-extract_03",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "wait_03",
+        "sourceHandle": "wait_03-output-1",
+        "target": "extract_03",
+        "targetHandle": "extract_03-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-extract_03-switch_04",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "extract_03",
+        "sourceHandle": "extract_03-output-1",
+        "target": "switch_04",
+        "targetHandle": "switch_04-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-switch_04-act_04",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "switch_04",
+        "sourceHandle": "switch_04-output-1",
+        "target": "act_04",
+        "targetHandle": "act_04-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-act_04-paste_04",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "act_04",
+        "sourceHandle": "act_04-output-1",
+        "target": "paste_04",
+        "targetHandle": "paste_04-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-paste_04-submitdelay_04",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "paste_04",
+        "sourceHandle": "paste_04-output-1",
+        "target": "submitdelay_04",
+        "targetHandle": "submitdelay_04-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-submitdelay_04-submit_04",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "submitdelay_04",
+        "sourceHandle": "submitdelay_04-output-1",
+        "target": "submit_04",
+        "targetHandle": "submit_04-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-submit_04-wait_04",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "submit_04",
+        "sourceHandle": "submit_04-output-1",
+        "target": "wait_04",
+        "targetHandle": "wait_04-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-wait_04-extract_04",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "wait_04",
+        "sourceHandle": "wait_04-output-1",
+        "target": "extract_04",
+        "targetHandle": "extract_04-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-extract_04-switch_05",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "extract_04",
+        "sourceHandle": "extract_04-output-1",
+        "target": "switch_05",
+        "targetHandle": "switch_05-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-switch_05-act_05",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "switch_05",
+        "sourceHandle": "switch_05-output-1",
+        "target": "act_05",
+        "targetHandle": "act_05-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-act_05-paste_05",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "act_05",
+        "sourceHandle": "act_05-output-1",
+        "target": "paste_05",
+        "targetHandle": "paste_05-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-paste_05-submitdelay_05",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "paste_05",
+        "sourceHandle": "paste_05-output-1",
+        "target": "submitdelay_05",
+        "targetHandle": "submitdelay_05-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-submitdelay_05-submit_05",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "submitdelay_05",
+        "sourceHandle": "submitdelay_05-output-1",
+        "target": "submit_05",
+        "targetHandle": "submit_05-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-submit_05-wait_05",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "submit_05",
+        "sourceHandle": "submit_05-output-1",
+        "target": "wait_05",
+        "targetHandle": "wait_05-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-wait_05-extract_05",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "wait_05",
+        "sourceHandle": "wait_05-output-1",
+        "target": "extract_05",
+        "targetHandle": "extract_05-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-extract_05-switch_06",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "extract_05",
+        "sourceHandle": "extract_05-output-1",
+        "target": "switch_06",
+        "targetHandle": "switch_06-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-switch_06-act_06",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "switch_06",
+        "sourceHandle": "switch_06-output-1",
+        "target": "act_06",
+        "targetHandle": "act_06-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-act_06-paste_06",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "act_06",
+        "sourceHandle": "act_06-output-1",
+        "target": "paste_06",
+        "targetHandle": "paste_06-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-paste_06-submitdelay_06",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "paste_06",
+        "sourceHandle": "paste_06-output-1",
+        "target": "submitdelay_06",
+        "targetHandle": "submitdelay_06-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-submitdelay_06-submit_06",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "submitdelay_06",
+        "sourceHandle": "submitdelay_06-output-1",
+        "target": "submit_06",
+        "targetHandle": "submit_06-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-submit_06-wait_06",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "submit_06",
+        "sourceHandle": "submit_06-output-1",
+        "target": "wait_06",
+        "targetHandle": "wait_06-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-wait_06-extract_06",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "wait_06",
+        "sourceHandle": "wait_06-output-1",
+        "target": "extract_06",
+        "targetHandle": "extract_06-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-extract_06-switch_07",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "extract_06",
+        "sourceHandle": "extract_06-output-1",
+        "target": "switch_07",
+        "targetHandle": "switch_07-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-switch_07-act_07",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "switch_07",
+        "sourceHandle": "switch_07-output-1",
+        "target": "act_07",
+        "targetHandle": "act_07-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-act_07-paste_07",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "act_07",
+        "sourceHandle": "act_07-output-1",
+        "target": "paste_07",
+        "targetHandle": "paste_07-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-paste_07-submitdelay_07",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "paste_07",
+        "sourceHandle": "paste_07-output-1",
+        "target": "submitdelay_07",
+        "targetHandle": "submitdelay_07-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-submitdelay_07-submit_07",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "submitdelay_07",
+        "sourceHandle": "submitdelay_07-output-1",
+        "target": "submit_07",
+        "targetHandle": "submit_07-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-submit_07-wait_07",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "submit_07",
+        "sourceHandle": "submit_07-output-1",
+        "target": "wait_07",
+        "targetHandle": "wait_07-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-wait_07-extract_07",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "wait_07",
+        "sourceHandle": "wait_07-output-1",
+        "target": "extract_07",
+        "targetHandle": "extract_07-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-extract_07-finalcopy",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "extract_07",
+        "sourceHandle": "extract_07-output-1",
+        "target": "finalcopy",
+        "targetHandle": "finalcopy-input-1",
+        "type": "custom",
+        "updatable": true
+      },
+      {
+        "data": {},
+        "id": "vueflow__edge-finalcopy-done001",
+        "label": "",
+        "markerEnd": "arrowclosed",
+        "selectable": true,
+        "source": "finalcopy",
+        "sourceHandle": "finalcopy-output-1",
+        "target": "done001",
+        "targetHandle": "done001-input-1",
+        "type": "custom",
+        "updatable": true
+      }
+    ]
+  }
+}

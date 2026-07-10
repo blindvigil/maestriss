@@ -1,6 +1,8 @@
 # Restarts Chrome (with CDP) and the Maestriss runner with a clean session state,
 # so Chrome never shows the "Restore pages?" crash bubble or leftover New Tab pages.
 
+Clear-Host
+
 Write-Host ""
 Write-Host "=== Stopping old runner ==="
 

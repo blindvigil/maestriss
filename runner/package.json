@@ -10,7 +10,10 @@
     "test:reka-filter": "tsx src/rekaFilterAssertions.ts",
     "test:deepseek-filter": "tsx src/deepseekFilterAssertions.ts",
     "test:grok-filter": "tsx src/grokFilterAssertions.ts",
-    "test:copilot-filter": "tsx src/copilotFilterAssertions.ts"
+    "test:copilot-filter": "tsx src/copilotFilterAssertions.ts",
+    "test:claude-filter": "tsx src/claudeFilterAssertions.ts",
+    "test:gemini-filter": "tsx src/geminiFilterAssertions.ts",
+    "test:google-filter": "tsx src/googleFilterAssertions.ts"
   },
   "dependencies": {
     "playwright": "^1.47.2"

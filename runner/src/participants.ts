@@ -48,6 +48,6 @@ export const participants: RunnerParticipant[] = [
   {
     id: 'google',
     name: 'Google',
-    url: 'https://www.google.com/',
+    url: 'https://www.google.com/ai',
   },
 ];
