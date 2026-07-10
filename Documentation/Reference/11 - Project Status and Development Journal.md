@@ -54,7 +54,7 @@ This section is intended to be updated frequently.
 
 **Testing Status:** Build verification is active. Provider-specific filter and regression tests exist for several drivers, with ChatGPT and Perplexity still needing fuller dedicated filter assertion coverage. Live smoke tests are used to validate exact-answer asks against provider pages.
 
-**Documentation Status:** The Planning and Reference series is substantially developed. Documents 01 through 14 now define design philosophy, system architecture, driver lifecycle, browser management, response detection, testing, participant drivers, browser automation, diagnostics, future vision, project status, engineering standards, AI collaboration, and operations.
+**Documentation Status:** The Documentation/Reference series is substantially developed. Documents 01 through 14 now define design philosophy, system architecture, driver lifecycle, browser management, response detection, testing, participant drivers, browser automation, diagnostics, future vision, project status, engineering standards, AI collaboration, and operations.
 
 **Known Stability:** The core runner and several drivers are stable enough for continued development and smoke testing. Provider UI changes remain the primary ongoing risk.
 
@@ -98,7 +98,7 @@ Entries should be added chronologically, newest at the top.
 
 **Area:** Reference Documentation
 
-**Summary:** Created the core Planning and Reference document series covering design philosophy, system architecture, driver lifecycle, browser management, response detection, testing, participant drivers, browser automation, diagnostics, future roadmap, and this project journal.
+**Summary:** Created the core reference document series (now housed in `Documentation/Reference/`) covering design philosophy, system architecture, driver lifecycle, browser management, response detection, testing, participant drivers, browser automation, diagnostics, future roadmap, and this project journal.
 
 **Outcome:** Future engineers now have a durable project knowledge base before entering the source code.
 
@@ -447,7 +447,8 @@ Entries should be added chronologically, newest at the top.
 
 | Version | Date | Major Features | Important Fixes | Known Issues | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Unreleased Development | 2026-07-10 | Runner, participant drivers, browser automation, diagnostics, filter tests, Planning and Reference documents. | Google AI Mode, Claude geometry, Gemini detector, Copilot stop logic. | Provider UI changes remain ongoing risk. | Active development state before formal release versioning. |
+| v0.2.0 "Documented Foundation" | 2026-07-10 | Documentation reorganized into Documentation/Reference and Documentation/Reviews; docs-vs-code reconciliation audit; root README.txt and bootstrap.txt onboarding. | Stale documentation path references updated. | Doc-vs-code gaps catalogued in the reconciliation report remain open. | First named milestone version. |
+| Unreleased Development | 2026-07-10 | Runner, participant drivers, browser automation, diagnostics, filter tests, Documentation/Reference documents. | Google AI Mode, Claude geometry, Gemini detector, Copilot stop logic. | Provider UI changes remain ongoing risk. | Active development state before formal release versioning. |
 
 ## Current Priorities
 

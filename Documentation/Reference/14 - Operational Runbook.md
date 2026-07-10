@@ -103,7 +103,7 @@ The repository is organized around Studio, runner, documentation, diagnostics, a
 
 `runner/debug/` contains runtime diagnostic artifacts such as screenshots and HTML dumps. These files are operational evidence and may be cleaned periodically after they are no longer needed.
 
-`Planning_and_Reference/` contains the permanent reference documents and this operational runbook. These documents should be treated as project knowledge, not disposable notes.
+`Documentation/Reference/` contains the permanent reference documents and this operational runbook. These documents should be treated as project knowledge, not disposable notes. `Documentation/Reviews/` contains historical audits, reconciliations, and other working documents that are valuable historically but are not authoritative reference material.
 
 `src/` contains the Maestriss Studio React application source.
 
@@ -492,7 +492,7 @@ Backups should protect source code, documentation, configuration, and browser se
 
 The repository should be backed up through Git and remote storage.
 
-The `Planning_and_Reference/` directory should be treated as critical project knowledge and included in repository backups.
+The `Documentation/` directory should be treated as critical project knowledge and included in repository backups.
 
 Configuration files should be versioned when safe and excluded when they contain secrets.
 
@@ -508,7 +508,7 @@ If the workstation is lost, recover the repository from Git or backup, reinstall
 
 If the profile is corrupted, create a new dedicated profile and repeat provider logins. Run smoke tests after authentication is restored.
 
-If the repository is lost, restore from remote Git or backup. Verify the Planning and Reference documents, runner, Studio, tests, and package lock files are present.
+If the repository is lost, restore from remote Git or backup. Verify the Documentation/Reference documents, runner, Studio, tests, and package lock files are present.
 
 If the browser is corrupted, reinstall or reset Chrome, recreate the dedicated profile, and reconnect the runner.
 

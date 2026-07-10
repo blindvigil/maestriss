@@ -1,0 +1,44 @@
+MAESTRISS AI BOOTSTRAP PROMPT
+Paste this as the first instruction to an AI assistant that has repository access but no prior knowledge of the project.
+
+---
+
+You are joining Maestriss, a project that orchestrates multiple web AI providers (ChatGPT, Claude, Gemini, Google AI Mode, Grok, Copilot, DeepSeek, Perplexity, Reka) through browser automation, treating each provider as a "participant" in multi-AI workflows. Build an accurate working model of the project in the order below BEFORE proposing or making changes.
+
+STEP 1 - ORIENTATION
+Read README.txt (root). Understand the two halves of the repo:
+- src/            Maestriss Studio: React/Vite UI for designing workflows, participants, profiles, and prompts; exports Automa workflow JSON. NOT yet connected to the runner (file export only; sessions page uses mock data).
+- runner/         Native runner: Node + Playwright HTTP server (127.0.0.1:4137) and CLI that drives real provider tabs in a persistent browser profile. This is where the operational engineering lives.
+
+STEP 2 - CORE REFERENCE DOCS (read in this order)
+All in Documentation/Reference/:
+  02 - System Architecture            (component map, request pipeline)
+  03 - Driver Lifecycle Specification (waitForReady -> pastePrompt -> submitPrompt -> waitForCompletion -> extractResponse)
+  05 - Response Detection and Filtering Philosophy
+  07 - Participant Driver Reference   (per-provider specifics)
+  01 - Design Philosophies and Tenets (the "constitution": reliability over cleverness, observation over assumption, geometry is evidence not dogma)
+Skim as needed: 04 (tabs/browser), 06+09 (testing/diagnostics), 14 (ops runbook), 10-13 (roadmap, journal, process), 15 (commentary). Strategy background: docs/automa-export-strategy.md and docs/native-runner-strategy.md.
+
+STEP 3 - CALIBRATE DOC TRUST
+Read Documentation/Reviews/"Reconciliation Report - Docs vs Code (2026-07-10).md". The docs are largely accurate, but that audit lists every known doc-vs-code discrepancy (e.g., ChatGPT/Perplexity lack the filtering modules the docs imply; Gemini/ChatGPT do not verify submission; the code default is a Playwright persistent profile, not CDP; /health hardcodes connected:true). RULE: where documentation and code disagree, the CODE is the operational truth; the report tells you where those spots are. Check the git log for changes made after 2026-07-10 that the docs and report may not reflect.
+
+STEP 4 - CODE ANCHORS (read these files; they define every pattern)
+  runner/src/server.ts          request queue, ask lifecycle, timeouts, security-verification gate, endpoints
+  runner/src/runner.ts          participant tab discovery/reuse
+  runner/src/participants.ts    the 9-participant roster (note: src/data/defaultParticipants.ts in Studio diverges)
+  runner/src/drivers/base.ts and drivers/index.ts   driver contract + registry
+  One mature driver pair end-to-end: drivers/claudeDriver.ts + drivers/claudeFiltering.ts + claudeFilterAssertions.ts (the exemplar all drivers should converge toward)
+  runner/src/security.ts, inspector.ts, drivers/pasteVerification.ts
+Studio side, if relevant to the task: src/App.tsx, src/context/ProjectContext.tsx, src/exporters/automa/generateAutomaWorkflow.ts.
+
+STEP 5 - VERIFY YOUR SETUP UNDERSTANDING
+Builds: npm run build (root) and cd runner && npm run build. Deterministic tests: runner npm scripts test:<provider>-filter (7 providers). Live checks are manual: npm run dev -- ask <participant> "Say exactly: ..." . Debug artifacts land in runner/debug/.
+
+WORKING RULES (from the project's own standards)
+- Provider quirks belong in that provider's driver/filtering module; shared lifecycle belongs in server/runner. Never let one provider's fix distort another driver.
+- Verify state transitions (paste verified, submit verified, candidate-based extraction with logged rejection reasons); never assume.
+- Every bug fixed should leave behind a regression assertion or better diagnostic.
+- Short valid answers must not be rejected; prefer smallest valid child over parent containers; static status text (e.g. "Stopped generating") is not an active control.
+- Update Documentation/Reference/11 (journal) when completing significant work, and keep doc claims synchronized with code.
+
+When you finish reading, state: (a) the request lifecycle in one paragraph, (b) which providers have full filtering+regression coverage and which do not, (c) the two browser modes and their profiles. If you can do that accurately, you are ready to work.

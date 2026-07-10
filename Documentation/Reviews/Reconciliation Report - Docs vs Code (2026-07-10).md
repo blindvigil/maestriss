@@ -1,7 +1,7 @@
-# Reconciliation Report — Planning_and_Reference Docs vs Code
+# Reconciliation Report — Reference Docs vs Code
 
 **Date:** 2026-07-10
-**Scope:** All 14 documents in `Planning_and_Reference/` reconciled against the full codebase (`runner/` native runner, `src/` Maestriss Studio, `docs/`, scripts, package manifests, and git history).
+**Scope:** All 14 documents in `Documentation/Reference/` (named `Planning_and_Reference/` at the time of the audit) reconciled against the full codebase (`runner/` native runner, `src/` Maestriss Studio, `docs/`, scripts, package manifests, and git history).
 **Method:** Five parallel audit passes, each reading its assigned documents in full and verifying every concrete, checkable claim against the code, with cross-corroboration between passes. File and line references below point at the code as of commit `ef75869`.
 
 ---
@@ -156,7 +156,7 @@ Git baseline: exactly 4 commits — `a27c4b2` (07-07, Vite skeleton), `5f2be43` 
 - Doc 10 lists "automatic provider health monitoring" as medium-term future, but `check-providers` → `/providers/status` already reports per-participant status today. Presumably the roadmap means *richer* checks (login state, composer availability) — worth clarifying. — minor
 - Docs 10, 12, 13 otherwise contain almost no falsifiable done-claims and are correctly framed as vision/process; doc 10's Current State section is accurate in every specific.
 
-### Code-adjacent (outside Planning_and_Reference, flagged in passing)
+### Code-adjacent (outside the reference docs, flagged in passing)
 
 - `runner/README.md:238-244` documents a `--skip-blocked` flag that is not parsed anywhere (`index.ts:29-88, 157-159`); as written, `--skip-blocked` would be **joined into the prompt text** sent to the provider. — major for the README
 - `runner/src/types.ts:33-51` defines `WorkflowNode`/`WorkflowEdge`/`WorkflowDefinition`, and `runner/workflows/google-chatgpt.workflow.json` exists — but nothing in `runner/src` reads either. Planned engine or dead scaffolding?
