@@ -1,0 +1,22 @@
+{
+  "id": "google-chatgpt",
+  "name": "Google to ChatGPT factual critique",
+  "nodes": [
+    {
+      "id": "google",
+      "participant": "google"
+    },
+    {
+      "id": "chatgpt",
+      "participant": "chatgpt"
+    }
+  ],
+  "edges": [
+    {
+      "id": "google-to-chatgpt",
+      "from": "google",
+      "to": "chatgpt",
+      "promptTemplate": "critique-factual-accuracy"
+    }
+  ]
+}

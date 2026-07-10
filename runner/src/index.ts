@@ -1,0 +1,470 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  runnerBaseUrl,
+  startRunnerServer,
+  type AskResponse,
+  type BrowserChannel,
+  type ChainResponse,
+  type HealthResponse,
+  type InspectResponse,
+  type ProviderStatus,
+  type RandomRunResponse,
+} from './server.js';
+import { participants } from './participants.js';
+import type { ParticipantRunResponse } from './types.js';
+
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const runnerRoot = path.resolve(currentDir, '..');
+const userDataDir = path.join(runnerRoot, '.user-data');
+
+type CliOptions = {
+  browserChannel: BrowserChannel;
+  connectCdpUrl?: string;
+  verbose: boolean;
+  args: string[];
+};
+
+function parseCliOptions(args: string[]): CliOptions {
+  const parsedArgs: string[] = [];
+  let browserChannel: BrowserChannel = 'chromium';
+  let connectCdpUrl: string | undefined;
+  let verbose = false;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === '--channel') {
+      const channel = args[index + 1];
+
+      if (channel !== 'chromium' && channel !== 'chrome' && channel !== 'msedge') {
+        throw new Error('Invalid browser channel. Use "chromium", "chrome", or "msedge".');
+      }
+
+      browserChannel = channel;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--connect-cdp') {
+      const url = args[index + 1];
+
+      if (!url) {
+        throw new Error('Missing CDP URL. Usage: npm run dev -- serve --connect-cdp http://127.0.0.1:9222');
+      }
+
+      connectCdpUrl = url;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--verbose') {
+      verbose = true;
+      continue;
+    }
+
+    parsedArgs.push(arg);
+  }
+
+  return {
+    browserChannel,
+    connectCdpUrl,
+    verbose,
+    args: parsedArgs,
+  };
+}
+
+function printRunnerNotRunning() {
+  console.log('Maestriss Runner is not running. Start it with:');
+  console.log('npm run dev -- serve');
+}
+
+function isConnectionFailure(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes('fetch failed') ||
+    message.includes('ECONNREFUSED') ||
+    message.includes('connect ECONNREFUSED')
+  );
+}
+
+type JsonEndpoint = '/ask' | '/cancel-all' | '/chain' | '/health' | '/inspect' | '/providers/status' | '/run-random';
+
+async function requestJson<TResponse>(
+  pathName: JsonEndpoint,
+  init?: RequestInit,
+): Promise<TResponse | undefined> {
+  try {
+    const response = await globalThis.fetch(`${runnerBaseUrl}${pathName}`, init);
+    const responseText = await response.text();
+    let payload: { error?: string } = {};
+
+    if (responseText) {
+      try {
+        payload = JSON.parse(responseText) as { error?: string };
+      } catch {
+        payload = { error: responseText };
+      }
+    }
+
+    if (!response.ok) {
+      throw new Error(`Runner request ${pathName} failed: ${payload.error ?? `HTTP ${response.status}`}`);
+    }
+
+    return payload as TResponse;
+  } catch (error) {
+    if (isConnectionFailure(error)) {
+      printRunnerNotRunning();
+      return undefined;
+    }
+
+    throw error;
+  }
+}
+
+async function getJson<TResponse>(pathName: JsonEndpoint): Promise<TResponse | undefined> {
+  return requestJson<TResponse>(pathName, {
+    method: 'GET',
+  });
+}
+
+async function postJson<TResponse>(
+  pathName: JsonEndpoint,
+  body: unknown,
+): Promise<TResponse | undefined> {
+  return requestJson<TResponse>(pathName, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+async function runAskClient(driverName: string, promptParts: string[]) {
+  const debugClick = promptParts.includes('--debug-click');
+  const prompt = promptParts.filter((part) => part !== '--debug-click').join(' ').trim();
+
+  if (!prompt) {
+    throw new Error(`Missing prompt. Usage: npm run dev -- ask ${driverName} "your prompt here"`);
+  }
+
+  const result = await postJson<AskResponse>('/ask', {
+    participant: driverName,
+    prompt,
+    debugClick,
+  });
+
+  if (!result) {
+    return;
+  }
+
+  console.log(`\n--- ${result.participant} response ---\n`);
+  console.log(result.response || '[No response text detected]');
+  console.log('\n--- end response ---\n');
+  console.log('Done.');
+}
+
+async function runInspectClient(participant: string) {
+  const result = await postJson<InspectResponse>('/inspect', {
+    participant,
+  });
+
+  if (!result) {
+    return;
+  }
+
+  const { inspection } = result;
+  console.log(`Current URL: ${inspection.currentUrl}`);
+  console.log(`Page title: ${inspection.title || '(untitled)'}`);
+  console.log(`readyState: ${inspection.readyState}`);
+  console.table([inspection.counts]);
+
+  console.log('\nVisible button labels:');
+  inspection.visibleButtonLabels.forEach((label, index) => {
+    console.log(`${index + 1}. ${label}`);
+  });
+
+  console.log('\nVisible textarea placeholders:');
+  inspection.visibleTextareaPlaceholders.forEach((placeholder, index) => {
+    console.log(`${index + 1}. ${placeholder}`);
+  });
+
+  console.log('\nVisible textbox placeholders:');
+  inspection.visibleTextboxPlaceholders.forEach((placeholder, index) => {
+    console.log(`${index + 1}. ${placeholder}`);
+  });
+
+  console.log('\nCandidate composer selectors:');
+  inspection.candidateComposerSelectors.forEach((selector, index) => {
+    console.log(`${index + 1}. ${selector}`);
+  });
+
+  console.log('\nCandidate send buttons:');
+  inspection.candidateSendButtons.forEach((button, index) => {
+    console.log(`${index + 1}. ${button}`);
+  });
+
+  console.log('\nCandidate response containers:');
+  inspection.candidateResponseContainers.forEach((container, index) => {
+    console.log(`${index + 1}. ${container}`);
+  });
+
+  console.log('\nVisible stop/generating indicators:');
+  inspection.visibleGeneratingIndicators.forEach((indicator, index) => {
+    console.log(`${index + 1}. ${indicator}`);
+  });
+
+  console.log('\nCandidate composer outerHTML:');
+  inspection.candidateOuterHtml.forEach((html, index) => {
+    console.log(`\n--- candidate ${index + 1} ---\n${html}`);
+  });
+
+  console.log(`\nSaved HTML: ${inspection.htmlPath}`);
+  console.log(`Saved screenshot: ${inspection.screenshotPath}`);
+}
+
+function printNormalizedResponse(label: string, response: ParticipantRunResponse) {
+  console.log(`\n--- ${label} normalized response ---\n`);
+  console.log(`participant: ${response.participant}`);
+  if ('status' in response) {
+    console.log(`status: ${response.status}`);
+  }
+  console.log(`question: ${response.question || '(not recorded)'}`);
+  console.log(`elapsedSeconds: ${response.elapsedSeconds.toFixed(2)}`);
+  console.log(`citations: ${response.citations.length}`);
+  if ('error' in response) {
+    console.log(`error: ${response.error}`);
+  }
+  console.log('');
+  console.log(response.answer || '[No answer text detected]');
+}
+
+async function runChainClient(from: string, to: string | undefined, promptParts: string[]) {
+  if (!to) {
+    throw new Error('Missing chain target. Usage: npm run dev -- chain google chatgpt "optional prompt"');
+  }
+
+  const prompt = promptParts.join(' ').trim();
+  const result = await postJson<ChainResponse>('/chain', {
+    from,
+    to,
+    ...(prompt ? { prompt } : {}),
+  });
+
+  if (!result) {
+    return;
+  }
+
+  printNormalizedResponse('Google', result.sourceNormalizedResponse);
+  printNormalizedResponse('ChatGPT', result.targetNormalizedResponse);
+  console.log('\n--- end chain ---\n');
+  console.log('Done.');
+}
+
+async function runRandomClient(promptParts: string[], verbose: boolean) {
+  const prompt = promptParts.join(' ').trim();
+
+  if (!prompt) {
+    throw new Error('Missing prompt. Usage: npm run dev -- run-random "original prompt here"');
+  }
+
+  const result = await postJson<RandomRunResponse>('/run-random', {
+    prompt,
+  });
+
+  if (!result) {
+    return;
+  }
+
+  console.log(`Chosen order: ${result.order.join(' -> ')}`);
+
+  if (result.excludedProviders.length > 0) {
+    console.log('\nExcluded participants:');
+    result.excludedProviders.forEach((provider) => {
+      console.log(`${provider.participant}: ${provider.status}`);
+
+      if (provider.notes.length > 0) {
+        console.log(`  ${provider.notes.join(' ')}`);
+      }
+    });
+  }
+
+  for (const response of result.responses) {
+    const status = 'status' in response ? response.status : 'completed';
+    console.log(`${response.participant}: ${status}`);
+
+    if ('error' in response) {
+      console.log(`  ${response.error}`);
+    }
+  }
+
+  if (result.finalResponse) {
+    const finalStatus = 'status' in result.finalResponse ? result.finalResponse.status : 'completed';
+    console.log(`chatgpt final: ${finalStatus}`);
+
+    if ('error' in result.finalResponse) {
+      console.log(`  ${result.finalResponse.error}`);
+    }
+
+    console.log('\n--- final answer ---\n');
+    console.log(result.finalResponse.answer || '[No final answer returned]');
+  }
+
+  if (verbose) {
+    for (const response of result.responses) {
+      printNormalizedResponse(response.participant, response);
+    }
+
+    if (result.finalResponse) {
+      printNormalizedResponse('ChatGPT final', result.finalResponse);
+    }
+  }
+
+  console.log('\n--- end random workflow ---\n');
+  console.log('Done.');
+}
+
+async function runCheckProvidersClient(verbose: boolean) {
+  const result = await getJson<{ providers: ProviderStatus[] }>('/providers/status');
+
+  if (!result) {
+    return;
+  }
+
+  console.table(
+    result.providers.map((provider) => ({
+      participant: provider.participant,
+      driverImplemented: provider.driverImplemented,
+      status: provider.status,
+      pageTitle: provider.pageTitle || '(untitled)',
+      pageUrl: provider.pageUrl,
+    })),
+  );
+
+  if (verbose) {
+    console.log('\nProvider notes:');
+    result.providers.forEach((provider) => {
+      console.log(`\n${provider.participant}`);
+      console.log(`  status: ${provider.status}`);
+      console.log(`  driverImplemented: ${provider.driverImplemented}`);
+      console.log(`  pageTitle: ${provider.pageTitle || '(untitled)'}`);
+      console.log(`  pageUrl: ${provider.pageUrl}`);
+      console.log(`  notes: ${provider.notes.join(' ') || '(none)'}`);
+    });
+  }
+}
+
+async function runHealthClient() {
+  const result = await getJson<HealthResponse>('/health');
+
+  if (!result) {
+    return;
+  }
+
+  console.log(`Browser mode: ${result.browserMode}`);
+  console.log(`Browser channel: ${result.browserChannel}`);
+  console.log(`Connected: ${result.connected ? 'yes' : 'no'}`);
+  console.log(`Participant count: ${result.participantCount}`);
+  console.log(`Active requests: ${result.activeRequestIds.length > 0 ? result.activeRequestIds.join(', ') : '(none)'}`);
+}
+
+async function runCancelAllClient() {
+  const result = await postJson<{ cancelled: Array<{ requestId: string; participant: string }> }>('/cancel-all', {});
+
+  if (!result) {
+    return;
+  }
+
+  if (result.cancelled.length === 0) {
+    console.log('No active requests to cancel.');
+    return;
+  }
+
+  console.log('Cancelled active requests:');
+  result.cancelled.forEach((request) => {
+    console.log(`${request.requestId}: ${request.participant}`);
+  });
+}
+
+function printUsage() {
+  console.log('Usage:');
+  console.log('  npm run dev -- serve');
+  console.log('  npm run dev -- health');
+  console.log('  npm run dev -- cancel-all');
+  console.log('  npm run dev -- check-providers [--verbose]');
+  console.log('  npm run dev -- ask chatgpt "prompt here"');
+  console.log('  npm run dev -- chain google chatgpt "optional prompt"');
+  console.log('  npm run dev -- run-random "original prompt here" [--verbose]');
+  console.log('  npm run dev -- inspect claude');
+}
+
+async function main() {
+  console.log('Maestriss native runner proof of concept');
+  console.log(`Configured participants: ${participants.map((participant) => participant.name).join(', ')}`);
+
+  const {
+    browserChannel,
+    connectCdpUrl,
+    verbose,
+    args: [command, target, ...args],
+  } = parseCliOptions(process.argv.slice(2));
+
+  if (command === 'serve') {
+    if (connectCdpUrl) {
+      console.log(`Using external browser CDP endpoint: ${connectCdpUrl}`);
+    } else {
+      console.log(`Using persistent browser profile: ${userDataDir}`);
+    }
+
+    await startRunnerServer({
+      browserChannel,
+      connectCdpUrl,
+      runnerRoot,
+      userDataDir,
+    });
+    return;
+  }
+
+  if (command === 'health') {
+    await runHealthClient();
+    return;
+  }
+
+  if (command === 'cancel-all') {
+    await runCancelAllClient();
+    return;
+  }
+
+  if (command === 'check-providers') {
+    await runCheckProvidersClient(verbose);
+    return;
+  }
+
+  if (command === 'ask' && target) {
+    await runAskClient(target, args);
+    return;
+  }
+
+  if (command === 'chain' && target) {
+    await runChainClient(target, args[0], args.slice(1));
+    return;
+  }
+
+  if (command === 'run-random') {
+    await runRandomClient([target, ...args].filter((part): part is string => Boolean(part)), verbose);
+    return;
+  }
+
+  if (command === 'inspect' && target) {
+    await runInspectClient(target);
+    return;
+  }
+
+  printUsage();
+}
+
+main().catch((error: unknown) => {
+  console.error(error);
+  process.exitCode = 1;
+});

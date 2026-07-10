@@ -1,5 +1,5 @@
 import type { PromptTemplate } from '../../types/prompt';
-import type { AutomaParticipantStep } from './types';
+import type { AutomaParticipantStep, AutomaSmartWaitConfig } from './types';
 
 function toScriptString(value: unknown) {
   return JSON.stringify(value);
@@ -100,6 +100,216 @@ export function createSubmitScript(participantName: string) {
   else document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }));
   automaSetVariable('latestParticipant', ${toScriptString(participantName)});
   automaNextBlock();
+})();`;
+}
+
+export function createSmartWaitScript(config: AutomaSmartWaitConfig) {
+  return `(() => {
+  const config = ${toScriptString(config)};
+  const startedAt = Date.now();
+  const hardTimeoutMs = config.hardTimeoutSeconds * 1000;
+  const requiredStableMs = config.stableTextSeconds * 1000;
+  const pollMs = 500;
+  let lastAssistantText = '';
+  let stableSince = Date.now();
+  let finished = false;
+  let timer = 0;
+  let safetyTimer = 0;
+  let lastDebug = {
+    generatingVisible: false,
+    stopVisible: false,
+    sendReady: false,
+    stableForMs: 0,
+    lastTextLength: 0
+  };
+
+  function visible(el) {
+    const rect = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+  }
+
+  function elementText(el) {
+    return [
+      el.innerText,
+      el.textContent,
+      el.getAttribute('aria-label'),
+      el.getAttribute('title'),
+      el.getAttribute('data-testid')
+    ].filter(Boolean).join(' ').toLowerCase();
+  }
+
+  function visibleControls() {
+    return [...document.querySelectorAll('button, [role="button"], [aria-label], [title]')].filter(visible);
+  }
+
+  function matchesAny(text, indicators) {
+    const normalized = String(text || '').toLowerCase();
+    return indicators.some((indicator) => normalized.includes(String(indicator).toLowerCase()));
+  }
+
+  function hasVisibleIndicator(indicators) {
+    if (!indicators.length) return false;
+    return [...document.querySelectorAll('button, [role="button"], [aria-label], [title], [data-testid], [aria-live], [role="status"], span, div')]
+      .filter(visible)
+      .some((el) => matchesAny(elementText(el), indicators));
+  }
+
+  function hasStopControl() {
+    return visibleControls().some((control) => matchesAny(elementText(control), config.stopIndicators));
+  }
+
+  function isEnabled(el) {
+    return !el.disabled && el.getAttribute('aria-disabled') !== 'true' && !el.hasAttribute('disabled');
+  }
+
+  function composerRoot() {
+    return document.querySelector('form[data-type="unified-composer"]') ||
+      document.querySelector('[data-testid="composer"]') ||
+      document.querySelector('[data-testid="chat-input"]')?.closest('form') ||
+      document.querySelector('[contenteditable="true"]')?.closest('form') ||
+      document.querySelector('form') ||
+      document.querySelector('[contenteditable="true"]')?.parentElement;
+  }
+
+  function hasUsableComposer() {
+    if (!config.requireSendReady && !config.sendReadyIndicators.length) return true;
+    const root = composerRoot() || document;
+    const editable = root.querySelector('[contenteditable="true"], textarea, input[type="text"], input:not([type])');
+    const editableReady = editable && visible(editable) && !editable.hasAttribute('disabled') && editable.getAttribute('aria-disabled') !== 'true';
+    const readyIndicatorVisible = hasVisibleIndicator(config.sendReadyIndicators);
+    const sendReady = [...root.querySelectorAll('button, [role="button"], [aria-label], [title]')]
+      .filter(visible)
+      .some((control) => {
+        const text = elementText(control);
+        return isEnabled(control) && matchesAny(text, config.sendReadyIndicators);
+      });
+
+    return Boolean(readyIndicatorVisible || editableReady || sendReady || !config.requireSendReady);
+  }
+
+  function querySelectorAllSafe(selector) {
+    try {
+      return [...document.querySelectorAll(selector)];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function inChromeOrSidebar(el) {
+    return Boolean(el.closest('nav, aside, header, footer, [role="navigation"], [aria-label*="history" i], [class*="sidebar" i], [class*="history" i]'));
+  }
+
+  function responseCandidates() {
+    const preferred = config.preferredResponseSelectors.flatMap(querySelectorAllSafe);
+    const generic = [
+      ...document.querySelectorAll('[data-message-author-role="assistant"]'),
+      ...document.querySelectorAll('[data-testid*="assistant" i]'),
+      ...document.querySelectorAll('[data-testid*="message" i]'),
+      ...document.querySelectorAll('[data-testid*="answer" i]'),
+      ...document.querySelectorAll('[class*="assistant" i]'),
+      ...document.querySelectorAll('[class*="message" i]'),
+      ...document.querySelectorAll('[class*="answer" i]'),
+      ...document.querySelectorAll('[class*="response" i]'),
+      ...document.querySelectorAll('[class*="markdown" i]'),
+      ...document.querySelectorAll('[class*="prose" i]'),
+      ...document.querySelectorAll('article'),
+      ...document.querySelectorAll('main section')
+    ];
+
+    return [
+      ...new Set([...preferred, ...generic])
+    ].filter((candidate) => visible(candidate) && !inChromeOrSidebar(candidate));
+  }
+
+  function findLastAssistantMessage() {
+    const candidates = responseCandidates()
+      .filter((candidate) => {
+        const text = (candidate.textContent || '').trim();
+        const lowerText = text.toLowerCase();
+        return text.length > 0 &&
+          !matchesAny(lowerText, config.stopIndicators) &&
+          !matchesAny(lowerText, config.respondingIndicators) &&
+          !lowerText.startsWith('you ') &&
+          !lowerText.startsWith('user ');
+      })
+      .sort((a, b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom);
+
+    return candidates[0] || null;
+  }
+
+  function getLastAssistantText() {
+    const message = findLastAssistantMessage();
+    return message ? (message.textContent || '').trim() : '';
+  }
+
+  function setDebug(status, generatingVisible, stopVisible, sendReady, stableForMs, lastTextLength) {
+    automaSetVariable(config.statusVariablePrefix + 'WaitStatus', status);
+    automaSetVariable(config.statusVariablePrefix + 'GeneratingVisible', String(generatingVisible));
+    automaSetVariable(config.statusVariablePrefix + 'StopVisible', String(stopVisible));
+    automaSetVariable(config.statusVariablePrefix + 'SendReady', String(sendReady));
+    automaSetVariable(config.statusVariablePrefix + 'StableMs', String(stableForMs));
+    automaSetVariable(config.statusVariablePrefix + 'LastTextLength', String(lastTextLength));
+  }
+
+  function finish(reason) {
+    if (finished) return;
+    finished = true;
+    clearInterval(timer);
+    clearTimeout(safetyTimer);
+    setDebug(
+      reason,
+      lastDebug.generatingVisible,
+      lastDebug.stopVisible,
+      lastDebug.sendReady,
+      lastDebug.stableForMs,
+      lastDebug.lastTextLength
+    );
+    automaSetVariable(config.statusVariablePrefix + 'WaitFinishedAt', String(Date.now()));
+    automaNextBlock();
+  }
+
+  timer = setInterval(() => {
+    try {
+      const now = Date.now();
+      const currentText = getLastAssistantText();
+      if (currentText !== lastAssistantText) {
+        lastAssistantText = currentText;
+        stableSince = now;
+      }
+
+      const stableForMs = now - stableSince;
+      const generatingVisible = hasVisibleIndicator(config.respondingIndicators);
+      const stopVisible = hasStopControl();
+      const sendReady = hasUsableComposer();
+      const textStable = currentText.length > 0 && stableForMs >= requiredStableMs;
+      const generatingClear = !config.requireGeneratingClearance || !generatingVisible;
+      lastDebug = {
+        generatingVisible,
+        stopVisible,
+        sendReady,
+        stableForMs,
+        lastTextLength: currentText.length
+      };
+
+      const timedOut = now - startedAt >= hardTimeoutMs;
+      const complete = !stopVisible && sendReady && textStable && generatingClear;
+      setDebug(timedOut ? 'timeout' : complete ? 'complete' : 'waiting', generatingVisible, stopVisible, sendReady, stableForMs, currentText.length);
+
+      if (timedOut) {
+        finish('timeout');
+      } else if (complete) {
+        finish('complete');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      finish('error: ' + message);
+    }
+  }, pollMs);
+
+  safetyTimer = setTimeout(() => {
+    finish('safety-timeout');
+  }, hardTimeoutMs + 10000);
 })();`;
 }
 

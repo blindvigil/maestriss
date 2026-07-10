@@ -68,9 +68,9 @@ export function createSwitchTabNode(
   return createNode(id, 'switch-tab', 'BlockBasic', x, y, {
     activeTab: true,
     createIfNoMatch: false,
-    description: `Switch to ${tabTitle} tab by title`,
+    description: `Switch to ${tabTitle} tab by URL match pattern`,
     disableBlock: false,
-    findTabBy: 'tab-title',
+    findTabBy: 'match-patterns',
     matchPattern,
     tabIndex: 0,
     tabTitle,
@@ -78,9 +78,15 @@ export function createSwitchTabNode(
   });
 }
 
-export function createActiveTabNode(id: string, x: number, y: number, participantName: string) {
+export function createActiveTabNode(
+  id: string,
+  x: number,
+  y: number,
+  participantName: string,
+  description = `Attach to ${participantName} tab`,
+) {
   return createNode(id, 'active-tab', 'BlockBasic', x, y, {
-    description: `Attach to ${participantName} tab`,
+    description,
     disableBlock: false,
   });
 }

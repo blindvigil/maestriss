@@ -1,0 +1,23 @@
+{
+  "name": "maestriss-runner-poc",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test:reka-filter": "tsx src/rekaFilterAssertions.ts",
+    "test:deepseek-filter": "tsx src/deepseekFilterAssertions.ts",
+    "test:grok-filter": "tsx src/grokFilterAssertions.ts",
+    "test:copilot-filter": "tsx src/copilotFilterAssertions.ts"
+  },
+  "dependencies": {
+    "playwright": "^1.47.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

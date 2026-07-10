@@ -47,6 +47,33 @@ export type AutomaWorkflow = {
   };
 };
 
+export type AutomaSmartWaitDriver =
+  | 'chatgpt'
+  | 'claude'
+  | 'perplexity'
+  | 'gemini'
+  | 'copilot'
+  | 'grok'
+  | 'deepseek'
+  | 'reka'
+  | 'google'
+  | 'generic';
+
+export type AutomaWaitStrategy = 'smart-wait';
+
+export type AutomaSmartWaitConfig = {
+  waitStrategy: AutomaWaitStrategy;
+  hardTimeoutSeconds: number;
+  stableTextSeconds: number;
+  statusVariablePrefix: string;
+  stopIndicators: string[];
+  respondingIndicators: string[];
+  sendReadyIndicators: string[];
+  preferredResponseSelectors: string[];
+  requireSendReady: boolean;
+  requireGeneratingClearance: boolean;
+};
+
 export type AutomaParticipantStep = {
   id: string;
   name: string;
@@ -56,4 +83,5 @@ export type AutomaParticipantStep = {
   tabTitle: string;
   profileInstructions: string;
   isFinalEditor: boolean;
+  smartWaitDriver: AutomaSmartWaitDriver;
 };
