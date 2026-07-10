@@ -67,7 +67,9 @@ Before relying on a documented behavior, verify it: find the file and function t
 
 ## Guidance for Web-Based AIs (no repository access)
 
-If you cannot inspect the repository, do not guess at code behavior. Ask the user to paste: the latest handoff from `Documentation/Handoffs/`, the relevant reference doc sections, and the specific source files named in the task paths above. State clearly which claims you could not verify. Produce advice conditioned on the pasted evidence, and flag where your knowledge depends on documents that may be stale.
+The repository is public at <https://github.com/blindvigil/maestriss>. If you can browse the web, read files there — raw contents are at `https://raw.githubusercontent.com/blindvigil/maestriss/master/<path>` (e.g. `.../master/runner/src/server.ts`), which is more reliable for fetching than the GitHub UI pages.
+
+If you cannot inspect the repository at all, do not guess at code behavior. Ask the user to paste: the latest handoff from `Documentation/Handoffs/`, the relevant reference doc sections, and the specific source files named in the task paths above. State clearly which claims you could not verify. Produce advice conditioned on the pasted evidence, and flag where your knowledge depends on documents that may be stale.
 
 ## Guidance for VS Code / Repository-Access Agents
 
