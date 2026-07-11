@@ -9,7 +9,8 @@ Purpose: AI-oriented entry point for navigating, understanding, and using the Ma
 Scope: Defines documentation categories, source-of-truth hierarchy, reading paths, repository areas, verification rules, and safe contribution rules.
 Related Documents:
   - ../Human/Start_Here.md
-  - 16 - AI Session Bootstrap.md
+  - AI_Prompt.md
+  - AI_Bootstrap.md
 Related Modules: Repository-wide orientation; no single source module.
 Canonical Concepts Covered: Documentation hierarchy, source-of-truth hierarchy, reading paths, repository overview, contributor workflow, AI guidance.
 Current Implementation Status: Documentation entry point; source code remains authoritative for current implemented behavior.
@@ -25,6 +26,23 @@ Current Implementation Status: Documentation entry point; source code remains au
 `Start_Here.md` does not fully explain Maestriss.
 
 `Start_Here.md` explains how to navigate, verify, and use the Maestriss documentation system.
+
+### Canonical AI Onboarding Rule
+
+AI onboarding is consolidated into exactly two generated artifacts:
+
+```text
+Documentation/Reference/AI/AI_Prompt.md
+Documentation/Reference/AI/AI_Bootstrap.md
+```
+
+Use `AI_Prompt.md` for AI sessions in all access modes.
+
+Use `AI_Bootstrap.md` for the procedural repository boot sequence.
+
+These generated files guide reasoning and procedure. They do not replace repository source code or the authoritative Engineering Library.
+
+Older bootstrap, navigation, prompt, and AI session documents are redirects or historical artifacts.
 
 ### Institutional Memory Rule
 
@@ -126,12 +144,12 @@ Documentation/
       16 - AI Session Bootstrap.md
     AI/
       Start_Here.md
+      AI_Prompt.md
+      AI_Bootstrap.md
       01 - Design Philosophies and Tenets.md
       ...
       16 - AI Session Bootstrap.md
   Handoffs/
-    AI Documentation Navigation Guide.txt
-    bootstrap.txt
     2026-07-10 - Native Runner Foundation Milestone.md
   Reviews/
     Reconciliation Report - Docs vs Code (2026-07-10).md
@@ -241,13 +259,14 @@ Example:
 
 ### AI Onboarding Path
 
-1. `AI/Start_Here.md`
-2. `AI/16 - AI Session Bootstrap.md`
-3. Newest handoff
-4. `AI/02 - System Architecture.md`
-5. `AI/03 - Driver Lifecycle Specification.md`
-6. `AI/01 - Design Philosophies and Tenets.md`
-7. `AI/11 - Project Status and Development Journal.md`
+1. `AI/AI_Prompt.md`
+2. `AI/AI_Bootstrap.md`
+3. `AI/Start_Here.md`
+4. Newest handoff
+5. `AI/02 - System Architecture.md`
+6. `AI/03 - Driver Lifecycle Specification.md`
+7. `AI/01 - Design Philosophies and Tenets.md`
+8. `AI/11 - Project Status and Development Journal.md`
 
 ## 7. Repository Overview
 
@@ -322,11 +341,12 @@ Use this section to identify responsibility areas.
 
 Repository-aware AI SHALL:
 
-1. Read `Documentation/Reference/AI/Start_Here.md`.
-2. Read `Documentation/Reference/AI/16 - AI Session Bootstrap.md`.
-3. Verify claims against source files.
-4. Use `rg`, builds, and relevant tests where available.
-5. Report doc-vs-code conflicts.
+1. Read `Documentation/Reference/AI/AI_Prompt.md`.
+2. Read `Documentation/Reference/AI/AI_Bootstrap.md`.
+3. Read `Documentation/Reference/AI/Start_Here.md`.
+4. Verify claims against source files.
+5. Use `rg`, builds, and relevant tests where available.
+6. Report doc-vs-code conflicts.
 
 ### Web-Based AI
 
@@ -384,7 +404,7 @@ AI assistants MUST distinguish:
 | Engineering workflow | `12 - Development Workflow and Engineering Standards.md` |
 | AI collaboration | `13 - Prompt Engineering and AI Collaboration.md` |
 | Design commentary | `15 - Engineering Notes and Design Commentary.md` |
-| AI onboarding | `AI/16 - AI Session Bootstrap.md` |
+| AI onboarding | `AI/AI_Prompt.md` and `AI/AI_Bootstrap.md` |
 | Audit findings | `Documentation/Reviews/` |
 
 ## 13. Success Criteria

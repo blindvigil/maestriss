@@ -161,7 +161,7 @@ The repository is organized around Studio, runner, documentation, diagnostics, a
 
 `Documentation/Reference/` contains the permanent reference documents and this operational runbook. These documents should be treated as project knowledge, not disposable notes. `Documentation/Reviews/` contains historical audits, reconciliations, and other working documents that are valuable historically but are not authoritative reference material. `Documentation/Handoffs/` contains dated milestone state transfers.
 
-**Onboarding note:** New maintainers should start with `Documentation/Reference/Human/Start_Here.md`. AI sessions should start with `Documentation/Reference/AI/Start_Here.md`, then continue to `Documentation/Reference/AI/16 - AI Session Bootstrap.md`. Both should read the most recent milestone handoff in `Documentation/Handoffs/` for current project state before using this runbook for specific procedures.
+**Onboarding note:** New maintainers should start with `Documentation/Reference/Human/Start_Here.md`. AI sessions should start with `Documentation/Reference/AI/AI_Prompt.md`, then continue to `Documentation/Reference/AI/AI_Bootstrap.md` and `Documentation/Reference/AI/Start_Here.md`. Both should read the most recent milestone handoff in `Documentation/Handoffs/` for current project state before using this runbook for specific procedures.
 
 `src/` contains the Maestriss Studio React application source.
 

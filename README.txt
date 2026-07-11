@@ -16,7 +16,8 @@ DOCS
 Documentation\Reference\: permanent engineering reference library
   Human\: human-oriented edition (same document numbers and filenames)
   AI\: AI-oriented edition (same engineering truth, structured for reasoning)
-  Start at Human\Start_Here.md or AI\Start_Here.md
+  Human readers start at Human\Start_Here.md
+  AI assistants start at AI\AI_Prompt.md, then AI\AI_Bootstrap.md
 Documentation\Handoffs\: milestone snapshots
 Documentation\Reviews\: audits
 docs\: strategy notes; runner\README.md: runner detail

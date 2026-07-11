@@ -69,7 +69,7 @@ This section is intended to be updated frequently.
 
 **Testing Status:** Build verification is active. Provider-specific filter and regression tests exist for several drivers, with ChatGPT and Perplexity still needing fuller dedicated filter assertion coverage. Live smoke tests are used to validate exact-answer asks against provider pages.
 
-**Documentation Status:** The Documentation/Reference series is substantially developed. Documents 01 through 16 now define design philosophy, system architecture, driver lifecycle, browser management, response detection, testing, participant drivers, browser automation, diagnostics, future vision, project status, engineering standards, AI collaboration, operations, engineering commentary, and AI session onboarding. New contributors should begin with `Start_Here.md`; AI sessions should then continue to `16 - AI Session Bootstrap.md`. Milestone state transfers live in `Documentation/Handoffs/`; the current milestone is `2026-07-10 - Native Runner Foundation Milestone.md`.
+**Documentation Status:** The Documentation/Reference series is substantially developed. Documents 01 through 16 define design philosophy, system architecture, driver lifecycle, browser management, response detection, testing, participant drivers, browser automation, diagnostics, future vision, project status, engineering standards, AI collaboration, operations, engineering commentary, and redirect compatibility for older AI onboarding links. The canonical AI onboarding artifacts are now `AI_Prompt.md` and `AI_Bootstrap.md`; they are generated, non-authoritative guides for reasoning and boot procedure. New contributors should begin with `Start_Here.md`; AI sessions should begin with `AI_Prompt.md`, then continue to `AI_Bootstrap.md` and `Start_Here.md`. Milestone state transfers live in `Documentation/Handoffs/`; the current milestone is `2026-07-10 - Native Runner Foundation Milestone.md`.
 
 **Known Stability:** The core runner and several drivers are stable enough for continued development and smoke testing. Provider UI changes remain the primary ongoing risk.
 
@@ -368,7 +368,9 @@ Entries should be added chronologically, newest at the top.
 | 14 - Operational Runbook.md | Complete | 2026-07-10 | Frequent | Operational procedures and troubleshooting reference. |
 | 15 - Engineering Notes and Design Commentary.md | Complete | 2026-07-10 | Periodic | Engineering commentary and assessment. |
 | Start_Here.md | Complete | 2026-07-10 | Frequent | Permanent documentation-library entry point for all contributors. |
-| 16 - AI Session Bootstrap.md | Complete | 2026-07-10 | Frequent | AI session bootstrap after Start_Here; update when structure or rules change. |
+| 16 - AI Session Bootstrap.md | Redirect | 2026-07-10 | Rare | Compatibility redirect to `AI_Prompt.md` and `AI_Bootstrap.md`; do not maintain onboarding logic here. |
+| AI_Prompt.md | Generated Artifact | 2026-07-10 | Frequent | Non-authoritative operating prompt for AI sessions in all access modes. |
+| AI_Bootstrap.md | Generated Artifact | 2026-07-10 | Frequent | Non-authoritative procedural boot sequence for repository-aware AI work. |
 
 Milestone handoffs are tracked separately in `Documentation/Handoffs/` (current: `2026-07-10 - Native Runner Foundation Milestone.md`). Audits and reconciliation findings live in `Documentation/Reviews/`.
 

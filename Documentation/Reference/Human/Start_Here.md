@@ -9,7 +9,8 @@ Purpose: Human-oriented entry point for navigating, understanding, and using the
 Scope: Explains documentation categories, source-of-truth rules, reading paths, repository areas, and safe contribution practices.
 Related Documents:
   - ../AI/Start_Here.md
-  - 16 - AI Session Bootstrap.md
+  - ../AI/AI_Prompt.md
+  - ../AI/AI_Bootstrap.md
 Related Modules: Repository-wide orientation; no single source module.
 Canonical Concepts Covered: Documentation hierarchy, source-of-truth hierarchy, reading paths, repository overview, contributor workflow, AI guidance.
 Current Implementation Status: Documentation entry point; source code remains authoritative for current implemented behavior.
@@ -25,6 +26,17 @@ Maestriss is a young project with unusually deep documentation for its age becau
 The library is organized for two audiences. Human readers get a prose-first edition that explains context, rationale, and tradeoffs. AI readers get a parallel edition optimized for deterministic interpretation and retrieval. Both editions describe the same engineering truth.
 
 After reading this document, you should know where to go next, what is authoritative, what is historical, and how to verify what you read.
+
+AI onboarding is now consolidated into exactly two generated artifacts:
+
+```text
+Documentation/Reference/AI/AI_Prompt.md
+Documentation/Reference/AI/AI_Bootstrap.md
+```
+
+These files guide reasoning and procedure. They do not replace repository source code or the authoritative Engineering Library.
+
+Older bootstrap, navigation, prompt, and AI session documents are redirects or historical artifacts.
 
 ## What Is Maestriss?
 
@@ -83,12 +95,12 @@ Documentation/
       16 - AI Session Bootstrap.md
     AI/
       Start_Here.md
+      AI_Prompt.md
+      AI_Bootstrap.md
       01 - Design Philosophies and Tenets.md
       ...
       16 - AI Session Bootstrap.md
   Handoffs/
-    AI Documentation Navigation Guide.txt
-    bootstrap.txt
     2026-07-10 - Native Runner Foundation Milestone.md
   Reviews/
     Reconciliation Report - Docs vs Code (2026-07-10).md
@@ -225,13 +237,14 @@ Use this path to separate current implementation from planned architecture and f
 
 AI assistants should begin with:
 
-1. `AI/Start_Here.md`
-2. `AI/16 - AI Session Bootstrap.md`
-3. Newest handoff
-4. `AI/02 - System Architecture.md`
-5. `AI/03 - Driver Lifecycle Specification.md`
-6. `AI/01 - Design Philosophies and Tenets.md`
-7. `AI/11 - Project Status and Development Journal.md`
+1. `AI/AI_Prompt.md`
+2. `AI/AI_Bootstrap.md`
+3. `AI/Start_Here.md`
+4. Newest handoff
+5. `AI/02 - System Architecture.md`
+6. `AI/03 - Driver Lifecycle Specification.md`
+7. `AI/01 - Design Philosophies and Tenets.md`
+8. `AI/11 - Project Status and Development Journal.md`
 
 ## Repository Overview
 
@@ -320,7 +333,7 @@ When documentation and code conflict, AI assistants should report the conflict e
 | Engineering workflow | `12 - Development Workflow and Engineering Standards.md` |
 | AI collaboration | `13 - Prompt Engineering and AI Collaboration.md` |
 | Design commentary | `15 - Engineering Notes and Design Commentary.md` |
-| AI onboarding | `AI/16 - AI Session Bootstrap.md` |
+| AI onboarding | `AI/AI_Prompt.md` and `AI/AI_Bootstrap.md` |
 | Audit findings | `Documentation/Reviews/` |
 
 ## Success Criteria

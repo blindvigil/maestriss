@@ -9,10 +9,18 @@ The Maestriss Engineering Reference Library is published in two parallel edition
 
 Both editions represent the same engineering knowledge. The difference is presentation, not authority.
 
+The broader documentation navigation and governance model is defined in:
+
+```text
+../Knowledge_System_Guide.md
+```
+
+Use that guide for glossary-level terminology, concept ownership, reading maps, code-to-documentation mapping, Human/AI synchronization rules, and documentation maintenance standards.
+
 Start with `Start_Here.md` in the edition appropriate to the reader:
 
 - Human readers: `Human/Start_Here.md`
-- AI readers: `AI/Start_Here.md`
+- AI readers in all access modes: `AI/AI_Prompt.md`, then `AI/AI_Bootstrap.md`, then `AI/Start_Here.md`
 
 `Start_Here.md` is intentionally unnumbered. It is the entrance to the library rather than part of the numbered reference sequence.
 
@@ -47,7 +55,6 @@ Human readers should start with:
 
 ```text
 Human/Start_Here.md
-Human/16 - AI Session Bootstrap.md
 Human/02 - System Architecture.md
 Human/03 - Driver Lifecycle Specification.md
 Human/01 - Design Philosophies and Tenets.md
@@ -56,8 +63,9 @@ Human/01 - Design Philosophies and Tenets.md
 AI readers should start with:
 
 ```text
+AI/AI_Prompt.md
+AI/AI_Bootstrap.md
 AI/Start_Here.md
-AI/16 - AI Session Bootstrap.md
 AI/02 - System Architecture.md
 AI/03 - Driver Lifecycle Specification.md
 AI/01 - Design Philosophies and Tenets.md
