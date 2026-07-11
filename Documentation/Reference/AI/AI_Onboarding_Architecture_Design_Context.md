@@ -6,10 +6,10 @@ Audience: AI
 Authority: Non-authoritative
 Purpose: Preserve the reasoning that led to the current AI onboarding architecture so future AI systems can interpret it correctly without treating this document as current engineering truth.
 Canonical Sources:
-  - Documentation/Reference/AI/AI_Prompt.md
-  - Documentation/Reference/AI/AI_Bootstrap.md
-  - Documentation/Reference/AI/VSCode_AI_Prompt.md
-  - Documentation/Reference/AI/VSCode_AI_Bootstrap.md
+  - Documentation/Reference/AI/Web_AI_Prompt.md
+  - Documentation/Reference/AI/Web_AI_Bootstrap.md
+  - Documentation/Reference/AI/VSC_AI_Prompt.md
+  - Documentation/Reference/AI/VSC_AI_Bootstrap.md
   - Documentation/Reference/AI/Start_Here.md
   - Documentation/Knowledge_System_Guide.md
   - MANIFESTO.md
@@ -25,10 +25,10 @@ This document records the design reasoning that led to the current AI onboarding
 
 The current implementation has evolved into two role-specific generated onboarding pairs:
 
-- `AI_Prompt.md` and `AI_Bootstrap.md` for high-level project AI sessions.
-- `VSCode_AI_Prompt.md` and `VSCode_AI_Bootstrap.md` for VS Code or repository-attached engineer AI sessions.
+- `Web_AI_Prompt.md` and `Web_AI_Bootstrap.md` for high-level project AI sessions.
+- `VSC_AI_Prompt.md` and `VSC_AI_Bootstrap.md` for VS Code or repository-attached engineer AI sessions.
 
-The older discussion in this document about `AI_Prompt.md` and `AI_Bootstrap.md` remains useful as historical rationale for generated onboarding artifacts, but it should not be read as limiting the architecture to only one pair.
+The older discussion in this document about `Web_AI_Prompt.md` and `Web_AI_Bootstrap.md` remains useful as historical rationale for generated onboarding artifacts, but it should not be read as limiting the architecture to only one pair.
 
 It is not:
 
@@ -78,9 +78,9 @@ The desired outcome was one obvious onboarding path with strict separation of re
 
 The onboarding architecture was deliberately separated into three layers.
 
-### 3.1 `AI_Prompt.md` - How To Think
+### 3.1 `Web_AI_Prompt.md` - How To Think
 
-`AI_Prompt.md` configures the AI's reasoning discipline before repository learning begins.
+`Web_AI_Prompt.md` configures the AI's reasoning discipline before repository learning begins.
 
 It should define:
 
@@ -98,9 +98,9 @@ It should not attempt to teach the full repository.
 
 Its role is behavioral and epistemic.
 
-### 3.2 `AI_Bootstrap.md` - How To Learn
+### 3.2 `Web_AI_Bootstrap.md` - How To Learn
 
-`AI_Bootstrap.md` is the procedural boot sequence.
+`Web_AI_Bootstrap.md` is the procedural boot sequence.
 
 It should define:
 
@@ -147,10 +147,10 @@ Authoritative Engineering Library
 Current handoff and status artifacts
         |
         v
-Generated AI_Prompt.md
+Generated Web_AI_Prompt.md
         |
         v
-Procedural AI_Bootstrap.md
+Procedural Web_AI_Bootstrap.md
         |
         v
 Historical reviews and prior onboarding artifacts
@@ -174,7 +174,7 @@ Do not silently choose one.
 
 ## 5. Why the Prompt Should Not Be a Repository Summary
 
-An earlier instinct was to make `AI_Prompt.md` extremely long and pack it with as much project information as possible.
+An earlier instinct was to make `Web_AI_Prompt.md` extremely long and pack it with as much project information as possible.
 
 That approach was revised.
 
@@ -198,7 +198,7 @@ It should teach interpretation, not duplicate the repository.
 
 ## 6. Generated Artifact Principle
 
-`AI_Prompt.md` is best treated as a generated synthesis.
+`Web_AI_Prompt.md` is best treated as a generated synthesis.
 
 Its inputs may include:
 
@@ -226,7 +226,7 @@ The Prompt should be regenerated from them.
 
 ## 7. Deterministic Bootstrap Principle
 
-`AI_Bootstrap.md` should resemble an engineering protocol more than explanatory prose.
+`Web_AI_Bootstrap.md` should resemble an engineering protocol more than explanatory prose.
 
 Preferred structures include:
 
@@ -445,10 +445,10 @@ A fresh AI should not have to decide among:
 The intended convergence is:
 
 ```text
-AI_Prompt.md
+Web_AI_Prompt.md
     |
     v
-AI_Bootstrap.md
+Web_AI_Bootstrap.md
     |
     v
 Start_Here.md

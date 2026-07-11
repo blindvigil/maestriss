@@ -5,6 +5,7 @@ Generated artifact: yes
 Generation date: 2026-07-10
 Source branch: master
 Source commit: b38640c
+Source worktree: Includes uncommitted onboarding file rename changes at generation time
 Generation status: Manually generated synthesis
 Current automation: None
 Future automation: Intended but not implemented
@@ -22,16 +23,16 @@ Canonical AI Library:
 https://github.com/blindvigil/maestriss/tree/master/Documentation/Reference/AI
 
 High-Level Project AI Prompt:
-https://github.com/blindvigil/maestriss/blob/master/Documentation/Reference/AI/AI_Prompt.md
+https://github.com/blindvigil/maestriss/blob/master/Documentation/Reference/AI/Web_AI_Prompt.md
 
 High-Level Project AI Bootstrap:
-https://github.com/blindvigil/maestriss/blob/master/Documentation/Reference/AI/AI_Bootstrap.md
+https://github.com/blindvigil/maestriss/blob/master/Documentation/Reference/AI/Web_AI_Bootstrap.md
 
 VS Code Engineer Prompt:
-https://github.com/blindvigil/maestriss/blob/master/Documentation/Reference/AI/VSCode_AI_Prompt.md
+https://github.com/blindvigil/maestriss/blob/master/Documentation/Reference/AI/VSC_AI_Prompt.md
 
 VS Code Engineer Bootstrap:
-https://github.com/blindvigil/maestriss/blob/master/Documentation/Reference/AI/VSCode_AI_Bootstrap.md
+https://github.com/blindvigil/maestriss/blob/master/Documentation/Reference/AI/VSC_AI_Bootstrap.md
 
 Start Here:
 https://github.com/blindvigil/maestriss/blob/master/Documentation/Reference/AI/Start_Here.md
@@ -67,8 +68,8 @@ You are not optimized for:
 The implementation engineering AI is a separate role. It operates inside VS Code or an equivalent repository-attached environment, reads task-specific code and tests, makes changes, runs verification, and reports evidence back upward. That role uses:
 
 ```text
-Documentation/Reference/AI/VSCode_AI_Prompt.md
-Documentation/Reference/AI/VSCode_AI_Bootstrap.md
+Documentation/Reference/AI/VSC_AI_Prompt.md
+Documentation/Reference/AI/VSC_AI_Bootstrap.md
 ```
 
 ## Authoritative Inputs
@@ -79,7 +80,7 @@ This prompt is a generated synthesis of:
 - `Documentation/README.md`
 - `Documentation/Knowledge_System_Guide.md`
 - `Documentation/Reference/AI/Start_Here.md`
-- `Documentation/Reference/AI/AI_Bootstrap.md`
+- `Documentation/Reference/AI/Web_AI_Bootstrap.md`
 - all numbered AI Reference documents;
 - current applicable handoffs;
 - relevant reviews;
@@ -95,8 +96,8 @@ Maestriss maintains two specialized AI onboarding pairs:
 
 | Pair | Audience | Purpose |
 | --- | --- | --- |
-| `AI_Prompt.md` + `AI_Bootstrap.md` | High-level project AI | Whole-project understanding, strategic decision-making, prioritization, architectural review, and delegation |
-| `VSCode_AI_Prompt.md` + `VSCode_AI_Bootstrap.md` | Repository-attached engineer AI | Local implementation, code inspection, edits, tests, diagnostics, and verification |
+| `Web_AI_Prompt.md` + `Web_AI_Bootstrap.md` | High-level project AI | Whole-project understanding, strategic decision-making, prioritization, architectural review, and delegation |
+| `VSC_AI_Prompt.md` + `VSC_AI_Bootstrap.md` | Repository-attached engineer AI | Local implementation, code inspection, edits, tests, diagnostics, and verification |
 
 The two pairs must not represent different project facts. They may differ in role, emphasis, procedure, and evidence expectations.
 
@@ -109,7 +110,7 @@ The two pairs must not represent different project facts. They may differ in rol
 5. Do not treat generated onboarding text as independent truth.
 6. Do not treat planned architecture as current implementation.
 7. Do not silently resolve conflicting sources.
-8. Do not make strategic recommendations before completing the shot-caller bootstrap report required by `AI_Bootstrap.md`.
+8. Do not make strategic recommendations before completing the shot-caller bootstrap report required by `Web_AI_Bootstrap.md`.
 9. Verify implementation claims against accessible code when they materially affect strategic decisions, or delegate verification to the engineering AI explicitly.
 10. Distinguish evidence, inference, assumption, recommendation, uncertainty, and delegation instruction.
 11. Preserve existing architecture unless evidence justifies changing it.
@@ -229,7 +230,7 @@ Confidence is justified by evidence inspected, not by fluency or document tone.
 
 ## Required Behavior
 
-Before strategic recommendations, architecture decisions, roadmap prioritization, or delegation, execute `Documentation/Reference/AI/AI_Bootstrap.md`.
+Before strategic recommendations, architecture decisions, roadmap prioritization, or delegation, execute `Documentation/Reference/AI/Web_AI_Bootstrap.md`.
 
 Produce the required shot-caller bootstrap report.
 

@@ -137,10 +137,10 @@ This glossary defines project terms at the documentation-system level. Detailed 
 | Term | Meaning | Authoritative Home |
 | --- | --- | --- |
 | AI edition | The AI-oriented copy of the permanent Reference library, optimized for deterministic interpretation and verification. | `Reference/AI/Start_Here.md` |
-| High-level project AI prompt | Generated operating prompt for shot-caller AIs focused on whole-project comprehension, strategy, architecture, prioritization, review, and delegation. | `Reference/AI/AI_Prompt.md` |
-| High-level project AI bootstrap | Generated procedural boot sequence for shot-caller AIs acquiring full project context before strategic decisions. | `Reference/AI/AI_Bootstrap.md` |
-| VS Code engineer prompt | Generated operating prompt for repository-attached engineer AIs with direct code access. | `Reference/AI/VSCode_AI_Prompt.md` |
-| VS Code engineer bootstrap | Generated procedural boot sequence for repository-attached engineer AIs inspecting, editing, verifying, and reporting local work. | `Reference/AI/VSCode_AI_Bootstrap.md` |
+| High-level project AI prompt | Generated operating prompt for shot-caller AIs focused on whole-project comprehension, strategy, architecture, prioritization, review, and delegation. | `Reference/AI/Web_AI_Prompt.md` |
+| High-level project AI bootstrap | Generated procedural boot sequence for shot-caller AIs acquiring full project context before strategic decisions. | `Reference/AI/Web_AI_Bootstrap.md` |
+| VS Code engineer prompt | Generated operating prompt for repository-attached engineer AIs with direct code access. | `Reference/AI/VSC_AI_Prompt.md` |
+| VS Code engineer bootstrap | Generated procedural boot sequence for repository-attached engineer AIs inspecting, editing, verifying, and reporting local work. | `Reference/AI/VSC_AI_Bootstrap.md` |
 | Architecture | The intended structure, boundaries, and design principles of the system. | `Reference/Human/02 - System Architecture.md` and AI companion |
 | Automa exporter | Studio-side path for exporting workflows to Automa artifacts. | `Reference/Human/02 - System Architecture.md` and AI companion |
 | Browser automation | The Playwright/browser infrastructure used by the Native Runner to operate provider websites. | `Reference/Human/08 - Browser Automation Architecture.md` and AI companion |
@@ -164,7 +164,7 @@ Use this index to determine where concepts are owned and what code should be che
 
 | Concept | Authoritative Document | Verify Against |
 | --- | --- | --- |
-| AI onboarding | `Reference/AI/AI_Prompt.md`, `Reference/AI/AI_Bootstrap.md`, `Reference/AI/VSCode_AI_Prompt.md`, `Reference/AI/VSCode_AI_Bootstrap.md` | Current source code and authoritative Engineering Library remain sources of truth |
+| AI onboarding | `Reference/AI/Web_AI_Prompt.md`, `Reference/AI/Web_AI_Bootstrap.md`, `Reference/AI/VSC_AI_Prompt.md`, `Reference/AI/VSC_AI_Bootstrap.md` | Current source code and authoritative Engineering Library remain sources of truth |
 | Architecture overview | `02 - System Architecture.md` | `src/`, `runner/`, `docs/automa-export-strategy.md` |
 | Automa export path | `02 - System Architecture.md` | `src/exporters/automa/` |
 | Browser lifecycle | `04 - Browser and Tab Management.md` | `runner/src/server.ts`, `runner/src/runner.ts`, `runner/restart-runner.ps1` |
@@ -206,10 +206,10 @@ Use this index to determine where concepts are owned and what code should be che
 | `14 - Operational Runbook.md` | Day-to-day operating procedures and troubleshooting | Architectural philosophy |
 | `15 - Engineering Notes and Design Commentary.md` | Commentary, design reflections, contextual reasoning | Normative specifications unless promoted elsewhere |
 | `16 - AI Session Bootstrap.md` | Redirect compatibility for older AI session bootstrap links | Onboarding logic or project facts |
-| `AI_Prompt.md` | Generated non-authoritative prompt for high-level project AIs; teaches whole-project reasoning, strategy, prioritization, review, and delegation discipline | Procedural local implementation workflow or project facts owned by source code and Reference documents |
-| `AI_Bootstrap.md` | Generated non-authoritative procedural boot sequence for high-level project AIs, whole-project reading gates, confidence model, and shot-caller bootstrap report requirements | Local editing workflow or engineering truth owned by source code and numbered Reference documents |
-| `VSCode_AI_Prompt.md` | Generated non-authoritative prompt for repository-attached engineer AIs; teaches local implementation and verification discipline | Project facts owned by source code and Reference documents |
-| `VSCode_AI_Bootstrap.md` | Generated non-authoritative procedural boot sequence for repository-attached engineer AIs | Engineering truth owned by source code and numbered Reference documents |
+| `Web_AI_Prompt.md` | Generated non-authoritative prompt for high-level project AIs; teaches whole-project reasoning, strategy, prioritization, review, and delegation discipline | Procedural local implementation workflow or project facts owned by source code and Reference documents |
+| `Web_AI_Bootstrap.md` | Generated non-authoritative procedural boot sequence for high-level project AIs, whole-project reading gates, confidence model, and shot-caller bootstrap report requirements | Local editing workflow or engineering truth owned by source code and numbered Reference documents |
+| `VSC_AI_Prompt.md` | Generated non-authoritative prompt for repository-attached engineer AIs; teaches local implementation and verification discipline | Project facts owned by source code and Reference documents |
+| `VSC_AI_Bootstrap.md` | Generated non-authoritative procedural boot sequence for repository-attached engineer AIs | Engineering truth owned by source code and numbered Reference documents |
 
 ## Code-to-Documentation Map
 
@@ -223,7 +223,7 @@ Use this index to determine where concepts are owned and what code should be che
 | `runner/src/runner.ts` | `03 - Driver Lifecycle Specification.md`, `08 - Browser Automation Architecture.md` | `09 - Testing, Validation, and Diagnostics.md` |
 | `runner/restart-runner.ps1` | `14 - Operational Runbook.md` | `04 - Browser and Tab Management.md` |
 | Provider filter assertion files | `05 - Response Detection and Filtering Philosophy.md`, `09 - Testing, Validation, and Diagnostics.md` | `07 - Participant Driver Reference.md` |
-| `Documentation/Handoffs/` | `Start_Here.md`, `AI_Prompt.md`, `AI_Bootstrap.md` | This guide |
+| `Documentation/Handoffs/` | `Web_AI_Bootstrap_Prompt.md` and dated handoff files | `Start_Here.md`, `Web_AI_Prompt.md`, `Web_AI_Bootstrap.md`, this guide |
 | `Documentation/Reviews/` | This guide | `Start_Here.md` |
 
 ## Reading Maps
@@ -241,8 +241,8 @@ Use this index to determine where concepts are owned and what code should be che
 
 1. `Documentation/README.md`
 2. Choose the role-specific onboarding pair:
-   - High-level project AI: `Reference/AI/AI_Prompt.md`, then `Reference/AI/AI_Bootstrap.md`
-   - VS Code engineer: `Reference/AI/VSCode_AI_Prompt.md`, then `Reference/AI/VSCode_AI_Bootstrap.md`
+   - High-level project AI: `Reference/AI/Web_AI_Prompt.md`, then `Reference/AI/Web_AI_Bootstrap.md`
+   - VS Code engineer: `Reference/AI/VSC_AI_Prompt.md`, then `Reference/AI/VSC_AI_Bootstrap.md`
 4. `Reference/AI/Start_Here.md`
 5. Latest file in `Handoffs/`
 6. Task-specific reading path from the selected bootstrap
@@ -251,11 +251,11 @@ Use this index to determine where concepts are owned and what code should be che
 ### Repository-Attached AI Assistant
 
 1. `Documentation/README.md`
-2. `Reference/AI/VSCode_AI_Prompt.md`
-3. `Reference/AI/VSCode_AI_Bootstrap.md`
+2. `Reference/AI/VSC_AI_Prompt.md`
+3. `Reference/AI/VSC_AI_Bootstrap.md`
 4. `Reference/AI/Start_Here.md`
 5. Most recent applicable file in `Handoffs/`
-6. Task-specific reading path from `Reference/AI/VSCode_AI_Bootstrap.md`
+6. Task-specific reading path from `Reference/AI/VSC_AI_Bootstrap.md`
 7. Inspect task-relevant source code, scripts, tests, and git state before acting
 
 ### Driver Maintainer

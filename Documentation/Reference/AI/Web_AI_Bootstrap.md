@@ -6,15 +6,15 @@ This document is the deterministic boot procedure for the high-level Maestriss p
 
 Use this bootstrap when the AI is expected to act as technical director, chief architect, product strategist, project historian, engineering reviewer, prioritization authority, or cross-system coordinator.
 
-Use `VSCode_AI_Bootstrap.md` instead when the AI is operating as a repository-attached implementation engineer.
+Use `VSC_AI_Bootstrap.md` instead when the AI is operating as a repository-attached implementation engineer.
 
 This document is procedural. It is not independently authoritative for project facts.
 
 ## Canonical Shot-Caller Flow
 
 ```text
-AI_Prompt.md
-  -> AI_Bootstrap.md
+Web_AI_Prompt.md
+  -> Web_AI_Bootstrap.md
   -> authority and governance files
   -> all numbered AI Reference documents
   -> most recent applicable handoff
@@ -42,8 +42,8 @@ Document count:
   Review context required: relevant dated review index, with full review reading when task-relevant
 
 Authority and governance files:
-  Documentation/Reference/AI/AI_Prompt.md
-  Documentation/Reference/AI/AI_Bootstrap.md
+  Documentation/Reference/AI/Web_AI_Prompt.md
+  Documentation/Reference/AI/Web_AI_Bootstrap.md
   Documentation/README.md
   Documentation/Knowledge_System_Guide.md
   Documentation/Reference/AI/Start_Here.md
@@ -75,8 +75,8 @@ Document `16 - AI Session Bootstrap.md` is a redirect, but it still counts as a 
 
 Required:
 
-- `AI_Prompt.md`
-- `AI_Bootstrap.md`
+- `Web_AI_Prompt.md`
+- `Web_AI_Bootstrap.md`
 - `Documentation/README.md`
 - `Knowledge_System_Guide.md`
 - `Start_Here.md`

@@ -20,8 +20,8 @@ Use that guide for glossary-level terminology, concept ownership, reading maps, 
 Start with `Start_Here.md` in the edition appropriate to the reader:
 
 - Human readers: `Human/Start_Here.md`
-- High-level project AIs: `AI/AI_Prompt.md`, then `AI/AI_Bootstrap.md`, then `AI/Start_Here.md`
-- VS Code engineer AIs: `AI/VSCode_AI_Prompt.md`, then `AI/VSCode_AI_Bootstrap.md`, then `AI/Start_Here.md`
+- High-level project AIs: `AI/Web_AI_Prompt.md`, then `AI/Web_AI_Bootstrap.md`, then `AI/Start_Here.md`
+- VS Code engineer AIs: `AI/VSC_AI_Prompt.md`, then `AI/VSC_AI_Bootstrap.md`, then `AI/Start_Here.md`
 
 `Start_Here.md` is intentionally unnumbered. It is the entrance to the library rather than part of the numbered reference sequence.
 
@@ -64,8 +64,8 @@ Human/01 - Design Philosophies and Tenets.md
 AI readers should start with:
 
 ```text
-AI/AI_Prompt.md
-AI/AI_Bootstrap.md
+AI/Web_AI_Prompt.md
+AI/Web_AI_Bootstrap.md
 AI/Start_Here.md
 AI/02 - System Architecture.md
 AI/03 - Driver Lifecycle Specification.md
@@ -75,8 +75,8 @@ AI/01 - Design Philosophies and Tenets.md
 Repository-attached engineer AIs should start with:
 
 ```text
-AI/VSCode_AI_Prompt.md
-AI/VSCode_AI_Bootstrap.md
+AI/VSC_AI_Prompt.md
+AI/VSC_AI_Bootstrap.md
 AI/Start_Here.md
 AI/02 - System Architecture.md
 AI/03 - Driver Lifecycle Specification.md

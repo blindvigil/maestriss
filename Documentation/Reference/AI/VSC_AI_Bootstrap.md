@@ -6,15 +6,15 @@ This document is the deterministic boot procedure for VS Code extension AIs and 
 
 Use this bootstrap when the AI can directly inspect repository files and is expected to implement, verify, or review concrete changes.
 
-Use `AI_Bootstrap.md` instead for high-level project AI sessions focused on strategy, architecture, review, prioritization, historical continuity, and implementation direction without local tool access.
+Use `Web_AI_Bootstrap.md` instead for high-level project AI sessions focused on strategy, architecture, review, prioritization, historical continuity, and implementation direction without local tool access.
 
 This document is procedural. It is not independently authoritative for project facts.
 
 ## Canonical Engineer Flow
 
 ```text
-VSCode_AI_Prompt.md
-  -> VSCode_AI_Bootstrap.md
+VSC_AI_Prompt.md
+  -> VSC_AI_Bootstrap.md
   -> Start_Here.md
   -> task-specific Engineering Library path
   -> task-relevant source code, tests, scripts, diagnostics
@@ -80,7 +80,7 @@ Before substantive work, produce an engineer bootstrap report containing:
 Required actions:
 
 - Confirm this is a repository-attached session.
-- Read or locate `VSCode_AI_Prompt.md`.
+- Read or locate `VSC_AI_Prompt.md`.
 - Recognize generated onboarding files as non-authoritative.
 
 Outputs:
@@ -113,15 +113,15 @@ Read:
 Documentation/README.md
 Documentation/Knowledge_System_Guide.md
 Documentation/Reference/AI/Start_Here.md
-Documentation/Reference/AI/VSCode_AI_Prompt.md
-Documentation/Reference/AI/VSCode_AI_Bootstrap.md
+Documentation/Reference/AI/VSC_AI_Prompt.md
+Documentation/Reference/AI/VSC_AI_Bootstrap.md
 ```
 
 If the task concerns AI onboarding architecture, also inspect:
 
 ```text
-Documentation/Reference/AI/AI_Prompt.md
-Documentation/Reference/AI/AI_Bootstrap.md
+Documentation/Reference/AI/Web_AI_Prompt.md
+Documentation/Reference/AI/Web_AI_Bootstrap.md
 Documentation/Reference/AI/AI_Onboarding_Architecture_Design_Context.md
 ```
 
@@ -159,7 +159,7 @@ Select the smallest sufficient task path.
 | Automa export | `02`, `10`, strategy notes | `src/exporters/automa/`, `src/reference/` |
 | Testing/diagnostics | `06`, `09`, `14` | `package.json`, `runner/package.json`, assertions, diagnostics |
 | Documentation | `Documentation/README.md`, `Knowledge_System_Guide.md`, `Start_Here.md` | affected Human/AI document pair |
-| AI onboarding architecture | `AI_Prompt.md`, `AI_Bootstrap.md`, `VSCode_AI_Prompt.md`, `VSCode_AI_Bootstrap.md`, `AI_Onboarding_Architecture_Design_Context.md` | README files, Knowledge System guide |
+| AI onboarding architecture | `Web_AI_Prompt.md`, `Web_AI_Bootstrap.md`, `VSC_AI_Prompt.md`, `VSC_AI_Bootstrap.md`, `AI_Onboarding_Architecture_Design_Context.md` | README files, Knowledge System guide |
 | Planning/architecture | `MANIFESTO.md`, `01`, `02`, `10`, `11`, `15` | relevant source areas for current-state claims |
 
 Outputs:

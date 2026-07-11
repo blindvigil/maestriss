@@ -9,10 +9,10 @@ Purpose: AI-oriented entry point for navigating, understanding, and using the Ma
 Scope: Defines documentation categories, source-of-truth hierarchy, reading paths, repository areas, verification rules, and safe contribution rules.
 Related Documents:
   - ../Human/Start_Here.md
-  - AI_Prompt.md
-  - AI_Bootstrap.md
-  - VSCode_AI_Prompt.md
-  - VSCode_AI_Bootstrap.md
+  - Web_AI_Prompt.md
+  - Web_AI_Bootstrap.md
+  - VSC_AI_Prompt.md
+  - VSC_AI_Bootstrap.md
 Related Modules: Repository-wide orientation; no single source module.
 Canonical Concepts Covered: Documentation hierarchy, source-of-truth hierarchy, reading paths, repository overview, contributor workflow, AI guidance.
 Current Implementation Status: Documentation entry point; source code remains authoritative for current implemented behavior.
@@ -34,15 +34,15 @@ Current Implementation Status: Documentation entry point; source code remains au
 AI onboarding is split into two role-specific generated pairs:
 
 ```text
-Documentation/Reference/AI/AI_Prompt.md
-Documentation/Reference/AI/AI_Bootstrap.md
-Documentation/Reference/AI/VSCode_AI_Prompt.md
-Documentation/Reference/AI/VSCode_AI_Bootstrap.md
+Documentation/Reference/AI/Web_AI_Prompt.md
+Documentation/Reference/AI/Web_AI_Bootstrap.md
+Documentation/Reference/AI/VSC_AI_Prompt.md
+Documentation/Reference/AI/VSC_AI_Bootstrap.md
 ```
 
-Use `AI_Prompt.md` and `AI_Bootstrap.md` for high-level project AIs: whole-project comprehension, strategy, planning, architecture, prioritization, review, critique, and implementation handoff.
+Use `Web_AI_Prompt.md` and `Web_AI_Bootstrap.md` for high-level project AIs: whole-project comprehension, strategy, planning, architecture, prioritization, review, critique, and implementation handoff.
 
-Use `VSCode_AI_Prompt.md` and `VSCode_AI_Bootstrap.md` for VS Code or repository-attached engineer AIs: local source inspection, implementation, verification, and reporting.
+Use `VSC_AI_Prompt.md` and `VSC_AI_Bootstrap.md` for VS Code or repository-attached engineer AIs: local source inspection, implementation, verification, and reporting.
 
 These generated files guide reasoning and procedure. They do not replace repository source code or the authoritative Engineering Library.
 
@@ -148,8 +148,8 @@ Documentation/
       16 - AI Session Bootstrap.md
     AI/
       Start_Here.md
-      AI_Prompt.md
-      AI_Bootstrap.md
+      Web_AI_Prompt.md
+      Web_AI_Bootstrap.md
       01 - Design Philosophies and Tenets.md
       ...
       16 - AI Session Bootstrap.md
@@ -264,8 +264,8 @@ Example:
 ### AI Onboarding Path
 
 1. Choose the role-specific pair:
-   - High-level project AI: `AI/AI_Prompt.md`, then `AI/AI_Bootstrap.md`
-   - VS Code engineer: `AI/VSCode_AI_Prompt.md`, then `AI/VSCode_AI_Bootstrap.md`
+   - High-level project AI: `AI/Web_AI_Prompt.md`, then `AI/Web_AI_Bootstrap.md`
+   - VS Code engineer: `AI/VSC_AI_Prompt.md`, then `AI/VSC_AI_Bootstrap.md`
 2. `AI/Start_Here.md`
 3. Newest handoff
 4. `AI/02 - System Architecture.md`
@@ -346,8 +346,8 @@ Use this section to identify responsibility areas.
 
 Repository-aware AI SHALL:
 
-1. Read `Documentation/Reference/AI/VSCode_AI_Prompt.md` when acting as an implementation agent.
-2. Read `Documentation/Reference/AI/VSCode_AI_Bootstrap.md` when acting as an implementation agent.
+1. Read `Documentation/Reference/AI/VSC_AI_Prompt.md` when acting as an implementation agent.
+2. Read `Documentation/Reference/AI/VSC_AI_Bootstrap.md` when acting as an implementation agent.
 3. Read `Documentation/Reference/AI/Start_Here.md`.
 4. Verify claims against source files.
 5. Use `rg`, builds, and relevant tests where available.
@@ -357,8 +357,8 @@ Repository-aware AI SHALL:
 
 Web-based AI SHOULD:
 
-1. Read `Documentation/Reference/AI/AI_Prompt.md`.
-2. Read `Documentation/Reference/AI/AI_Bootstrap.md`.
+1. Read `Documentation/Reference/AI/Web_AI_Prompt.md`.
+2. Read `Documentation/Reference/AI/Web_AI_Bootstrap.md`.
 3. Use the public repository when available.
 4. Request pasted documents and source files when repository access is unavailable.
 5. State which claims cannot be verified.
@@ -411,8 +411,8 @@ AI assistants MUST distinguish:
 | Engineering workflow | `12 - Development Workflow and Engineering Standards.md` |
 | AI collaboration | `13 - Prompt Engineering and AI Collaboration.md` |
 | Design commentary | `15 - Engineering Notes and Design Commentary.md` |
-| High-level project AI onboarding | `AI/AI_Prompt.md` and `AI/AI_Bootstrap.md` |
-| VS Code AI onboarding | `AI/VSCode_AI_Prompt.md` and `AI/VSCode_AI_Bootstrap.md` |
+| High-level project AI onboarding | `AI/Web_AI_Prompt.md` and `AI/Web_AI_Bootstrap.md` |
+| VS Code AI onboarding | `AI/VSC_AI_Prompt.md` and `AI/VSC_AI_Bootstrap.md` |
 | Audit findings | `Documentation/Reviews/` |
 
 ## 13. Success Criteria

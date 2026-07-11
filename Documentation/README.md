@@ -11,8 +11,8 @@ It is not only a document collection. It is the project's institutional memory f
 Use the reference edition appropriate to the reader:
 
 - Human readers: `Reference/Human/Start_Here.md`
-- High-level project AIs: `Reference/AI/AI_Prompt.md`, then `Reference/AI/AI_Bootstrap.md`
-- VS Code engineer AIs: `Reference/AI/VSCode_AI_Prompt.md`, then `Reference/AI/VSCode_AI_Bootstrap.md`
+- High-level project AIs: `Reference/AI/Web_AI_Prompt.md`, then `Reference/AI/Web_AI_Bootstrap.md`
+- VS Code engineer AIs: `Reference/AI/VSC_AI_Prompt.md`, then `Reference/AI/VSC_AI_Bootstrap.md`
 
 Both editions represent the same engineering truth. They differ in presentation, not authority.
 
@@ -21,17 +21,17 @@ After reading the appropriate entry path, read the most recent milestone handoff
 The canonical AI onboarding artifacts are role-specific:
 
 ```text
-Reference/AI/AI_Prompt.md
-Reference/AI/AI_Bootstrap.md
-Reference/AI/VSCode_AI_Prompt.md
-Reference/AI/VSCode_AI_Bootstrap.md
+Reference/AI/Web_AI_Prompt.md
+Reference/AI/Web_AI_Bootstrap.md
+Reference/AI/VSC_AI_Prompt.md
+Reference/AI/VSC_AI_Bootstrap.md
 ```
 
 Repository-attached AI agents such as VS Code extensions should use:
 
 ```text
-Reference/AI/VSCode_AI_Prompt.md
-Reference/AI/VSCode_AI_Bootstrap.md
+Reference/AI/VSC_AI_Prompt.md
+Reference/AI/VSC_AI_Bootstrap.md
 ```
 
 These artifacts are generated onboarding material. They guide AI reasoning and boot procedure, but they are not independent sources of engineering truth.

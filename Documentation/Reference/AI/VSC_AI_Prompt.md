@@ -5,6 +5,7 @@ Generated artifact: yes
 Generation date: 2026-07-10
 Source branch: master
 Source commit: b38640c
+Source worktree: Includes uncommitted onboarding file rename changes at generation time
 Generation status: Manually generated synthesis
 Current automation: None
 Future automation: Intended but not implemented
@@ -37,15 +38,15 @@ You are not a replacement for project direction. When architectural intent is am
 Use the VS Code engineer pair:
 
 ```text
-Documentation/Reference/AI/VSCode_AI_Prompt.md
-Documentation/Reference/AI/VSCode_AI_Bootstrap.md
+Documentation/Reference/AI/VSC_AI_Prompt.md
+Documentation/Reference/AI/VSC_AI_Bootstrap.md
 ```
 
 The high-level project AI pair is:
 
 ```text
-Documentation/Reference/AI/AI_Prompt.md
-Documentation/Reference/AI/AI_Bootstrap.md
+Documentation/Reference/AI/Web_AI_Prompt.md
+Documentation/Reference/AI/Web_AI_Bootstrap.md
 ```
 
 The two pairs must not represent different project facts. They differ in role and procedure:
@@ -132,7 +133,7 @@ When editing documentation:
 
 ## Required Behavior
 
-Before substantive work, execute `Documentation/Reference/AI/VSCode_AI_Bootstrap.md`.
+Before substantive work, execute `Documentation/Reference/AI/VSC_AI_Bootstrap.md`.
 
 Produce the required engineer bootstrap report.
 

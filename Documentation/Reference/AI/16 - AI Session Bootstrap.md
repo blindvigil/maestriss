@@ -8,10 +8,10 @@ Audience: AI
 Purpose: Redirects older AI Session Bootstrap links to the role-specific generated AI onboarding artifacts.
 Scope: This document no longer owns AI onboarding logic.
 Related Documents:
-  - AI_Prompt.md
-  - AI_Bootstrap.md
-  - VSCode_AI_Prompt.md
-  - VSCode_AI_Bootstrap.md
+  - Web_AI_Prompt.md
+  - Web_AI_Bootstrap.md
+  - VSC_AI_Prompt.md
+  - VSC_AI_Bootstrap.md
   - ../Human/16 - AI Session Bootstrap.md
 Current Implementation Status: Redirect only.
 ---
@@ -22,16 +22,16 @@ This document is retained for compatibility with older links.
 The canonical AI onboarding artifacts are now role-specific:
 
 ```text
-Documentation/Reference/AI/AI_Prompt.md
-Documentation/Reference/AI/AI_Bootstrap.md
-Documentation/Reference/AI/VSCode_AI_Prompt.md
-Documentation/Reference/AI/VSCode_AI_Bootstrap.md
+Documentation/Reference/AI/Web_AI_Prompt.md
+Documentation/Reference/AI/Web_AI_Bootstrap.md
+Documentation/Reference/AI/VSC_AI_Prompt.md
+Documentation/Reference/AI/VSC_AI_Bootstrap.md
 ```
 
 They are generated onboarding material, not independent sources of engineering truth.
 
-Use `AI_Prompt.md` and `AI_Bootstrap.md` for high-level project AI sessions.
+Use `Web_AI_Prompt.md` and `Web_AI_Bootstrap.md` for high-level project AI sessions.
 
-Use `VSCode_AI_Prompt.md` and `VSCode_AI_Bootstrap.md` for VS Code or repository-attached engineer AI work.
+Use `VSC_AI_Prompt.md` and `VSC_AI_Bootstrap.md` for VS Code or repository-attached engineer AI work.
 
 Do not maintain onboarding logic in this file.

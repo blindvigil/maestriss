@@ -17,8 +17,8 @@ Documentation\Reference\: permanent engineering reference library
   Human\: human-oriented edition (same document numbers and filenames)
   AI\: AI-oriented edition (same engineering truth, structured for reasoning)
   Human readers start at Human\Start_Here.md
-  High-level project AIs start at AI\AI_Prompt.md, then AI\AI_Bootstrap.md
-  VS Code engineer AIs start at AI\VSCode_AI_Prompt.md, then AI\VSCode_AI_Bootstrap.md
+  High-level project AIs start at AI\Web_AI_Prompt.md, then AI\Web_AI_Bootstrap.md
+  VS Code engineer AIs start at AI\VSC_AI_Prompt.md, then AI\VSC_AI_Bootstrap.md
 Documentation\Handoffs\: milestone snapshots
 Documentation\Reviews\: audits
 docs\: strategy notes; runner\README.md: runner detail
