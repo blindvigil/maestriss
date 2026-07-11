@@ -4,8 +4,7 @@
 Generated artifact: yes
 Generation date: 2026-07-10
 Source branch: master
-Source commit: b38640c
-Source worktree: Includes uncommitted onboarding file rename changes at generation time
+Source commit: 5a64bcf
 Generation status: Manually generated synthesis
 Current automation: None
 Future automation: Intended but not implemented
