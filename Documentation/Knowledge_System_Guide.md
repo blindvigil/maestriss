@@ -137,8 +137,10 @@ This glossary defines project terms at the documentation-system level. Detailed 
 | Term | Meaning | Authoritative Home |
 | --- | --- | --- |
 | AI edition | The AI-oriented copy of the permanent Reference library, optimized for deterministic interpretation and verification. | `Reference/AI/Start_Here.md` |
-| AI prompt | Generated operating prompt that teaches a brand-new AI how to reason before repository inspection. | `Reference/AI/AI_Prompt.md` |
-| AI bootstrap | Generated procedural boot sequence for acquiring, verifying, reconciling, and reporting repository knowledge. | `Reference/AI/AI_Bootstrap.md` |
+| Web AI commander prompt | Generated operating prompt for web-based AI commanders focused on strategy, planning, review, critique, and implementation handoff. | `Reference/AI/AI_Prompt.md` |
+| Web AI commander bootstrap | Generated procedural boot sequence for web-based AI commanders acquiring enough verified context to advise safely. | `Reference/AI/AI_Bootstrap.md` |
+| VS Code engineer prompt | Generated operating prompt for repository-attached engineer AIs with direct code access. | `Reference/AI/VSCode_AI_Prompt.md` |
+| VS Code engineer bootstrap | Generated procedural boot sequence for repository-attached engineer AIs inspecting, editing, verifying, and reporting local work. | `Reference/AI/VSCode_AI_Bootstrap.md` |
 | Architecture | The intended structure, boundaries, and design principles of the system. | `Reference/Human/02 - System Architecture.md` and AI companion |
 | Automa exporter | Studio-side path for exporting workflows to Automa artifacts. | `Reference/Human/02 - System Architecture.md` and AI companion |
 | Browser automation | The Playwright/browser infrastructure used by the Native Runner to operate provider websites. | `Reference/Human/08 - Browser Automation Architecture.md` and AI companion |
@@ -162,7 +164,7 @@ Use this index to determine where concepts are owned and what code should be che
 
 | Concept | Authoritative Document | Verify Against |
 | --- | --- | --- |
-| AI onboarding | `Reference/AI/AI_Prompt.md`, `Reference/AI/AI_Bootstrap.md` | Current source code and authoritative Engineering Library remain sources of truth |
+| AI onboarding | `Reference/AI/AI_Prompt.md`, `Reference/AI/AI_Bootstrap.md`, `Reference/AI/VSCode_AI_Prompt.md`, `Reference/AI/VSCode_AI_Bootstrap.md` | Current source code and authoritative Engineering Library remain sources of truth |
 | Architecture overview | `02 - System Architecture.md` | `src/`, `runner/`, `docs/automa-export-strategy.md` |
 | Automa export path | `02 - System Architecture.md` | `src/exporters/automa/` |
 | Browser lifecycle | `04 - Browser and Tab Management.md` | `runner/src/server.ts`, `runner/src/runner.ts`, `runner/restart-runner.ps1` |
@@ -204,8 +206,10 @@ Use this index to determine where concepts are owned and what code should be che
 | `14 - Operational Runbook.md` | Day-to-day operating procedures and troubleshooting | Architectural philosophy |
 | `15 - Engineering Notes and Design Commentary.md` | Commentary, design reflections, contextual reasoning | Normative specifications unless promoted elsewhere |
 | `16 - AI Session Bootstrap.md` | Redirect compatibility for older AI session bootstrap links | Onboarding logic or project facts |
-| `AI_Prompt.md` | Generated non-authoritative prompt for AI sessions in all access modes; teaches how to think | Procedural repository boot sequence or project facts owned by source code and Reference documents |
-| `AI_Bootstrap.md` | Generated non-authoritative procedural boot sequence, evidence gates, confidence model, and bootstrap report requirements | Engineering truth owned by source code and numbered Reference documents |
+| `AI_Prompt.md` | Generated non-authoritative prompt for web AI commanders; teaches strategic reasoning, review, planning, and implementation handoff discipline | Procedural local implementation workflow or project facts owned by source code and Reference documents |
+| `AI_Bootstrap.md` | Generated non-authoritative procedural boot sequence for web AI commanders, evidence gates, confidence model, and commander bootstrap report requirements | Local editing workflow or engineering truth owned by source code and numbered Reference documents |
+| `VSCode_AI_Prompt.md` | Generated non-authoritative prompt for repository-attached engineer AIs; teaches local implementation and verification discipline | Project facts owned by source code and Reference documents |
+| `VSCode_AI_Bootstrap.md` | Generated non-authoritative procedural boot sequence for repository-attached engineer AIs | Engineering truth owned by source code and numbered Reference documents |
 
 ## Code-to-Documentation Map
 
@@ -236,21 +240,22 @@ Use this index to determine where concepts are owned and what code should be che
 ### New AI Assistant
 
 1. `Documentation/README.md`
-2. `Reference/AI/AI_Prompt.md`
-3. `Reference/AI/AI_Bootstrap.md`
+2. Choose the role-specific onboarding pair:
+   - Web commander: `Reference/AI/AI_Prompt.md`, then `Reference/AI/AI_Bootstrap.md`
+   - VS Code engineer: `Reference/AI/VSCode_AI_Prompt.md`, then `Reference/AI/VSCode_AI_Bootstrap.md`
 4. `Reference/AI/Start_Here.md`
 5. Latest file in `Handoffs/`
-6. Task-specific reading path from `Reference/AI/AI_Bootstrap.md`
+6. Task-specific reading path from the selected bootstrap
 7. Verify relevant claims against code before acting
 
 ### Repository-Attached AI Assistant
 
 1. `Documentation/README.md`
-2. `Reference/AI/AI_Prompt.md`
-3. `Reference/AI/AI_Bootstrap.md`
+2. `Reference/AI/VSCode_AI_Prompt.md`
+3. `Reference/AI/VSCode_AI_Bootstrap.md`
 4. `Reference/AI/Start_Here.md`
 5. Most recent applicable file in `Handoffs/`
-6. Task-specific reading path from `Reference/AI/AI_Bootstrap.md`
+6. Task-specific reading path from `Reference/AI/VSCode_AI_Bootstrap.md`
 7. Inspect task-relevant source code, scripts, tests, and git state before acting
 
 ### Driver Maintainer

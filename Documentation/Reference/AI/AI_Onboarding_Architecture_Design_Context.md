@@ -8,6 +8,8 @@ Purpose: Preserve the reasoning that led to the current AI onboarding architectu
 Canonical Sources:
   - Documentation/Reference/AI/AI_Prompt.md
   - Documentation/Reference/AI/AI_Bootstrap.md
+  - Documentation/Reference/AI/VSCode_AI_Prompt.md
+  - Documentation/Reference/AI/VSCode_AI_Bootstrap.md
   - Documentation/Reference/AI/Start_Here.md
   - Documentation/Knowledge_System_Guide.md
   - MANIFESTO.md
@@ -20,6 +22,13 @@ Maintenance Rule: Update only when the onboarding architecture itself changes ma
 ## 1. Read This Document Correctly
 
 This document records the design reasoning that led to the current AI onboarding model.
+
+The current implementation has evolved into two role-specific generated onboarding pairs:
+
+- `AI_Prompt.md` and `AI_Bootstrap.md` for web AI commander sessions.
+- `VSCode_AI_Prompt.md` and `VSCode_AI_Bootstrap.md` for VS Code or repository-attached engineer AI sessions.
+
+The older discussion in this document about `AI_Prompt.md` and `AI_Bootstrap.md` remains useful as historical rationale for generated onboarding artifacts, but it should not be read as limiting the architecture to only one pair.
 
 It is not:
 

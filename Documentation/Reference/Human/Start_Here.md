@@ -11,6 +11,8 @@ Related Documents:
   - ../AI/Start_Here.md
   - ../AI/AI_Prompt.md
   - ../AI/AI_Bootstrap.md
+  - ../AI/VSCode_AI_Prompt.md
+  - ../AI/VSCode_AI_Bootstrap.md
 Related Modules: Repository-wide orientation; no single source module.
 Canonical Concepts Covered: Documentation hierarchy, source-of-truth hierarchy, reading paths, repository overview, contributor workflow, AI guidance.
 Current Implementation Status: Documentation entry point; source code remains authoritative for current implemented behavior.
@@ -27,12 +29,18 @@ The library is organized for two audiences. Human readers get a prose-first edit
 
 After reading this document, you should know where to go next, what is authoritative, what is historical, and how to verify what you read.
 
-AI onboarding is now consolidated into exactly two generated artifacts:
+AI onboarding is now split into two role-specific generated pairs:
 
 ```text
 Documentation/Reference/AI/AI_Prompt.md
 Documentation/Reference/AI/AI_Bootstrap.md
+Documentation/Reference/AI/VSCode_AI_Prompt.md
+Documentation/Reference/AI/VSCode_AI_Bootstrap.md
 ```
+
+Use `AI_Prompt.md` and `AI_Bootstrap.md` for web AI commanders: strategy, planning, review, critique, and implementation handoff.
+
+Use `VSCode_AI_Prompt.md` and `VSCode_AI_Bootstrap.md` for VS Code or repository-attached engineer AIs: local source inspection, implementation, verification, and reporting.
 
 These files guide reasoning and procedure. They do not replace repository source code or the authoritative Engineering Library.
 
@@ -237,13 +245,14 @@ Use this path to separate current implementation from planned architecture and f
 
 AI assistants should begin with:
 
-1. `AI/AI_Prompt.md`
-2. `AI/AI_Bootstrap.md`
-3. `AI/Start_Here.md`
-4. Newest handoff
-5. `AI/02 - System Architecture.md`
-6. `AI/03 - Driver Lifecycle Specification.md`
-7. `AI/01 - Design Philosophies and Tenets.md`
+1. Choose the role-specific pair:
+   - Web commander: `AI/AI_Prompt.md`, then `AI/AI_Bootstrap.md`
+   - VS Code engineer: `AI/VSCode_AI_Prompt.md`, then `AI/VSCode_AI_Bootstrap.md`
+2. `AI/Start_Here.md`
+3. Newest handoff
+4. `AI/02 - System Architecture.md`
+5. `AI/03 - Driver Lifecycle Specification.md`
+6. `AI/01 - Design Philosophies and Tenets.md`
 8. `AI/11 - Project Status and Development Journal.md`
 
 ## Repository Overview
@@ -333,7 +342,8 @@ When documentation and code conflict, AI assistants should report the conflict e
 | Engineering workflow | `12 - Development Workflow and Engineering Standards.md` |
 | AI collaboration | `13 - Prompt Engineering and AI Collaboration.md` |
 | Design commentary | `15 - Engineering Notes and Design Commentary.md` |
-| AI onboarding | `AI/AI_Prompt.md` and `AI/AI_Bootstrap.md` |
+| Web AI onboarding | `AI/AI_Prompt.md` and `AI/AI_Bootstrap.md` |
+| VS Code AI onboarding | `AI/VSCode_AI_Prompt.md` and `AI/VSCode_AI_Bootstrap.md` |
 | Audit findings | `Documentation/Reviews/` |
 
 ## Success Criteria
