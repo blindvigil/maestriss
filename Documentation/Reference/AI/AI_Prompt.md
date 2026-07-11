@@ -4,8 +4,7 @@
 Generated artifact: yes
 Generation date: 2026-07-10
 Source branch: master
-Source commit: ebb3df5
-Source worktree: Includes uncommitted shot-caller onboarding redesign changes at generation time
+Source commit: b38640c
 Generation status: Manually generated synthesis
 Current automation: None
 Future automation: Intended but not implemented
