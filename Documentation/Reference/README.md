@@ -9,6 +9,13 @@ The Maestriss Engineering Reference Library is published in two parallel edition
 
 Both editions represent the same engineering knowledge. The difference is presentation, not authority.
 
+Start with `Start_Here.md` in the edition appropriate to the reader:
+
+- Human readers: `Human/Start_Here.md`
+- AI readers: `AI/Start_Here.md`
+
+`Start_Here.md` is intentionally unnumbered. It is the entrance to the library rather than part of the numbered reference sequence.
+
 ## Edition Model
 
 The Human edition is optimized for comprehension, narrative flow, rationale, history, and maintainable prose. Human engineers, architects, auditors, technical managers, and future maintainers should normally begin there.
@@ -39,6 +46,7 @@ Handoff documents are milestone snapshots. Handoff documents are accurate for th
 Human readers should start with:
 
 ```text
+Human/Start_Here.md
 Human/16 - AI Session Bootstrap.md
 Human/02 - System Architecture.md
 Human/03 - Driver Lifecycle Specification.md
@@ -48,6 +56,7 @@ Human/01 - Design Philosophies and Tenets.md
 AI readers should start with:
 
 ```text
+AI/Start_Here.md
 AI/16 - AI Session Bootstrap.md
 AI/02 - System Architecture.md
 AI/03 - Driver Lifecycle Specification.md

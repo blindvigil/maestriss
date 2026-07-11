@@ -34,13 +34,14 @@ Documentation locations
 Required reading order for AI assistants
 ----------------------------------------
 1. README.txt
-2. Documentation/Reference/AI/16 - AI Session Bootstrap.md
-3. Newest file in Documentation/Handoffs/
-4. Documentation/Reference/AI/02 - System Architecture.md
-5. Documentation/Reference/AI/03 - Driver Lifecycle Specification.md
-6. Documentation/Reference/AI/01 - Design Philosophies and Tenets.md
-7. Documentation/Reference/AI/11 - Project Status and Development Journal.md
-8. Documentation/Reference/AI/15 - Engineering Notes and Design Commentary.md
+2. Documentation/Reference/AI/Start_Here.md
+3. Documentation/Reference/AI/16 - AI Session Bootstrap.md
+4. Newest file in Documentation/Handoffs/
+5. Documentation/Reference/AI/02 - System Architecture.md
+6. Documentation/Reference/AI/03 - Driver Lifecycle Specification.md
+7. Documentation/Reference/AI/01 - Design Philosophies and Tenets.md
+8. Documentation/Reference/AI/11 - Project Status and Development Journal.md
+9. Documentation/Reference/AI/15 - Engineering Notes and Design Commentary.md
 
 Task-specific reading
 ---------------------

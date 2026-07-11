@@ -94,13 +94,14 @@ REQUIRED INITIAL READING
 
 Begin with these documents, in this order:
 
-1. Documentation/Reference/AI/16 - AI Session Bootstrap.md
-2. The most recent file in Documentation/Handoffs/
-3. Documentation/Reference/AI/02 - System Architecture.md
-4. Documentation/Reference/AI/03 - Driver Lifecycle Specification.md
-5. Documentation/Reference/AI/01 - Design Philosophies and Tenets.md
-6. Documentation/Reference/AI/11 - Project Status and Development Journal.md
-7. Documentation/Reference/AI/15 - Engineering Notes and Design Commentary.md
+1. Documentation/Reference/AI/Start_Here.md
+2. Documentation/Reference/AI/16 - AI Session Bootstrap.md
+3. The most recent file in Documentation/Handoffs/
+4. Documentation/Reference/AI/02 - System Architecture.md
+5. Documentation/Reference/AI/03 - Driver Lifecycle Specification.md
+6. Documentation/Reference/AI/01 - Design Philosophies and Tenets.md
+7. Documentation/Reference/AI/11 - Project Status and Development Journal.md
+8. Documentation/Reference/AI/15 - Engineering Notes and Design Commentary.md
 
 The current milestone handoff is expected to be:
 

@@ -77,7 +77,7 @@ Maestriss orchestrates multiple independent web AI providers — ChatGPT, Claude
 ## Documentation Hierarchy and Source-of-Truth Rules
 
 - **Code is authoritative for current implemented behavior.** If a doc and the code disagree about what the system does today, the code wins.
-- **`Documentation/Reference/` (docs 01–16) is authoritative for architecture, terminology, and intended design.** It defines what things are called, why they are shaped that way, and what the system should do.
+- **`Documentation/Reference/Human/` and `Documentation/Reference/AI/` are parallel authoritative editions for architecture, terminology, and intended design.** They define what things are called, why they are shaped that way, and what the system should do.
 - **`Documentation/Reviews/` contains audits and reconciliation findings.** Findings are dated evidence; some may already be resolved by later commits. Never treat a review finding as current without checking the code and git log.
 - **`Documentation/Handoffs/` describes the project at specific historical milestones.** Accurate for its date; superseded by later handoffs and by code.
 - Documentation must clearly distinguish **current**, **planned**, and **aspirational** behavior. When writing docs, label which one you mean.
@@ -86,11 +86,12 @@ Maestriss orchestrates multiple independent web AI providers — ChatGPT, Claude
 ## Required Reading Order
 
 1. `README.txt` (root) — quickstart and map.
-2. The most recent file in `Documentation/Handoffs/` — where the project actually stands.
-3. [02 - System Architecture.md](02%20-%20System%20Architecture.md) — components, execution flow, Studio/runner/exporter relationship.
-4. [03 - Driver Lifecycle Specification.md](03%20-%20Driver%20Lifecycle%20Specification.md) — the contract: `waitForReady → pastePrompt → submitPrompt → waitForCompletion → extractResponse`.
-5. [01 - Design Philosophies and Tenets.md](01%20-%20Design%20Philosophies%20and%20Tenets.md) — the constitution: reliability over cleverness, observation over assumption, geometry is evidence not dogma.
-6. `Documentation/Reviews/Reconciliation Report - Docs vs Code (2026-07-10).md` — known doc-vs-code gaps (check git log for fixes since).
+2. `Start_Here.md` in the relevant Reference edition — documentation-library navigation rules.
+3. The most recent file in `Documentation/Handoffs/` — where the project actually stands.
+4. [02 - System Architecture.md](02%20-%20System%20Architecture.md) — components, execution flow, Studio/runner/exporter relationship.
+5. [03 - Driver Lifecycle Specification.md](03%20-%20Driver%20Lifecycle%20Specification.md) — the contract: `waitForReady → pastePrompt → submitPrompt → waitForCompletion → extractResponse`.
+6. [01 - Design Philosophies and Tenets.md](01%20-%20Design%20Philosophies%20and%20Tenets.md) — the constitution: reliability over cleverness, observation over assumption, geometry is evidence not dogma.
+7. `Documentation/Reviews/Reconciliation Report - Docs vs Code (2026-07-10).md` — known doc-vs-code gaps (check git log for fixes since).
 
 ## Task-Specific Reading Paths
 
@@ -135,11 +136,11 @@ You can and must verify directly. Read the files, run the builds and filter test
 
 Paste the following into a new AI session (a plain-text copy is kept in `bootstrap.txt` at the repository root):
 
-> You are joining Maestriss, a project that orchestrates multiple web AI providers (ChatGPT, Claude, DeepSeek, Gemini, Google AI Mode, Grok, Copilot, Perplexity, Reka) through browser automation, treating each provider as a participant in multi-AI workflows. Before proposing or making changes: (1) Read `Documentation/Reference/AI/16 - AI Session Bootstrap.md` in full and follow its reading order and rules. (2) Read the most recent file in `Documentation/Handoffs/` for current state. (3) Apply the source-of-truth rules: code is authoritative for current behavior; `Documentation/Reference/Human/` and `Documentation/Reference/AI/` are authoritative parallel editions for architecture and intent; `Documentation/Reviews/` findings may already be resolved; report doc-vs-code conflicts instead of silently picking a side. (4) Verify claims against `runner/src/` before relying on them, and check `git log` for anything newer than the docs. When ready, state: (a) the request lifecycle in one paragraph, (b) which providers have full filtering + regression coverage and which do not, (c) the two browser execution modes and their profiles. Then wait for the task.
+> You are joining Maestriss, a project that orchestrates multiple web AI providers (ChatGPT, Claude, DeepSeek, Gemini, Google AI Mode, Grok, Copilot, Perplexity, Reka) through browser automation, treating each provider as a participant in multi-AI workflows. Before proposing or making changes: (1) Read `Documentation/Reference/AI/Start_Here.md`, then `Documentation/Reference/AI/16 - AI Session Bootstrap.md`, and follow their reading order and rules. (2) Read the most recent file in `Documentation/Handoffs/` for current state. (3) Apply the source-of-truth rules: code is authoritative for current behavior; `Documentation/Reference/Human/` and `Documentation/Reference/AI/` are authoritative parallel editions for architecture and intent; `Documentation/Reviews/` findings may already be resolved; report doc-vs-code conflicts instead of silently picking a side. (4) Verify claims against `runner/src/` before relying on them, and check `git log` for anything newer than the docs. When ready, state: (a) the request lifecycle in one paragraph, (b) which providers have full filtering + regression coverage and which do not, (c) the two browser execution modes and their profiles. Then wait for the task.
 
 ## Onboarding Checklist
 
-- [ ] Read `README.txt` and the latest handoff in `Documentation/Handoffs/`.
+- [ ] Read `README.txt`, `Start_Here.md`, and the latest handoff in `Documentation/Handoffs/`.
 - [ ] Read docs 02, 03, 01; skim the task-specific path for your assignment.
 - [ ] Read the reconciliation report; check `git log` for later fixes.
 - [ ] Locate the code anchors: `server.ts`, `runner.ts`, `participants.ts`, `drivers/base.ts`, `drivers/index.ts`, one full driver trio.

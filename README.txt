@@ -16,7 +16,7 @@ DOCS
 Documentation\Reference\: permanent engineering reference library
   Human\: human-oriented edition (same document numbers and filenames)
   AI\: AI-oriented edition (same engineering truth, structured for reasoning)
-  Start at Human\16 or AI\16 - AI Session Bootstrap
+  Start at Human\Start_Here.md or AI\Start_Here.md
 Documentation\Handoffs\: milestone snapshots
 Documentation\Reviews\: audits
 docs\: strategy notes; runner\README.md: runner detail
