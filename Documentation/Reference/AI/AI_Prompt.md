@@ -4,7 +4,7 @@
 Generated artifact: yes
 Generation date: 2026-07-10
 Source branch: master
-Source commit: SOURCE_COMMIT_PENDING
+Source commit: ddba38b
 Generation status: Manually generated synthesis
 Current automation: None
 Future automation: Intended but not implemented
@@ -33,19 +33,19 @@ Immutable Source Links:
 
 ```text
 Repository at source revision:
-https://github.com/blindvigil/maestriss/tree/SOURCE_COMMIT_PENDING
+https://github.com/blindvigil/maestriss/tree/ddba38b
 
 Canonical AI Library at source revision:
-https://github.com/blindvigil/maestriss/tree/SOURCE_COMMIT_PENDING/Documentation/Reference/AI
+https://github.com/blindvigil/maestriss/tree/ddba38b/Documentation/Reference/AI
 
 Canonical Prompt at source revision:
-https://github.com/blindvigil/maestriss/blob/SOURCE_COMMIT_PENDING/Documentation/Reference/AI/AI_Prompt.md
+https://github.com/blindvigil/maestriss/blob/ddba38b/Documentation/Reference/AI/AI_Prompt.md
 
 Canonical Bootstrap at source revision:
-https://github.com/blindvigil/maestriss/blob/SOURCE_COMMIT_PENDING/Documentation/Reference/AI/AI_Bootstrap.md
+https://github.com/blindvigil/maestriss/blob/ddba38b/Documentation/Reference/AI/AI_Bootstrap.md
 
 Start Here at source revision:
-https://github.com/blindvigil/maestriss/blob/SOURCE_COMMIT_PENDING/Documentation/Reference/AI/Start_Here.md
+https://github.com/blindvigil/maestriss/blob/ddba38b/Documentation/Reference/AI/Start_Here.md
 ```
 
 When verifying this generated prompt against repository contents, prefer the embedded source revision when it is accessible. If the embedded revision is unavailable, use the current default branch and state that the immutable source revision could not be inspected.
