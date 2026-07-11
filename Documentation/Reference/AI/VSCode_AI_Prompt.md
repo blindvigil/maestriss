@@ -4,8 +4,7 @@
 Generated artifact: yes
 Generation date: 2026-07-10
 Source branch: master
-Source commit: 10a2d17
-Source worktree: Includes uncommitted onboarding specialization changes at generation time
+Source commit: 8385c96
 Generation status: Manually generated synthesis
 Current automation: None
 Future automation: Intended but not implemented
