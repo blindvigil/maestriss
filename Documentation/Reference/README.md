@@ -20,7 +20,7 @@ Use that guide for glossary-level terminology, concept ownership, reading maps, 
 Start with `Start_Here.md` in the edition appropriate to the reader:
 
 - Human readers: `Human/Start_Here.md`
-- Web AI commanders: `AI/AI_Prompt.md`, then `AI/AI_Bootstrap.md`, then `AI/Start_Here.md`
+- High-level project AIs: `AI/AI_Prompt.md`, then `AI/AI_Bootstrap.md`, then `AI/Start_Here.md`
 - VS Code engineer AIs: `AI/VSCode_AI_Prompt.md`, then `AI/VSCode_AI_Bootstrap.md`, then `AI/Start_Here.md`
 
 `Start_Here.md` is intentionally unnumbered. It is the entrance to the library rather than part of the numbered reference sequence.

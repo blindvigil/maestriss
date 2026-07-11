@@ -2,13 +2,13 @@
 
 This file is retained as a redirect for older links.
 
-The canonical web AI commander prompt is now:
+The canonical high-level project AI prompt is now:
 
 ```text
 Documentation/Reference/AI/AI_Prompt.md
 ```
 
-The canonical web AI commander bootstrap procedure is now:
+The canonical high-level project AI bootstrap procedure is now:
 
 ```text
 Documentation/Reference/AI/AI_Bootstrap.md

@@ -30,7 +30,7 @@ Documentation/Reference/AI/VSCode_AI_Bootstrap.md
 
 They are generated onboarding material, not independent sources of engineering truth.
 
-Use `AI_Prompt.md` and `AI_Bootstrap.md` for web AI commander sessions.
+Use `AI_Prompt.md` and `AI_Bootstrap.md` for high-level project AI sessions.
 
 Use `VSCode_AI_Prompt.md` and `VSCode_AI_Bootstrap.md` for VS Code or repository-attached engineer AI work.
 

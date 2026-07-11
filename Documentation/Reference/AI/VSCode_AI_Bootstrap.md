@@ -6,7 +6,7 @@ This document is the deterministic boot procedure for VS Code extension AIs and 
 
 Use this bootstrap when the AI can directly inspect repository files and is expected to implement, verify, or review concrete changes.
 
-Use `AI_Bootstrap.md` instead for web commander sessions focused on strategy, review, planning, and implementation direction without local tool access.
+Use `AI_Bootstrap.md` instead for high-level project AI sessions focused on strategy, architecture, review, prioritization, historical continuity, and implementation direction without local tool access.
 
 This document is procedural. It is not independently authoritative for project facts.
 
@@ -128,7 +128,7 @@ Documentation/Reference/AI/AI_Onboarding_Architecture_Design_Context.md
 Outputs:
 
 - source-of-truth hierarchy;
-- role distinction between web commander and VS Code engineer;
+- role distinction between high-level project AI and VS Code engineer;
 - documentation category model.
 
 ### Level 3: Current State Established

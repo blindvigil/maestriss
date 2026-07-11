@@ -110,7 +110,7 @@ This section is intended to be updated frequently.
 
 **Testing Status:** Build verification is active. Provider-specific filter and regression tests exist for several drivers, with ChatGPT and Perplexity still needing fuller dedicated filter assertion coverage. Live smoke tests are used to validate exact-answer asks against provider pages.
 
-**Documentation Status:** The Documentation/Reference series is substantially developed. Documents 01 through 16 define design philosophy, system architecture, driver lifecycle, browser management, response detection, testing, participant drivers, browser automation, diagnostics, future vision, project status, engineering standards, AI collaboration, operations, engineering commentary, and redirect compatibility for older AI onboarding links. The AI onboarding artifacts are role-specific: `AI_Prompt.md` and `AI_Bootstrap.md` serve web AI commander sessions, while `VSCode_AI_Prompt.md` and `VSCode_AI_Bootstrap.md` serve VS Code or repository-attached engineer AI sessions. These files are generated, non-authoritative guides for reasoning and boot procedure. New contributors should begin with `Start_Here.md` after selecting the appropriate role-specific onboarding pair. Milestone state transfers live in `Documentation/Handoffs/`; the current milestone is `2026-07-10 - Native Runner Foundation Milestone.md`.
+**Documentation Status:** The Documentation/Reference series is substantially developed. Documents 01 through 16 define design philosophy, system architecture, driver lifecycle, browser management, response detection, testing, participant drivers, browser automation, diagnostics, future vision, project status, engineering standards, AI collaboration, operations, engineering commentary, and redirect compatibility for older AI onboarding links. The AI onboarding artifacts are role-specific: `AI_Prompt.md` and `AI_Bootstrap.md` serve high-level project AI sessions, while `VSCode_AI_Prompt.md` and `VSCode_AI_Bootstrap.md` serve VS Code or repository-attached engineer AI sessions. These files are generated, non-authoritative guides for reasoning and boot procedure. New contributors should begin with `Start_Here.md` after selecting the appropriate role-specific onboarding pair. Milestone state transfers live in `Documentation/Handoffs/`; the current milestone is `2026-07-10 - Native Runner Foundation Milestone.md`.
 
 **Known Stability:** The core runner and several drivers are stable enough for continued development and smoke testing. Provider UI changes remain the primary ongoing risk.
 
@@ -410,8 +410,8 @@ Entries should be added chronologically, newest at the top.
 | 15 - Engineering Notes and Design Commentary.md | Complete | 2026-07-10 | Periodic | Engineering commentary and assessment. |
 | Start_Here.md | Complete | 2026-07-10 | Frequent | Permanent documentation-library entry point for all contributors. |
 | 16 - AI Session Bootstrap.md | Redirect | 2026-07-10 | Rare | Compatibility redirect to role-specific onboarding artifacts; do not maintain onboarding logic here. |
-| AI_Prompt.md | Generated Artifact | 2026-07-10 | Frequent | Non-authoritative operating prompt for web AI commander sessions. |
-| AI_Bootstrap.md | Generated Artifact | 2026-07-10 | Frequent | Non-authoritative procedural boot sequence for web AI commander sessions. |
+| AI_Prompt.md | Generated Artifact | 2026-07-10 | Frequent | Non-authoritative operating prompt for high-level project AI sessions. |
+| AI_Bootstrap.md | Generated Artifact | 2026-07-10 | Frequent | Non-authoritative procedural boot sequence for high-level project AI sessions. |
 | VSCode_AI_Prompt.md | Generated Artifact | 2026-07-10 | Frequent | Non-authoritative operating prompt for VS Code or repository-attached engineer AI sessions. |
 | VSCode_AI_Bootstrap.md | Generated Artifact | 2026-07-10 | Frequent | Non-authoritative procedural boot sequence for VS Code or repository-attached engineer AI sessions. |
 

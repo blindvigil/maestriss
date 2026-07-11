@@ -137,8 +137,8 @@ This glossary defines project terms at the documentation-system level. Detailed 
 | Term | Meaning | Authoritative Home |
 | --- | --- | --- |
 | AI edition | The AI-oriented copy of the permanent Reference library, optimized for deterministic interpretation and verification. | `Reference/AI/Start_Here.md` |
-| Web AI commander prompt | Generated operating prompt for web-based AI commanders focused on strategy, planning, review, critique, and implementation handoff. | `Reference/AI/AI_Prompt.md` |
-| Web AI commander bootstrap | Generated procedural boot sequence for web-based AI commanders acquiring enough verified context to advise safely. | `Reference/AI/AI_Bootstrap.md` |
+| High-level project AI prompt | Generated operating prompt for shot-caller AIs focused on whole-project comprehension, strategy, architecture, prioritization, review, and delegation. | `Reference/AI/AI_Prompt.md` |
+| High-level project AI bootstrap | Generated procedural boot sequence for shot-caller AIs acquiring full project context before strategic decisions. | `Reference/AI/AI_Bootstrap.md` |
 | VS Code engineer prompt | Generated operating prompt for repository-attached engineer AIs with direct code access. | `Reference/AI/VSCode_AI_Prompt.md` |
 | VS Code engineer bootstrap | Generated procedural boot sequence for repository-attached engineer AIs inspecting, editing, verifying, and reporting local work. | `Reference/AI/VSCode_AI_Bootstrap.md` |
 | Architecture | The intended structure, boundaries, and design principles of the system. | `Reference/Human/02 - System Architecture.md` and AI companion |
@@ -206,8 +206,8 @@ Use this index to determine where concepts are owned and what code should be che
 | `14 - Operational Runbook.md` | Day-to-day operating procedures and troubleshooting | Architectural philosophy |
 | `15 - Engineering Notes and Design Commentary.md` | Commentary, design reflections, contextual reasoning | Normative specifications unless promoted elsewhere |
 | `16 - AI Session Bootstrap.md` | Redirect compatibility for older AI session bootstrap links | Onboarding logic or project facts |
-| `AI_Prompt.md` | Generated non-authoritative prompt for web AI commanders; teaches strategic reasoning, review, planning, and implementation handoff discipline | Procedural local implementation workflow or project facts owned by source code and Reference documents |
-| `AI_Bootstrap.md` | Generated non-authoritative procedural boot sequence for web AI commanders, evidence gates, confidence model, and commander bootstrap report requirements | Local editing workflow or engineering truth owned by source code and numbered Reference documents |
+| `AI_Prompt.md` | Generated non-authoritative prompt for high-level project AIs; teaches whole-project reasoning, strategy, prioritization, review, and delegation discipline | Procedural local implementation workflow or project facts owned by source code and Reference documents |
+| `AI_Bootstrap.md` | Generated non-authoritative procedural boot sequence for high-level project AIs, whole-project reading gates, confidence model, and shot-caller bootstrap report requirements | Local editing workflow or engineering truth owned by source code and numbered Reference documents |
 | `VSCode_AI_Prompt.md` | Generated non-authoritative prompt for repository-attached engineer AIs; teaches local implementation and verification discipline | Project facts owned by source code and Reference documents |
 | `VSCode_AI_Bootstrap.md` | Generated non-authoritative procedural boot sequence for repository-attached engineer AIs | Engineering truth owned by source code and numbered Reference documents |
 
@@ -241,7 +241,7 @@ Use this index to determine where concepts are owned and what code should be che
 
 1. `Documentation/README.md`
 2. Choose the role-specific onboarding pair:
-   - Web commander: `Reference/AI/AI_Prompt.md`, then `Reference/AI/AI_Bootstrap.md`
+   - High-level project AI: `Reference/AI/AI_Prompt.md`, then `Reference/AI/AI_Bootstrap.md`
    - VS Code engineer: `Reference/AI/VSCode_AI_Prompt.md`, then `Reference/AI/VSCode_AI_Bootstrap.md`
 4. `Reference/AI/Start_Here.md`
 5. Latest file in `Handoffs/`

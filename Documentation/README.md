@@ -11,7 +11,7 @@ It is not only a document collection. It is the project's institutional memory f
 Use the reference edition appropriate to the reader:
 
 - Human readers: `Reference/Human/Start_Here.md`
-- Web AI commanders: `Reference/AI/AI_Prompt.md`, then `Reference/AI/AI_Bootstrap.md`
+- High-level project AIs: `Reference/AI/AI_Prompt.md`, then `Reference/AI/AI_Bootstrap.md`
 - VS Code engineer AIs: `Reference/AI/VSCode_AI_Prompt.md`, then `Reference/AI/VSCode_AI_Bootstrap.md`
 
 Both editions represent the same engineering truth. They differ in presentation, not authority.

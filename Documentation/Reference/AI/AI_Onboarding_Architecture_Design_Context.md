@@ -25,7 +25,7 @@ This document records the design reasoning that led to the current AI onboarding
 
 The current implementation has evolved into two role-specific generated onboarding pairs:
 
-- `AI_Prompt.md` and `AI_Bootstrap.md` for web AI commander sessions.
+- `AI_Prompt.md` and `AI_Bootstrap.md` for high-level project AI sessions.
 - `VSCode_AI_Prompt.md` and `VSCode_AI_Bootstrap.md` for VS Code or repository-attached engineer AI sessions.
 
 The older discussion in this document about `AI_Prompt.md` and `AI_Bootstrap.md` remains useful as historical rationale for generated onboarding artifacts, but it should not be read as limiting the architecture to only one pair.

@@ -38,7 +38,7 @@ Documentation/Reference/AI/VSCode_AI_Prompt.md
 Documentation/Reference/AI/VSCode_AI_Bootstrap.md
 ```
 
-Use `AI_Prompt.md` and `AI_Bootstrap.md` for web AI commanders: strategy, planning, review, critique, and implementation handoff.
+Use `AI_Prompt.md` and `AI_Bootstrap.md` for high-level project AIs: whole-project comprehension, strategy, planning, architecture, prioritization, review, critique, and implementation handoff.
 
 Use `VSCode_AI_Prompt.md` and `VSCode_AI_Bootstrap.md` for VS Code or repository-attached engineer AIs: local source inspection, implementation, verification, and reporting.
 
@@ -246,7 +246,7 @@ Use this path to separate current implementation from planned architecture and f
 AI assistants should begin with:
 
 1. Choose the role-specific pair:
-   - Web commander: `AI/AI_Prompt.md`, then `AI/AI_Bootstrap.md`
+   - High-level project AI: `AI/AI_Prompt.md`, then `AI/AI_Bootstrap.md`
    - VS Code engineer: `AI/VSCode_AI_Prompt.md`, then `AI/VSCode_AI_Bootstrap.md`
 2. `AI/Start_Here.md`
 3. Newest handoff
@@ -342,7 +342,7 @@ When documentation and code conflict, AI assistants should report the conflict e
 | Engineering workflow | `12 - Development Workflow and Engineering Standards.md` |
 | AI collaboration | `13 - Prompt Engineering and AI Collaboration.md` |
 | Design commentary | `15 - Engineering Notes and Design Commentary.md` |
-| Web AI onboarding | `AI/AI_Prompt.md` and `AI/AI_Bootstrap.md` |
+| High-level project AI onboarding | `AI/AI_Prompt.md` and `AI/AI_Bootstrap.md` |
 | VS Code AI onboarding | `AI/VSCode_AI_Prompt.md` and `AI/VSCode_AI_Bootstrap.md` |
 | Audit findings | `Documentation/Reviews/` |
 
