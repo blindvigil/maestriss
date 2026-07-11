@@ -1,3 +1,18 @@
+---
+Document ID: REF-12
+Document Title: Development Workflow and Engineering Standards
+Version: v0.2.0
+Revision Date: 2026-07-10
+Status: Authoritative Reference
+Audience: Human
+Purpose: Human-oriented edition of the Maestriss engineering reference for Development Workflow and Engineering Standards.
+Scope: Same engineering truth as the corresponding AI edition; optimized for comprehension, rationale, and maintainable human reading.
+Related Documents:
+  - ../AI/12 - Development Workflow and Engineering Standards.md
+Related Modules: See document body for relevant source paths and modules.
+Canonical Concepts Covered: See document body.
+Current Implementation Status: See document body; source code remains authoritative for current implemented behavior.
+---
 # Development Workflow and Engineering Standards
 
 ## Table of Contents

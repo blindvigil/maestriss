@@ -1,0 +1,89 @@
+MAESTRISS AI DOCUMENTATION NAVIGATION GUIDE
+
+Purpose
+-------
+This file tells AI assistants how to find the documentation needed to understand Maestriss before making recommendations or code changes.
+
+Primary rule
+------------
+Do not rely on conversation history as the source of truth. Use the repository documentation and source code.
+
+Documentation locations
+-----------------------
+1. Documentation/Reference/
+   The permanent engineering reference library.
+
+   Documentation/Reference/Human/
+   Human-oriented edition. Use this when narrative explanation, design rationale, historical context, and readable engineering prose are helpful.
+
+   Documentation/Reference/AI/
+   AI-oriented edition. Use this by default as an AI assistant. It contains the same engineering truth as the Human edition, but adds metadata, semantic interpretation rules, and machine-reasoning structure.
+
+2. Documentation/Handoffs/
+   Milestone snapshots and onboarding handoffs. Start with the newest dated handoff to understand the current project state.
+
+3. Documentation/Reviews/
+   Audit reports and reconciliation reviews. Treat these as dated evidence. A finding may already be fixed by later commits, so always verify against code and git history.
+
+4. docs/
+   Strategy notes and background planning documents.
+
+5. runner/README.md
+   Native runner operational details.
+
+Required reading order for AI assistants
+----------------------------------------
+1. README.txt
+2. Documentation/Reference/AI/16 - AI Session Bootstrap.md
+3. Newest file in Documentation/Handoffs/
+4. Documentation/Reference/AI/02 - System Architecture.md
+5. Documentation/Reference/AI/03 - Driver Lifecycle Specification.md
+6. Documentation/Reference/AI/01 - Design Philosophies and Tenets.md
+7. Documentation/Reference/AI/11 - Project Status and Development Journal.md
+8. Documentation/Reference/AI/15 - Engineering Notes and Design Commentary.md
+
+Task-specific reading
+---------------------
+For participant driver work:
+- Documentation/Reference/AI/03 - Driver Lifecycle Specification.md
+- Documentation/Reference/AI/05 - Response Detection and Filtering Philosophy.md
+- Documentation/Reference/AI/07 - Participant Driver Reference.md
+- Documentation/Reference/AI/09 - Testing, Validation, and Diagnostics.md
+- Relevant files in runner/src/drivers/
+
+For browser/session/tab work:
+- Documentation/Reference/AI/04 - Browser and Tab Management.md
+- Documentation/Reference/AI/08 - Browser Automation Architecture.md
+- Documentation/Reference/AI/14 - Operational Runbook.md
+- runner/src/server.ts
+- runner/src/runner.ts
+- runner/restart-runner.ps1
+
+For Studio or exporter work:
+- Documentation/Reference/AI/02 - System Architecture.md
+- Documentation/Reference/AI/10 - Future Roadmap and Vision.md
+- src/
+- src/exporters/automa/
+- docs/automa-export-strategy.md
+
+Source-of-truth hierarchy
+-------------------------
+1. Source code is authoritative for current implemented behavior.
+2. Documentation/Reference/AI and Documentation/Reference/Human are authoritative for architecture, terminology, design intent, and engineering philosophy.
+3. Documentation/Handoffs are authoritative for their milestone date only.
+4. Documentation/Reviews are dated audits and must be checked against current code.
+5. Conversation text is useful for current instructions, but it is not durable project truth.
+
+Required behavior
+-----------------
+Before changing code, verify documented claims against source files.
+
+Report documentation/code conflicts explicitly.
+
+Do not present planned architecture as implemented functionality.
+
+When changing engineering truth, update both Reference editions together.
+
+When fixing a provider bug, add or update a regression assertion whenever practical.
+
+When finishing substantive work, report commands run, tests passed or skipped, and remaining risks.

@@ -13,8 +13,10 @@ TWO PARTS
    Tests: npm run test:<provider>-filter   Build check: npm run build
 
 DOCS
-Documentation\Reference\01-16: permanent engineering reference
-  (start at 16 - AI Session Bootstrap)
+Documentation\Reference\: permanent engineering reference library
+  Human\: human-oriented edition (same document numbers and filenames)
+  AI\: AI-oriented edition (same engineering truth, structured for reasoning)
+  Start at Human\16 or AI\16 - AI Session Bootstrap
 Documentation\Handoffs\: milestone snapshots
 Documentation\Reviews\: audits
 docs\: strategy notes; runner\README.md: runner detail

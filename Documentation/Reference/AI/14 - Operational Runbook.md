@@ -1,3 +1,59 @@
+---
+Document ID: REF-14
+Document Title: Operational Runbook
+Version: v0.2.0
+Revision Date: 2026-07-10
+Status: Authoritative Reference
+Audience: AI
+Purpose: AI-optimized edition of the Maestriss engineering reference for Operational Runbook.
+Scope: Same engineering truth as the corresponding Human edition; optimized for deterministic interpretation, retrieval, and machine reasoning.
+Related Documents:
+  - ../Human/14 - Operational Runbook.md
+Related Modules: See Canonical Source Content and referenced source paths.
+Canonical Concepts Covered: Same as the Human edition.
+Current Implementation Status: See Canonical Source Content; source code remains authoritative for current implemented behavior.
+---
+# Operational Runbook
+
+## AI Edition Contract
+
+| Field | Value |
+| --- | --- |
+| Canonical Document ID | REF-14 |
+| Canonical Title | Operational Runbook |
+| Companion Human Edition | ../Human/14 - Operational Runbook.md |
+| Authority Level | Authoritative reference for architecture, terminology, philosophy, operations, and documented status. |
+| Source-of-Truth Rule | Source code is authoritative for current implemented behavior. Reference documents are authoritative for architecture, terminology, and intended design. |
+| Equivalence Rule | This AI edition and the companion Human edition SHALL communicate the same engineering truth. Presentation may differ; facts must not differ. |
+| Interpretation Mode | Deterministic, explicit, retrieval-oriented, and machine-reasonable. |
+
+## Semantic Tags
+
+Use these tags when interpreting statements in this document:
+
+| Tag | Meaning |
+| --- | --- |
+| CURRENT | Describes behavior or structure implemented in the repository at the documented revision. |
+| VERIFIED | Describes behavior validated by source inspection, build output, tests, or committed audit evidence. |
+| PLANNED | Describes intended architecture or work not yet implemented. |
+| FUTURE | Describes long-term direction or possibility, not a current requirement. |
+| HISTORICAL | Describes project history, milestone context, or prior decision rationale. |
+| NORMATIVE | Defines a rule, invariant, standard, or required project practice. |
+| INFORMATIVE | Explains motivation, rationale, examples, or commentary. |
+
+## AI Reading Rules
+
+1. Treat the companion Human edition as semantically equivalent.
+2. Do not infer implemented behavior from aspirational or future-oriented language.
+3. Verify current behavior against source files before modifying code.
+4. Preserve provider-specific boundaries: server owns orchestration; drivers own provider behavior.
+5. Preserve documentation boundaries: Reference is authoritative for design; Reviews are dated audits; Handoffs are milestone snapshots.
+6. Report doc-vs-code conflicts explicitly.
+7. Do not collapse CURRENT, PLANNED, FUTURE, HISTORICAL, NORMATIVE, and INFORMATIVE statements into one category.
+
+## Canonical Source Content
+
+The following source content is the canonical knowledge body for this document. It is preserved from the Human edition to maintain exact semantic equivalence. Use the metadata, semantic tags, and AI reading rules above to interpret it deterministically.
 # Operational Runbook
 
 ## Table of Contents
@@ -105,7 +161,7 @@ The repository is organized around Studio, runner, documentation, diagnostics, a
 
 `Documentation/Reference/` contains the permanent reference documents and this operational runbook. These documents should be treated as project knowledge, not disposable notes. `Documentation/Reviews/` contains historical audits, reconciliations, and other working documents that are valuable historically but are not authoritative reference material. `Documentation/Handoffs/` contains dated milestone state transfers.
 
-**Onboarding note:** New maintainers and new AI sessions should start with `Documentation/Reference/16 - AI Session Bootstrap.md`, then read the most recent milestone handoff in `Documentation/Handoffs/` for current project state, before using this runbook for specific procedures.
+**Onboarding note:** New maintainers and new AI sessions should start with `Documentation/Reference/AI/16 - AI Session Bootstrap.md`, then read the most recent milestone handoff in `Documentation/Handoffs/` for current project state, before using this runbook for specific procedures.
 
 `src/` contains the Maestriss Studio React application source.
 

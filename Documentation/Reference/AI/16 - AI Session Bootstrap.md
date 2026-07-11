@@ -1,3 +1,59 @@
+---
+Document ID: REF-16
+Document Title: AI Session Bootstrap
+Version: v0.2.0
+Revision Date: 2026-07-10
+Status: Authoritative Reference
+Audience: AI
+Purpose: AI-optimized edition of the Maestriss engineering reference for AI Session Bootstrap.
+Scope: Same engineering truth as the corresponding Human edition; optimized for deterministic interpretation, retrieval, and machine reasoning.
+Related Documents:
+  - ../Human/16 - AI Session Bootstrap.md
+Related Modules: See Canonical Source Content and referenced source paths.
+Canonical Concepts Covered: Same as the Human edition.
+Current Implementation Status: See Canonical Source Content; source code remains authoritative for current implemented behavior.
+---
+# AI Session Bootstrap
+
+## AI Edition Contract
+
+| Field | Value |
+| --- | --- |
+| Canonical Document ID | REF-16 |
+| Canonical Title | AI Session Bootstrap |
+| Companion Human Edition | ../Human/16 - AI Session Bootstrap.md |
+| Authority Level | Authoritative reference for architecture, terminology, philosophy, operations, and documented status. |
+| Source-of-Truth Rule | Source code is authoritative for current implemented behavior. Reference documents are authoritative for architecture, terminology, and intended design. |
+| Equivalence Rule | This AI edition and the companion Human edition SHALL communicate the same engineering truth. Presentation may differ; facts must not differ. |
+| Interpretation Mode | Deterministic, explicit, retrieval-oriented, and machine-reasonable. |
+
+## Semantic Tags
+
+Use these tags when interpreting statements in this document:
+
+| Tag | Meaning |
+| --- | --- |
+| CURRENT | Describes behavior or structure implemented in the repository at the documented revision. |
+| VERIFIED | Describes behavior validated by source inspection, build output, tests, or committed audit evidence. |
+| PLANNED | Describes intended architecture or work not yet implemented. |
+| FUTURE | Describes long-term direction or possibility, not a current requirement. |
+| HISTORICAL | Describes project history, milestone context, or prior decision rationale. |
+| NORMATIVE | Defines a rule, invariant, standard, or required project practice. |
+| INFORMATIVE | Explains motivation, rationale, examples, or commentary. |
+
+## AI Reading Rules
+
+1. Treat the companion Human edition as semantically equivalent.
+2. Do not infer implemented behavior from aspirational or future-oriented language.
+3. Verify current behavior against source files before modifying code.
+4. Preserve provider-specific boundaries: server owns orchestration; drivers own provider behavior.
+5. Preserve documentation boundaries: Reference is authoritative for design; Reviews are dated audits; Handoffs are milestone snapshots.
+6. Report doc-vs-code conflicts explicitly.
+7. Do not collapse CURRENT, PLANNED, FUTURE, HISTORICAL, NORMATIVE, and INFORMATIVE statements into one category.
+
+## Canonical Source Content
+
+The following source content is the canonical knowledge body for this document. It is preserved from the Human edition to maintain exact semantic equivalence. Use the metadata, semantic tags, and AI reading rules above to interpret it deterministically.
 # AI Session Bootstrap
 
 ## Purpose
@@ -79,7 +135,7 @@ You can and must verify directly. Read the files, run the builds and filter test
 
 Paste the following into a new AI session (a plain-text copy is kept in `bootstrap.txt` at the repository root):
 
-> You are joining Maestriss, a project that orchestrates multiple web AI providers (ChatGPT, Claude, DeepSeek, Gemini, Google AI Mode, Grok, Copilot, Perplexity, Reka) through browser automation, treating each provider as a participant in multi-AI workflows. Before proposing or making changes: (1) Read `Documentation/Reference/16 - AI Session Bootstrap.md` in full and follow its reading order and rules. (2) Read the most recent file in `Documentation/Handoffs/` for current state. (3) Apply the source-of-truth rules: code is authoritative for current behavior; `Documentation/Reference/` is authoritative for architecture and intent; `Documentation/Reviews/` findings may already be resolved; report doc-vs-code conflicts instead of silently picking a side. (4) Verify claims against `runner/src/` before relying on them, and check `git log` for anything newer than the docs. When ready, state: (a) the request lifecycle in one paragraph, (b) which providers have full filtering + regression coverage and which do not, (c) the two browser execution modes and their profiles. Then wait for the task.
+> You are joining Maestriss, a project that orchestrates multiple web AI providers (ChatGPT, Claude, DeepSeek, Gemini, Google AI Mode, Grok, Copilot, Perplexity, Reka) through browser automation, treating each provider as a participant in multi-AI workflows. Before proposing or making changes: (1) Read `Documentation/Reference/AI/16 - AI Session Bootstrap.md` in full and follow its reading order and rules. (2) Read the most recent file in `Documentation/Handoffs/` for current state. (3) Apply the source-of-truth rules: code is authoritative for current behavior; `Documentation/Reference/Human/` and `Documentation/Reference/AI/` are authoritative parallel editions for architecture and intent; `Documentation/Reviews/` findings may already be resolved; report doc-vs-code conflicts instead of silently picking a side. (4) Verify claims against `runner/src/` before relying on them, and check `git log` for anything newer than the docs. When ready, state: (a) the request lifecycle in one paragraph, (b) which providers have full filtering + regression coverage and which do not, (c) the two browser execution modes and their profiles. Then wait for the task.
 
 ## Onboarding Checklist
 

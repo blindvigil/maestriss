@@ -1,3 +1,18 @@
+---
+Document ID: REF-15
+Document Title: Engineering Notes and Design Commentary
+Version: v0.2.0
+Revision Date: 2026-07-10
+Status: Authoritative Reference
+Audience: Human
+Purpose: Human-oriented edition of the Maestriss engineering reference for Engineering Notes and Design Commentary.
+Scope: Same engineering truth as the corresponding AI edition; optimized for comprehension, rationale, and maintainable human reading.
+Related Documents:
+  - ../AI/15 - Engineering Notes and Design Commentary.md
+Related Modules: See document body for relevant source paths and modules.
+Canonical Concepts Covered: See document body.
+Current Implementation Status: See document body; source code remains authoritative for current implemented behavior.
+---
 # Engineering Notes and Design Commentary
 
 ## Table of Contents

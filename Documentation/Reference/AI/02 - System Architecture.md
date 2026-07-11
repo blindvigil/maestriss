@@ -1,3 +1,59 @@
+---
+Document ID: REF-02
+Document Title: System Architecture
+Version: v0.2.0
+Revision Date: 2026-07-10
+Status: Authoritative Reference
+Audience: AI
+Purpose: AI-optimized edition of the Maestriss engineering reference for System Architecture.
+Scope: Same engineering truth as the corresponding Human edition; optimized for deterministic interpretation, retrieval, and machine reasoning.
+Related Documents:
+  - ../Human/02 - System Architecture.md
+Related Modules: See Canonical Source Content and referenced source paths.
+Canonical Concepts Covered: Same as the Human edition.
+Current Implementation Status: See Canonical Source Content; source code remains authoritative for current implemented behavior.
+---
+# System Architecture
+
+## AI Edition Contract
+
+| Field | Value |
+| --- | --- |
+| Canonical Document ID | REF-02 |
+| Canonical Title | System Architecture |
+| Companion Human Edition | ../Human/02 - System Architecture.md |
+| Authority Level | Authoritative reference for architecture, terminology, philosophy, operations, and documented status. |
+| Source-of-Truth Rule | Source code is authoritative for current implemented behavior. Reference documents are authoritative for architecture, terminology, and intended design. |
+| Equivalence Rule | This AI edition and the companion Human edition SHALL communicate the same engineering truth. Presentation may differ; facts must not differ. |
+| Interpretation Mode | Deterministic, explicit, retrieval-oriented, and machine-reasonable. |
+
+## Semantic Tags
+
+Use these tags when interpreting statements in this document:
+
+| Tag | Meaning |
+| --- | --- |
+| CURRENT | Describes behavior or structure implemented in the repository at the documented revision. |
+| VERIFIED | Describes behavior validated by source inspection, build output, tests, or committed audit evidence. |
+| PLANNED | Describes intended architecture or work not yet implemented. |
+| FUTURE | Describes long-term direction or possibility, not a current requirement. |
+| HISTORICAL | Describes project history, milestone context, or prior decision rationale. |
+| NORMATIVE | Defines a rule, invariant, standard, or required project practice. |
+| INFORMATIVE | Explains motivation, rationale, examples, or commentary. |
+
+## AI Reading Rules
+
+1. Treat the companion Human edition as semantically equivalent.
+2. Do not infer implemented behavior from aspirational or future-oriented language.
+3. Verify current behavior against source files before modifying code.
+4. Preserve provider-specific boundaries: server owns orchestration; drivers own provider behavior.
+5. Preserve documentation boundaries: Reference is authoritative for design; Reviews are dated audits; Handoffs are milestone snapshots.
+6. Report doc-vs-code conflicts explicitly.
+7. Do not collapse CURRENT, PLANNED, FUTURE, HISTORICAL, NORMATIVE, and INFORMATIVE statements into one category.
+
+## Canonical Source Content
+
+The following source content is the canonical knowledge body for this document. It is preserved from the Human edition to maintain exact semantic equivalence. Use the metadata, semantic tags, and AI reading rules above to interpret it deterministically.
 # System Architecture
 
 ## Table of Contents

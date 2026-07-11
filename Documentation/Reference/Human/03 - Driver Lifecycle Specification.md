@@ -1,3 +1,18 @@
+---
+Document ID: REF-03
+Document Title: Driver Lifecycle Specification
+Version: v0.2.0
+Revision Date: 2026-07-10
+Status: Authoritative Reference
+Audience: Human
+Purpose: Human-oriented edition of the Maestriss engineering reference for Driver Lifecycle Specification.
+Scope: Same engineering truth as the corresponding AI edition; optimized for comprehension, rationale, and maintainable human reading.
+Related Documents:
+  - ../AI/03 - Driver Lifecycle Specification.md
+Related Modules: See document body for relevant source paths and modules.
+Canonical Concepts Covered: See document body.
+Current Implementation Status: See document body; source code remains authoritative for current implemented behavior.
+---
 # Driver Lifecycle Specification
 
 ## Table of Contents

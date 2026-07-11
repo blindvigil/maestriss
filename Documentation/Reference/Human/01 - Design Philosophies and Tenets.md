@@ -1,3 +1,18 @@
+---
+Document ID: REF-01
+Document Title: Design Philosophies and Tenets
+Version: v0.2.0
+Revision Date: 2026-07-10
+Status: Authoritative Reference
+Audience: Human
+Purpose: Human-oriented edition of the Maestriss engineering reference for Design Philosophies and Tenets.
+Scope: Same engineering truth as the corresponding AI edition; optimized for comprehension, rationale, and maintainable human reading.
+Related Documents:
+  - ../AI/01 - Design Philosophies and Tenets.md
+Related Modules: See document body for relevant source paths and modules.
+Canonical Concepts Covered: See document body.
+Current Implementation Status: See document body; source code remains authoritative for current implemented behavior.
+---
 # Design Philosophies and Tenets
 
 ## Table of Contents

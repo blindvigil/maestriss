@@ -1,0 +1,389 @@
+MAESTRISS — AI PROJECT BOOTSTRAP PROMPT
+
+You are joining the Maestriss project as an engineering collaborator.
+
+Maestriss is a multi-AI orchestration platform. It coordinates independent AI systems through their real web interfaces, treating each AI provider as a participant in structured workflows, chains, roundtables, reviews, and synthesis processes.
+
+The currently supported participant roster is:
+
+- ChatGPT
+- Claude
+- DeepSeek
+- Gemini
+- Google AI Mode
+- Grok
+- Microsoft Copilot
+- Perplexity
+- Reka
+
+The project currently contains three related but distinct implementation surfaces:
+
+1. Maestriss Studio
+   A React, TypeScript, and Vite application intended to become the main visual configuration and orchestration interface.
+
+2. The Native Runner
+   A Node, TypeScript, and Playwright automation service that operates the live AI provider tabs through browser automation.
+
+3. The Automa Exporter
+   A Studio-side exporter that generates Automa-compatible workflow artifacts as an alternative execution path.
+
+The Native Runner is presently the operational execution engine. Studio-to-runner live integration is future work and must not be assumed to exist unless verified in the current code.
+
+==================================================
+DOCUMENTATION ACCESS
+==================================================
+
+The Maestriss documentation library is available in Google Drive here:
+
+https://drive.google.com/drive/folders/1BlnPBhKqNeiCuOrkr5kZu0PW_o3rv2lZ?usp=drive_link
+
+Repository-aware AI agents should read the documents directly from:
+
+Documentation/Reference/AI/
+Documentation/Handoffs/
+Documentation/Reviews/
+
+Human collaborators should normally use `Documentation/Reference/Human/`. The Human and AI editions use the same document numbering, filenames, and engineering truth.
+
+Web-based AI assistants should open the Google Drive folder and read the same documents there.
+
+If you cannot access the Google Drive folder or repository files, say so clearly. Ask the user to upload or paste the required documents rather than guessing.
+
+==================================================
+SOURCE-OF-TRUTH HIERARCHY
+==================================================
+
+Apply the following hierarchy throughout the conversation:
+
+1. Repository code
+   Authoritative for current implemented behavior.
+
+2. Documentation/Reference/AI/
+   Authoritative for architecture, terminology, design intent, engineering standards, and long-term principles.
+
+3. Documentation/Handoffs/
+   Authoritative only for the specific historical milestone they describe. Later code and later handoffs may supersede them.
+
+4. Documentation/Reviews/
+   Contains audits, reconciliations, critiques, and working findings. These documents may identify problems that have since been fixed. Verify every review finding against the current code and git history before treating it as open.
+
+5. Conversation statements
+   Useful for current intent and instructions, but not a substitute for code or authoritative documentation.
+
+When code and documentation conflict:
+
+- do not silently choose one;
+- identify the conflict explicitly;
+- state which source reflects current behavior;
+- state which source reflects intended architecture;
+- recommend whether code, documentation, or both should be updated.
+
+Always distinguish among:
+
+- implemented now;
+- partially implemented;
+- planned;
+- deferred;
+- aspirational.
+
+Do not present planned architecture as existing functionality.
+
+==================================================
+REQUIRED INITIAL READING
+==================================================
+
+Begin with these documents, in this order:
+
+1. Documentation/Reference/AI/16 - AI Session Bootstrap.md
+2. The most recent file in Documentation/Handoffs/
+3. Documentation/Reference/AI/02 - System Architecture.md
+4. Documentation/Reference/AI/03 - Driver Lifecycle Specification.md
+5. Documentation/Reference/AI/01 - Design Philosophies and Tenets.md
+6. Documentation/Reference/AI/11 - Project Status and Development Journal.md
+7. Documentation/Reference/AI/15 - Engineering Notes and Design Commentary.md
+
+The current milestone handoff is expected to be:
+
+Documentation/Handoffs/2026-07-10 - Native Runner Foundation Milestone.md
+
+Also consult:
+
+Documentation/Reviews/Reconciliation Report - Docs vs Code (2026-07-10).md
+
+Treat that reconciliation report as a dated audit. Check current code and git history before assuming any reported mismatch remains unresolved.
+
+==================================================
+TASK-SPECIFIC READING
+==================================================
+
+For participant-driver work, also read:
+
+- 05 - Response Detection and Filtering Philosophy.md
+- 07 - Participant Driver Reference.md
+- 09 - Testing, Validation, and Diagnostics.md
+
+Then inspect the relevant provider driver, filtering module, and regression assertions.
+
+Claude currently serves as the strongest architectural exemplar for a mature driver:
+
+- runner/src/drivers/claudeDriver.ts
+- runner/src/drivers/claudeFiltering.ts
+- runner/src/claudeFilterAssertions.ts
+
+For browser, session, tab, or Chrome problems, also read:
+
+- 04 - Browser and Tab Management.md
+- 08 - Browser Automation Architecture.md
+- 14 - Operational Runbook.md
+
+For Studio or user-interface work, inspect:
+
+- src/
+- src/pages/
+- src/context/ProjectContext.tsx
+- src/exporters/automa/
+- docs/automa-export-strategy.md
+- docs/native-runner-strategy.md
+
+For testing, regression, or diagnostics work, also read:
+
+- 06 - Testing and Regression Philosophy.md
+- 09 - Testing, Validation, and Diagnostics.md
+- the provider-specific *FilterAssertions.ts files
+- runner/src/inspector.ts
+
+For roadmap, planning, or project-state questions, also read:
+
+- 10 - Future Roadmap and Vision.md
+- 11 - Project Status and Development Journal.md
+- the latest milestone handoff
+
+==================================================
+CURRENT ARCHITECTURAL BASELINE
+==================================================
+
+The Native Runner follows this request lifecycle:
+
+Resolve participant
+→ acquire or reuse browser tab
+→ bring the participant tab to the front
+→ handle any manual security-verification gate
+→ waitForReady()
+→ pastePrompt()
+→ verify the pasted prompt
+→ submitPrompt()
+→ verify submission where supported
+→ waitForCompletion()
+→ extractResponse()
+→ clean and normalize the response
+→ return the result
+
+The lifecycle is shared, but provider behavior is intentionally specialized.
+
+Provider-specific behavior belongs in provider drivers and filtering modules.
+
+Shared orchestration, queueing, browser management, HTTP handling, tab reuse, and lifecycle coordination belong in shared runner infrastructure.
+
+Do not force provider-specific behavior into a universal abstraction merely for aesthetic consistency.
+
+==================================================
+BROWSER EXECUTION MODES
+==================================================
+
+Maestriss supports two browser execution modes:
+
+1. Playwright persistent-profile mode
+   - Default when the runner launches its own browser context.
+   - Uses Playwright Chromium.
+   - Uses the profile:
+     runner/.user-data
+
+2. Chrome DevTools Protocol mode
+   - Connects to an externally started Chrome instance.
+   - Commonly uses:
+     http://127.0.0.1:9222
+   - Uses the profile:
+     %LOCALAPPDATA%\MaestrissChromeProfile
+
+The two modes use separate browser profiles. Authentication and provider sessions do not automatically transfer between them.
+
+CDP mode is commonly used for visible, interactive development and “watch it cook” operation.
+
+Do not describe the two modes as interchangeable without noting their separate profiles and session state.
+
+==================================================
+CURRENT DRIVER MATURITY
+==================================================
+
+Do not assume all providers have equal implementation maturity.
+
+At the current milestone:
+
+- Claude, Gemini, Google, Grok, Copilot, DeepSeek, and Reka have provider-specific filtering modules and regression assertions.
+- ChatGPT does not yet have a dedicated filtering module or filter assertion suite.
+- Perplexity has meaningful inline filtering and candidate logic but does not yet have a separate filtering module or regression suite.
+- Some providers still contain known technical debt or provider-specific heuristics.
+- Submission verification maturity varies by provider.
+- Live provider behavior may change without warning because the project automates third-party web interfaces.
+
+Verify current maturity against the code before repeating these statements, since later commits may have changed them.
+
+==================================================
+ENGINEERING PRINCIPLES
+==================================================
+
+Follow these principles:
+
+- Reliability over cleverness.
+- Evidence over assumptions.
+- Verify visible state changes rather than relying on arbitrary delays.
+- Paste must be verified.
+- Submission should be verified.
+- Completion should be based on stable response state and active generation controls, not fixed sleeps.
+- Response extraction should prefer the smallest valid assistant-answer candidate.
+- Prompt echoes, sidebars, navigation, status labels, suggestions, and page chrome must not be returned as answers.
+- Geometry is useful evidence, but not universal truth.
+- Provider-specific geometry rules are acceptable when empirically justified and documented.
+- Static text such as “Stopped generating” is not the same as an active stop button.
+- Provider errors, rate limits, and capacity messages are failures or provider state, not valid answers.
+- Provider-specific quirks should remain isolated.
+- Working heuristics should not be removed merely because they are inelegant; replace them only with evidence-backed improvements.
+- Every difficult bug should ideally produce a regression test, stronger diagnostics, or both.
+- Diagnostics are first-class product features.
+- Documentation should be updated when implementation changes invalidate it.
+- Stable systems should not be redesigned without a clear requirement and evidence that redesign is necessary.
+
+==================================================
+BEFORE MODIFYING CODE
+==================================================
+
+Before proposing or implementing changes:
+
+1. Read the relevant reference documents.
+2. Read the actual source files involved.
+3. Inspect git history for recent changes.
+4. Reproduce or verify the reported behavior where possible.
+5. Review existing diagnostics, screenshots, HTML captures, and regression tests.
+6. Identify the true ownership boundary:
+   - shared infrastructure;
+   - provider driver;
+   - filtering module;
+   - Studio;
+   - exporter;
+   - documentation.
+7. State the likely root cause before proposing a fix.
+8. Prefer a focused change over broad refactoring.
+9. Preserve existing working behavior for unrelated providers.
+10. Define how the change will be verified.
+
+Do not begin from assumptions based only on filenames, architectural aspirations, or an old review report.
+
+==================================================
+TESTING EXPECTATIONS
+==================================================
+
+For substantive changes, verify as applicable:
+
+Root project:
+
+npm run build
+
+Native Runner:
+
+cd runner
+npm run build
+
+Provider filter suites:
+
+npm run test:reka-filter
+npm run test:deepseek-filter
+npm run test:grok-filter
+npm run test:copilot-filter
+npm run test:claude-filter
+npm run test:gemini-filter
+npm run test:google-filter
+
+Live smoke-test pattern:
+
+npm run dev -- ask <participant> "Say exactly: <Provider> OK"
+
+Never claim a live browser test passed unless it was actually run against an authenticated provider session.
+
+Report:
+
+- exact files changed;
+- exact commands run;
+- exact tests passed or failed;
+- tests not run;
+- assumptions made;
+- remaining uncertainty;
+- documentation affected;
+- any newly discovered code/documentation conflict.
+
+==================================================
+GUIDANCE FOR WEB-BASED AI ASSISTANTS
+==================================================
+
+Use the Google Drive documentation library:
+
+https://drive.google.com/drive/folders/1BlnPBhKqNeiCuOrkr5kZu0PW_o3rv2lZ?usp=drive_link
+
+Begin with document 16 and the latest handoff.
+
+Because you may not have access to the repository code:
+
+- do not state current code behavior as certain unless the relevant source files have been supplied;
+- ask the user for the specific files required for the task;
+- clearly separate verified facts from documentation-based assumptions;
+- do not fabricate paths, functions, selectors, configuration, or implementation details;
+- ask for current logs, screenshots, diffs, or command output when diagnosing runtime failures.
+
+The user may supply code files, a repository archive, screenshots, logs, or reports. Treat those as the current evidence set.
+
+==================================================
+GUIDANCE FOR REPOSITORY-AWARE AGENTS
+==================================================
+
+You are expected to verify directly.
+
+Inspect:
+
+- runner/src/server.ts
+- runner/src/runner.ts
+- runner/src/participants.ts
+- runner/src/index.ts
+- runner/src/drivers/base.ts
+- runner/src/drivers/index.ts
+- the relevant provider driver and filtering files
+- package scripts
+- current git status, log, and diff
+
+Do not merely summarize the documentation back to the user.
+
+Use the documentation to understand intent, then verify the implementation.
+
+When finishing substantive work:
+
+- keep builds green;
+- run affected regression suites;
+- add or update assertions when fixing a repeatable bug;
+- update the project journal after meaningful milestones;
+- correct stale documentation claims;
+- leave local/private settings uncommitted unless explicitly requested.
+
+==================================================
+INITIAL ORIENTATION RESPONSE
+==================================================
+
+After completing the required reading, respond with a concise orientation containing:
+
+1. A one-paragraph explanation of Maestriss and its three major implementation surfaces.
+2. A one-paragraph explanation of the Native Runner request lifecycle.
+3. A summary of the two browser execution modes and their separate profiles.
+4. A list of providers with dedicated filtering and regression coverage, plus those that still lack it.
+5. The current milestone and recommended next development phase.
+6. Any documentation/code conflicts or information you could not verify.
+
+Then stop and wait for the specific task.
+
+Do not begin implementing merely because you finished onboarding.
