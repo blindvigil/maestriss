@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -17,6 +18,25 @@ import type { ParticipantRunResponse } from './types.js';
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const runnerRoot = path.resolve(currentDir, '..');
 const userDataDir = path.join(runnerRoot, '.user-data');
+
+// Canonical Maestriss version owner: root package.json (Reference doc 12,
+// Versioning and Release Policy). No fallback version is ever fabricated.
+const semVerPattern =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?$/;
+
+function readMaestrissVersion(): string {
+  const rootPackagePath = path.resolve(runnerRoot, '..', 'package.json');
+  const parsed = JSON.parse(readFileSync(rootPackagePath, 'utf8')) as { version?: unknown };
+
+  if (typeof parsed.version !== 'string' || !semVerPattern.test(parsed.version)) {
+    throw new Error(
+      `Canonical Maestriss version in ${rootPackagePath} is missing or not valid SemVer: ` +
+      `${JSON.stringify(parsed.version)}. Run "npm run verify:version" from the repository root.`,
+    );
+  }
+
+  return parsed.version;
+}
 
 type CliOptions = {
   browserChannel: BrowserChannel;
@@ -411,12 +431,10 @@ function printUsage() {
   console.log('  npm run dev -- chain google chatgpt "optional prompt"');
   console.log('  npm run dev -- run-random "original prompt here" [--verbose]');
   console.log('  npm run dev -- inspect claude');
+  console.log('  npm run dev -- version');
 }
 
 async function main() {
-  console.log('Maestriss native runner proof of concept');
-  console.log(`Configured participants: ${participants.map((participant) => participant.name).join(', ')}`);
-
   const {
     browserChannel,
     connectCdpUrl,
@@ -424,6 +442,14 @@ async function main() {
     verbose,
     args: [command, target, ...args],
   } = parseCliOptions(process.argv.slice(2));
+
+  if (command === 'version') {
+    console.log(`Maestriss ${readMaestrissVersion()}`);
+    return;
+  }
+
+  console.log('Maestriss native runner proof of concept');
+  console.log(`Configured participants: ${participants.map((participant) => participant.name).join(', ')}`);
 
   if (command === 'serve') {
     if (connectCdpUrl) {

@@ -493,6 +493,7 @@ async function claudeResponseDiagnostics(page: Page, submittedPrompt = ''): Prom
 
       const candidateArea = candidate.width * candidate.height;
       const normalizedRaw = normalize(candidate.text);
+      const normalizedCleaned = normalize(cleanedText);
       const smallerValidChild = candidatesBeforeFiltering.some((sibling) => {
         if (sibling === candidate) return false;
 
@@ -504,7 +505,7 @@ async function claudeResponseDiagnostics(page: Page, submittedPrompt = ''): Prom
           !chromeText(sibling.cleanedText);
       });
 
-      if (smallerValidChild) return 'page-or-transcript-parent-container';
+      if (smallerValidChild && normalizedRaw !== normalizedCleaned) return 'page-or-transcript-parent-container';
       return '';
     }
 

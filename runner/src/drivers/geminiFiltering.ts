@@ -65,6 +65,8 @@ export type GeminiCandidateGeometry = {
   y: number;
   width: number;
   height: number;
+  insideExcludedArea?: boolean;
+  insideResponseContainer?: boolean;
 };
 
 export function stripGeminiAccessibilityPrefix(text: string) {
@@ -102,7 +104,7 @@ export function cleanGeminiResponseText(text: string) {
 }
 
 export function isCentralGeminiResponseCandidate(candidate: Pick<GeminiCandidateGeometry, 'x' | 'width'>) {
-  return candidate.x >= 150 && candidate.width >= 100 && candidate.width <= 900;
+  return candidate.x >= 0 && candidate.width >= 100 && candidate.width <= 900;
 }
 
 export function geminiCandidateRejectionReason(candidate: GeminiCandidateGeometry, promptNeedle = '') {
@@ -113,6 +115,7 @@ export function geminiCandidateRejectionReason(candidate: GeminiCandidateGeometr
   if (isGeminiShellOrStatusText(cleanedText) || isGeminiShellOrStatusText(candidate.text)) return 'known-gemini-chrome';
   if (candidate.width > 900) return 'page-or-conversation-parent-container';
   if (candidate.x < 80 && candidate.width <= 120) return 'left-navigation-container';
+  if (candidate.insideExcludedArea && !candidate.insideResponseContainer) return 'navigation-or-sidebar-container';
   if (!isCentralGeminiResponseCandidate(candidate)) return 'outside-central-response-column';
 
   return '';

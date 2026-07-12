@@ -1,12 +1,13 @@
 {
   "name": "maestriss-runner-poc",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
+    "test:chatgpt-filter": "tsx src/chatgptFilterAssertions.ts",
     "test:reka-filter": "tsx src/rekaFilterAssertions.ts",
     "test:deepseek-filter": "tsx src/deepseekFilterAssertions.ts",
     "test:grok-filter": "tsx src/grokFilterAssertions.ts",

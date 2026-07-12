@@ -4,12 +4,17 @@ import {
   geminiCandidateRejectionReason,
 } from './drivers/geminiFiltering.js';
 import { buildGeminiResponseDetectorScript } from './drivers/geminiDriver.js';
+import { chromium } from 'playwright';
 
 type GeminiCase = {
   text: string;
   expected: 'accepted' | 'rejected';
   expectedReason?: string;
   prompt?: string;
+};
+
+type GeminiDetectorFixtureDiagnostics = {
+  selectedCleanedText: string;
 };
 
 const cases: GeminiCase[] = [
@@ -63,12 +68,47 @@ const geometryCases = [
     expectedReason: '',
   },
   {
+    candidate: { text: 'Gemini OK', x: 16, y: 200, width: 653, height: 32 },
+    expectedReason: '',
+  },
+  {
+    candidate: { text: 'Gemini OK', x: 24, y: 200, width: 637, height: 24 },
+    expectedReason: '',
+  },
+  {
+    candidate: { text: 'Gemini said Gemini OK', x: 16, y: 196, width: 653, height: 88 },
+    expectedReason: '',
+  },
+  {
+    candidate: {
+      text: 'Gemini OK',
+      x: 16,
+      y: 200,
+      width: 653,
+      height: 32,
+      insideExcludedArea: true,
+      insideResponseContainer: true,
+    },
+    expectedReason: '',
+  },
+  {
     candidate: { text: 'Say exactly: Gemini OK', x: 704, y: 98, width: 174, height: 26 },
     expectedReason: 'empty-after-clean',
   },
   {
     candidate: { text: 'New notebook', x: 0, y: 0, width: 52, height: 910 },
     expectedReason: 'left-navigation-container',
+  },
+  {
+    candidate: {
+      text: 'Some previous chat title about planning',
+      x: 16,
+      y: 160,
+      width: 320,
+      height: 32,
+      insideExcludedArea: true,
+    },
+    expectedReason: 'navigation-or-sidebar-container',
   },
   {
     candidate: { text: 'Gemini OK', x: 0, y: 0, width: 1039, height: 910 },
@@ -84,6 +124,50 @@ if (detectorScript.includes('__name')) {
   console.error('FAIL gemini detector script: contains __name');
 } else {
   console.log('PASS gemini detector script: no __name');
+}
+
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage({ viewport: { width: 1047, height: 872 } });
+await page.setContent(`
+  <main>
+    <div id="chat-history" class="chat-history-scroll-container">
+      <div class="conversation-container">
+        <user-query>
+          <div class="user-query-container">
+            <p>Say exactly: Gemini OK</p>
+          </div>
+        </user-query>
+        <model-response>
+          <response-container>
+            <structured-content-container class="model-response-text">
+              <message-content>
+                <div id="model-response-message-content-test" class="markdown">
+                  <p style="margin-left:16px; width:653px; min-height:32px;">Gemini OK</p>
+                </div>
+              </message-content>
+            </structured-content-container>
+          </response-container>
+        </model-response>
+      </div>
+    </div>
+    <nav class="sidebar history"><p>Old Gemini OK chat title</p></nav>
+  </main>
+`);
+
+const fixtureDiagnostics = await page.evaluate<GeminiDetectorFixtureDiagnostics>(
+  buildGeminiResponseDetectorScript('Say exactly: Gemini OK'),
+);
+await browser.close();
+
+if (fixtureDiagnostics.selectedCleanedText !== 'Gemini OK') {
+  failureCount += 1;
+  console.error(
+    `FAIL gemini detector fixture: expected "Gemini OK", got ` +
+    JSON.stringify(fixtureDiagnostics.selectedCleanedText),
+  );
+  console.error(JSON.stringify(fixtureDiagnostics, null, 2));
+} else {
+  console.log('PASS gemini detector fixture: selected Gemini OK from model-response');
 }
 
 for (const testCase of cases) {

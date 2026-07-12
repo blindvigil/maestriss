@@ -196,9 +196,32 @@ export function buildGeminiResponseDetectorScript(submittedPrompt = '') {
     }
 
     function centralResponseGeometry(candidate) {
-      return candidate.left >= 150 &&
+      return candidate.left >= 0 &&
         candidate.width >= 100 &&
         candidate.width <= 900;
+    }
+
+    function closestResponseRoot(element) {
+      return element.closest([
+        'model-response',
+        '[model-response]',
+        'response-container',
+        'message-content',
+        '[id^="model-response-message-content"]',
+        '[class*="model-response" i]',
+        '[class*="response-container" i]'
+      ].join(','));
+    }
+
+    function insideExcludedArea(element) {
+      const responseRoot = closestResponseRoot(element);
+      const excludedRoot = element.closest([
+        '[role="navigation"]',
+        '[class*="sidebar" i]',
+        '[class*="history" i]'
+      ].join(','));
+
+      return Boolean(excludedRoot && !(responseRoot && excludedRoot.contains(responseRoot)));
     }
 
     function rejectionReason(candidate) {
@@ -207,7 +230,7 @@ export function buildGeminiResponseDetectorScript(submittedPrompt = '') {
       if (chromeText(candidate.text) || chromeText(candidate.cleanedText)) return 'known-gemini-chrome';
       if (candidate.width > 900) return 'page-or-conversation-parent-container';
       if (candidate.left < 80 && candidate.width <= 120) return 'left-navigation-container';
-      if (candidate.insideExcludedArea && !centralResponseGeometry(candidate)) return 'navigation-or-sidebar-container';
+      if (candidate.insideExcludedArea) return 'navigation-or-sidebar-container';
       if (!centralResponseGeometry(candidate)) return 'outside-central-response-column';
       return '';
     }
@@ -249,7 +272,7 @@ export function buildGeminiResponseDetectorScript(submittedPrompt = '') {
               ].filter(Boolean).join(' ').toLowerCase();
               return /copy|share|more|thumb|like|dislike|feedback|export|listen/.test(text);
             }),
-          insideExcludedArea: Boolean(element.closest('[role="navigation"], [class*="sidebar" i], [class*="history" i], [class*="drawer" i]')),
+          insideExcludedArea: insideExcludedArea(element),
         };
       })
       .filter((candidate) => candidate.text.length > 0);

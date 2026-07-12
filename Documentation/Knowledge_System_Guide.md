@@ -183,6 +183,7 @@ Use this index to determine where concepts are owned and what code should be che
 | Regression philosophy | `06 - Testing and Regression Philosophy.md` | Provider assertion tests and test scripts |
 | Response detection | `05 - Response Detection and Filtering Philosophy.md` | Provider detectors, extraction code, filter assertions |
 | Testing procedures | `09 - Testing, Validation, and Diagnostics.md` | `runner/package.json`, test files |
+| Versioning and release policy | `12 - Development Workflow and Engineering Standards.md` | Root `package.json` (canonical version owner), `runner/package.json`, lockfiles, `CHANGELOG.md`, `scripts/verify-version.mjs`, Git tags |
 | Workflow standards | `12 - Development Workflow and Engineering Standards.md` | Repository practices and commits |
 
 ## Document Responsibility Matrix
@@ -201,7 +202,7 @@ Use this index to determine where concepts are owned and what code should be che
 | `09 - Testing, Validation, and Diagnostics.md` | Practical validation, diagnostic artifacts, test categories, expected evidence | Philosophical justification for testing |
 | `10 - Future Roadmap and Vision.md` | Planned evolution and long-term direction | Current implementation claims unless explicitly marked |
 | `11 - Project Status and Development Journal.md` | Current documented status and development history | Permanent philosophy or normative standards |
-| `12 - Development Workflow and Engineering Standards.md` | Engineering practices, change discipline, review behavior | Provider-specific driver rules |
+| `12 - Development Workflow and Engineering Standards.md` | Engineering practices, change discipline, review behavior, versioning and release policy | Provider-specific driver rules; release history itself (owned by `CHANGELOG.md`) |
 | `13 - Prompt Engineering and AI Collaboration.md` | AI collaboration standards and prompt discipline | General user-facing product UX |
 | `14 - Operational Runbook.md` | Day-to-day operating procedures and troubleshooting | Architectural philosophy |
 | `15 - Engineering Notes and Design Commentary.md` | Commentary, design reflections, contextual reasoning | Normative specifications unless promoted elsewhere |

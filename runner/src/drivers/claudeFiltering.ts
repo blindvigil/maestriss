@@ -129,6 +129,7 @@ export function claudeCandidateRejectionReason(
 ) {
   const cleanedText = cleanClaudeResponseText(candidate.text);
   const normalizedRaw = normalizeClaudeCandidateText(candidate.text);
+  const normalizedCleaned = normalizeClaudeCandidateText(cleanedText);
 
   if (!cleanedText || cleanedText.length <= 5) return 'too-short';
   if (candidate.height > 600) return 'page-or-transcript-parent-container';
@@ -152,7 +153,7 @@ export function claudeCandidateRejectionReason(
       !isClaudeShellOrStatusText(siblingCleanedText);
   });
 
-  if (smallerValidChild) return 'page-or-transcript-parent-container';
+  if (smallerValidChild && normalizedRaw !== normalizedCleaned) return 'page-or-transcript-parent-container';
 
   return '';
 }

@@ -178,7 +178,7 @@ Read:
 3. Provider-specific `*FilterAssertions.ts` files in `runner/src/`
 4. `runner/package.json`
 
-Remember that not every provider has equal regression coverage yet. ChatGPT and Perplexity are known coverage gaps.
+Remember that not every provider has equal regression coverage yet. Perplexity remains a known dedicated filter-coverage gap, and all providers still require live validation as their interfaces change.
 
 ### Studio
 

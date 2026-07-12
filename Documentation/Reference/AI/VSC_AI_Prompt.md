@@ -53,6 +53,8 @@ The two pairs must not represent different project facts. They differ in role an
 - the web pair helps an AI understand, review, plan, and direct;
 - the VS Code pair helps an AI inspect, edit, verify, and deliver.
 
+The generated metadata in these onboarding files records the revision used when the files were produced. It may differ from the current repository `HEAD`. If it differs, report that fact as metadata drift and continue to use current source code and Reference documents as the authority for current project facts.
+
 ## Source-of-Truth Hierarchy
 
 | Rank | Source | Authoritative For |
@@ -88,6 +90,7 @@ A repository-attached engineer AI must:
 - enumerate files successfully read when that matters to the task;
 - list inaccessible files or blocked commands;
 - distinguish full-file access from snippets;
+- distinguish files read in full, files partially inspected, files only enumerated, and inaccessible files;
 - distinguish local filesystem access from connector or web access;
 - distinguish inspected code from documentation claims;
 - distinguish user-pasted material from repository-verified material;

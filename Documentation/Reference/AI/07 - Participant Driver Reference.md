@@ -198,19 +198,19 @@ The ChatGPT participant uses the typical URL `https://chatgpt.com/`.
 
 Composer discovery searches common editable surfaces such as textareas, contenteditable regions, and role-based textboxes. The driver records the selector and composer strategy when a composer is found.
 
-Submission begins with an enabled send-button strategy where available. Keyboard Enter and event-based Enter fallbacks are available when direct button interaction does not complete the action.
+Submission begins with an enabled send-button strategy where available. Keyboard Enter and event-based Enter fallbacks are available when direct button interaction does not produce accepted-submission evidence. Submission verification observes composer clearing, the submitted prompt appearing as a user message, stop-control visibility, or assistant response candidate change before accepting the submit strategy.
 
 Completion detection uses response stability, composer readiness, and stop-control state. The driver avoids treating an in-progress response as complete while an active stop control remains visible.
 
-Response extraction currently uses the latest visible assistant message selected from ChatGPT conversation selectors. It trims the selected text and returns normalized participant output when the structured extraction method is available. ChatGPT does not yet have a dedicated filter module or provider-specific filter assertion suite comparable to Claude, Gemini, Google, and other more heavily hardened drivers.
+Response extraction uses visible ChatGPT response candidates selected from conversation selectors, then applies ChatGPT-specific cleaning and rejection rules before returning normalized participant output. ChatGPT now has a dedicated filtering module and provider-specific filter assertion suite covering accepted answers, prompt rejection, chrome cleanup, and parent-container geometry cases.
 
 Known UI characteristics include contenteditable-style composers, visible send controls, stop controls during generation, and action controls around responses.
 
-Known quirks include the need to verify composer text after input and to avoid relying on a single submission method.
+Known quirks include the need to verify composer text after input, avoid relying on a single submission method, and keep submission evidence checks aligned with ChatGPT UI changes.
 
-Diagnostics include composer selector, composer strategy, paste verification, submission strategy, completion state, and extraction output. Candidate-level filtering diagnostics are less mature than the dedicated detector modules used by several other providers.
+Diagnostics include composer selector, composer strategy, paste verification, submission strategy, submission evidence, completion state, selected response candidate preview, selected geometry, and extraction output. Candidate-level diagnostics are improved but should continue to mature as live ChatGPT edge cases are observed.
 
-Current stability is active at the driver lifecycle level with live smoke validation available through exact-answer prompts. Submission verification and provider-specific filtering remain areas for future hardening.
+Current stability is active at the driver lifecycle level with deterministic filter and submission-evidence coverage plus live smoke validation available through exact-answer prompts. Live validation remains important after ChatGPT UI changes.
 
 Future considerations include preserving robustness as ChatGPT changes composer structure, message layout, or stop-control behavior.
 

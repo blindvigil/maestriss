@@ -100,6 +100,15 @@ const geometryCases = [
     expectedReason: '',
   },
   {
+    candidate: { text: 'Claude OK', x: 16, y: 206, width: 644, height: 24 },
+    prompt: 'Say exactly: Claude OK',
+    siblings: [
+      { text: 'Claude OK', x: 32, y: 207, width: 72, height: 20 },
+      ...geometrySiblings,
+    ],
+    expectedReason: '',
+  },
+  {
     candidate: {
       text: 'New chat\nProjects\nRecents\nSay exactly: Claude OK\nClaude OK\nClaude can make mistakes',
       x: 0,

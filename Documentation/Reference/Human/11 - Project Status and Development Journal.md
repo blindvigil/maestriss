@@ -59,7 +59,7 @@ The document should remain concise enough to read quickly, but detailed enough t
 
 This section is intended to be updated frequently.
 
-**Last Updated:** 2026-07-10
+**Last Updated:** 2026-07-11
 
 **Overall Maturity:** Active development. The core architecture, runner, browser automation model, participant drivers, response filtering strategy, diagnostics, and reference documentation are established. The project is not yet a finished product, but its foundational engineering direction is clear.
 
@@ -67,7 +67,7 @@ This section is intended to be updated frequently.
 
 **Automation Status:** Browser automation is operational across the supported participant set. Drivers exist for ChatGPT, Claude, DeepSeek, Gemini, Google AI Mode, Grok, Copilot, Perplexity, and Reka Chat. Driver maturity varies by provider.
 
-**Testing Status:** Build verification is active. Provider-specific filter and regression tests exist for several drivers, with ChatGPT and Perplexity still needing fuller dedicated filter assertion coverage. Live smoke tests are used to validate exact-answer asks against provider pages.
+**Testing Status:** Build verification is active. Provider-specific filter and regression tests exist for several drivers, with Perplexity still needing fuller dedicated filter assertion coverage. Live smoke tests are used to validate exact-answer asks against provider pages.
 
 **Documentation Status:** The Documentation/Reference series is substantially developed. Documents 01 through 16 define design philosophy, system architecture, driver lifecycle, browser management, response detection, testing, participant drivers, browser automation, diagnostics, future vision, project status, engineering standards, AI collaboration, operations, engineering commentary, and redirect compatibility for older AI onboarding links. The AI onboarding artifacts are role-specific: `Web_AI_Prompt.md` and `Web_AI_Bootstrap.md` serve high-level project AI sessions, while `VSC_AI_Prompt.md` and `VSC_AI_Bootstrap.md` serve VS Code or repository-attached engineer AI sessions. These files are generated, non-authoritative guides for reasoning and boot procedure. New contributors should begin with `Start_Here.md` after selecting the appropriate role-specific onboarding pair. Milestone state transfers live in `Documentation/Handoffs/`; the current milestone is `2026-07-10 - Native Runner Foundation Milestone.md`.
 
@@ -94,20 +94,60 @@ This section is intended to be updated frequently.
 
 | Participant | Submission | Completion Detection | Extraction | Filtering | Diagnostics | Overall Stability | Known Issues | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| ChatGPT | Active | Active | Active | Developing | Active | Active | Provider UI changes remain possible; dedicated filter assertions are not yet present. | Exact-answer smoke testing is the main live validation. |
+| ChatGPT | Active | Active | Active | Established | Active | Active | Provider UI changes remain possible; live submission and extraction smoke testing remains important. | Dedicated assertions cover response filtering, browser-script validity, and submission-evidence rules; live exact-answer validation passed on 2026-07-11. |
 | Claude | Established | Established | Established | Established | Established | Established | Narrow viewport geometry required regression hardening. | Strong diagnostics and regression coverage. |
 | DeepSeek | Established | Active | Active | Established | Active | Active | Continued live validation needed. | Overlay handling and geometry diagnostics are important. |
-| Gemini | Active | Established | Established | Established | Established | Established | Submission verification should continue to be strengthened. | Dedicated detector and filter regressions exist. |
+| Gemini | Active | Established | Established | Established | Established | Established | Submission verification should continue to be strengthened; response structure must remain preferred over brittle layout assumptions. | Dedicated detector and filter regressions exist; live exact-answer validation passed on 2026-07-11 after structural response detection hardening. |
 | Google AI Mode | Established | Established | Established | Established | Established | Established | Must remain in AI Mode; ordinary search extraction is invalid. | Consecutive exact-answer smoke tests have passed. |
 | Grok | Established | Active | Active | Established | Active | Active | Capacity/runtime states require continued attention. | Overlay and runtime diagnostics are important. |
-| Copilot | Established | Established | Established | Established | Established | Established | Static status text must not be treated as active stop controls. | Stop detection is regression-backed. |
+| Copilot | Established | Established | Established | Established | Established | Active | Static status text must not be treated as active stop controls; Microsoft 365 can externally block the chat surface, leaving no composer. | Stop detection is regression-backed. On 2026-07-11, Copilot was unavailable at `/chat/blocked` and was not counted as a live pass. |
 | Perplexity | Active | Active | Active | Active | Active | Active | Overlay behavior can affect submission; filtering is inline rather than a dedicated assertion-backed module. | Source-oriented UI requires careful filtering. |
-| Reka Chat | Established | Active | Active | Established | Established | Active | Coordinate submission remains an important area to monitor. | Detailed coordinate and event diagnostics exist. |
+| Reka Chat | Established | Active | Active | Established | Established | Active | Coordinate submission remains an important area to monitor; polling diagnostics can briefly surface stale-looking content before final extraction. | Detailed coordinate and event diagnostics exist; live exact-answer validation passed on 2026-07-11. |
 | Future Participant | Planned | Planned | Planned | Planned | Planned | Planned | To be defined. | Add new participants here as they are introduced. |
 
 ## Recent Development Summary
 
 Entries should be added chronologically, newest at the top.
+
+### 2026-07-11
+
+**Area:** Release Validation
+
+**Summary:** Prepared the accepted reliability, regression, onboarding, and versioning work for Maestriss v0.2.1. Live exact-answer validation returned the requested answer for ChatGPT, Claude, Gemini, Google AI Mode, DeepSeek, Grok, Perplexity, and Reka.
+
+**Outcome:** Eight live providers passed exact-answer smoke validation. Copilot was externally unavailable at the Microsoft 365 `/chat/blocked` surface, showed no composer, and is not counted as a pass. ChatGPT, Claude, and Gemini live regressions were fixed and confirmed before release preparation.
+
+**Lessons Learned:** Live validation should distinguish Maestriss driver failures from external provider/session availability. Provider-unavailable page text should not be allowed to masquerade as a successful answer in future Copilot hardening, and Reka's stale-looking wait diagnostics deserve a focused follow-up if they recur.
+
+### 2026-07-11
+
+**Area:** Versioning and Release System
+
+**Summary:** Established the Maestriss versioning and release policy: Semantic Versioning 2.0.0 with a documented pre-1.0 interpretation, the root `package.json` as the single canonical version owner, one release train for Studio, Native Runner, Automa exporter, drivers, and the Engineering Library, a Keep-a-Changelog `CHANGELOG.md`, a read-only version verifier with deterministic fixture assertions, and a local-only runner `version` CLI command. Stale lockfile version fields were reconciled from 0.1.0 to 0.2.0.
+
+**Outcome:** `npm run verify:version`, `npm run test:version-verifier`, runner build, and `npm run dev -- version` all pass. The normative policy lives in Reference document 12 (Versioning and Release Policy); document metadata `Version:` fields are defined as per-document revision identifiers independent of the release version.
+
+**Lessons Learned:** Version surfaces drift silently when nothing reconciles them mechanically — both lockfiles still carried 0.1.0 from before the v0.2.0 release. A small deterministic verifier makes every version display derive from or reconcile with one canonical owner.
+
+### 2026-07-11
+
+**Area:** ChatGPT Driver
+
+**Summary:** Hardened ChatGPT submission verification so click, keyboard Enter, and event-based Enter strategies must produce accepted-submission evidence before the driver returns success.
+
+**Outcome:** ChatGPT submission now observes composer clearing, prompt-visible-as-user-message state, stop-control visibility, or assistant response candidate change. Deterministic ChatGPT assertions include submission-evidence cases and runner build verification passes.
+
+**Lessons Learned:** Provider-local submission logic should follow the same evidence standard as mature drivers: a click or keypress is only an attempt, not proof that the provider accepted the prompt.
+
+### 2026-07-11
+
+**Area:** ChatGPT Driver
+
+**Summary:** Added a dedicated ChatGPT response-filtering module and deterministic filter assertion suite, then wired ChatGPT extraction through provider-specific cleaning, prompt rejection, chrome rejection, and parent-container geometry checks.
+
+**Outcome:** ChatGPT now has provider-specific deterministic response-filter coverage. Runner build verification and the new ChatGPT filter assertion script pass.
+
+**Lessons Learned:** Even baseline drivers benefit from explicit provider-local filtering because selector-only extraction cannot encode prompt rejection, chrome cleanup, or parent-container rejection as durable project knowledge.
 
 ### 2026-07-10
 
@@ -232,15 +272,15 @@ Entries should be added chronologically, newest at the top.
 
 ### ChatGPT
 
-**Major Milestones:** Implemented core lifecycle with composer discovery, paste verification, send-button and keyboard submission, stop-aware completion, and extraction.
+**Major Milestones:** Implemented core lifecycle with composer discovery, paste verification, verified send-button and keyboard submission, stop-aware completion, extraction, dedicated ChatGPT filtering, and provider-specific filter assertions.
 
-**Important Fixes:** Continued validation through exact-answer smoke tests.
+**Important Fixes:** Added provider-specific cleaning, prompt rejection, chrome rejection, parent-container geometry rejection, short-answer acceptance regressions, and deterministic submission-evidence assertions.
 
-**Architecture Improvements:** Uses common driver lifecycle and structured participant response path.
+**Architecture Improvements:** Uses common driver lifecycle and structured participant response path while keeping ChatGPT response-filtering and submission-evidence behavior isolated in provider-specific code.
 
 **Lessons Learned:** ChatGPT remains a useful baseline driver but still requires live validation because UI changes can affect composer and message layout.
 
-**Future Work:** Expand provider-specific filter assertions if new extraction edge cases appear.
+**Future Work:** Continue smoke testing after provider UI changes and refine submit evidence if ChatGPT changes composer or message layout.
 
 ### Claude
 
@@ -342,6 +382,7 @@ Entries should be added chronologically, newest at the top.
 
 | Date | Area | Milestone | Notes |
 | --- | --- | --- | --- |
+| 2026-07-11 | ChatGPT | Added ChatGPT filter assertions. | Covered acceptance, prompt rejection, chrome cleanup, status labels, short answers, and parent-container geometry behavior. |
 | 2026-07-10 | Google | Added Google filter assertions. | Covered acceptance, rejection, cleanup, chrome, status labels, and geometry behavior. |
 | 2026-07-10 | Claude | Expanded Claude filter assertions. | Covered transient thinking labels, accessibility prefixes, prompt rejection, and geometry regression. |
 | 2026-07-10 | Gemini | Added Gemini filter assertions. | Covered shell text, prompt rejection, accessibility prefixes, and geometry. |
@@ -471,6 +512,7 @@ Milestone handoffs are tracked separately in `Documentation/Handoffs/` (current:
 
 | Version | Date | Major Features | Important Fixes | Known Issues | Notes |
 | --- | --- | --- | --- | --- | --- |
+| v0.2.1 | 2026-07-11 | Role-specific AI onboarding/bootstrap redesign; ChatGPT filtering and submission verification; versioning and release verifier foundation. | ChatGPT browser-evaluation regression; Claude parent-container false-negative; Gemini structural/mobile response detection. | Copilot can be externally unavailable at Microsoft 365 `/chat/blocked`; Reka wait diagnostics may briefly select stale-looking content before final extraction. | Eight live exact-answer provider passes confirmed; Copilot unavailable externally and not counted as a pass. |
 | v0.2.0 "Documented Foundation" | 2026-07-10 | Documentation reorganized into Documentation/Reference and Documentation/Reviews; docs-vs-code reconciliation audit; root README.txt and bootstrap.txt onboarding. | Stale documentation path references updated. | Doc-vs-code gaps catalogued in the reconciliation report remain open. | First named milestone version. |
 | Unreleased Development | 2026-07-10 | Runner, participant drivers, browser automation, diagnostics, filter tests, Documentation/Reference documents. | Google AI Mode, Claude geometry, Gemini detector, Copilot stop logic. | Provider UI changes remain ongoing risk. | Active development state before formal release versioning. |
 

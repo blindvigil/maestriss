@@ -174,7 +174,7 @@ Regression tests should be named, organized, or structured so future maintainers
 
 ## Provider Regression Tests
 
-Every provider should maintain its own regression suite because provider behavior is distinct. The current project has provider-specific filter assertions for several drivers, while ChatGPT and Perplexity still need fuller dedicated assertion coverage. A regression discovered in one provider should not automatically become a rule for all providers.
+Every provider should maintain its own regression suite because provider behavior is distinct. The current project has provider-specific filter assertions for several drivers, while Perplexity still needs fuller dedicated assertion coverage. A regression discovered in one provider should not automatically become a rule for all providers.
 
 Provider quirks belong in provider tests. One provider may emit thinking labels, another may use static stopped text, another may attach feedback disclaimers to the answer, and another may expose valid answers in narrow geometry. Each behavior should be preserved where it applies.
 

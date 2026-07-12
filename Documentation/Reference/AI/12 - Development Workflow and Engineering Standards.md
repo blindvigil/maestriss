@@ -1,8 +1,8 @@
 ---
 Document ID: REF-12
 Document Title: Development Workflow and Engineering Standards
-Version: v0.2.0
-Revision Date: 2026-07-10
+Version: v0.3.0
+Revision Date: 2026-07-11
 Status: Authoritative Reference
 Audience: AI
 Purpose: AI-optimized edition of the Maestriss engineering reference for Development Workflow and Engineering Standards.
@@ -77,6 +77,7 @@ The following source content is the canonical knowledge body for this document. 
 17. [Engineering Anti-Patterns](#engineering-anti-patterns)
 18. [Continuous Improvement](#continuous-improvement)
 19. [Engineering Constitution](#engineering-constitution)
+20. [Versioning and Release Policy](#versioning-and-release-policy)
 
 ## Purpose
 
@@ -479,3 +480,90 @@ Avoid massive speculative rewrites.
 Let the project grow through disciplined, incremental refinement.
 
 Leave the codebase clearer, safer, or better documented after every development session.
+
+## Versioning and Release Policy
+
+This section is the normative owner of the Maestriss versioning and release policy. Other documents reference this policy; they do not restate it.
+
+### What a Maestriss Version Means
+
+Maestriss uses Semantic Versioning 2.0.0: `MAJOR.MINOR.PATCH`, with optional standard prerelease identifiers (for example `1.0.0-rc.1`). A Maestriss version identifies one release of the whole project: Studio, the Native Runner, the Automa exporter, all participant drivers, and the Engineering Library ship together as a single release train.
+
+The following never receive independent product versions: individual provider drivers, filtering modules, regression suites, Studio pages, or the Automa exporter. Provider maturity (experimental, developing, active, established) is tracked in documents 07 and 11 within a given Maestriss release and is not a version lineage.
+
+### Canonical Version Owner
+
+The root `package.json` `version` field is the single canonical owner of the Maestriss release version. Every other version surface derives from it or mechanically reconciles with it:
+
+| Surface | Relationship |
+| --- | --- |
+| `runner/package.json` | Must equal the canonical version; verified mechanically. |
+| `package-lock.json`, `runner/package-lock.json` | Must equal the canonical version; verified mechanically. |
+| `CHANGELOG.md` | Owns release history; its newest released entry must equal the canonical version. |
+| Git tags (`vMAJOR.MINOR.PATCH`) | Identify approved release commits only; annotated; created only with human approval. |
+| Document 11 release-history table | Records each release; must contain a row for the canonical version. |
+| Runtime and diagnostics | Consume the version (for example the runner CLI `version` command); they never own or hardcode it. |
+
+No TypeScript source may hardcode the release version. Runtime code that needs the version reads the root `package.json`, validates it strictly, and fails with a clear error rather than falling back to a fabricated version.
+
+Reference document metadata `Version:` fields are per-document revision identifiers, not the software release version. They may coincide with a release version historically, but they are bumped when a document is materially revised (see document 16 at `v0.3.0` while the project was at `0.2.0`). Do not reconcile document metadata versions against the release version, and do not read them as release claims.
+
+### Pre-1.0 SemVer Interpretation
+
+While Maestriss is `0.x`:
+
+- `0.MINOR.PATCH` is pre-1.0 development; public contracts are explicitly unstable.
+- MINOR marks a meaningful new pre-1.0 milestone or capability boundary and may contain compatibility-affecting evolution.
+- PATCH is backward-compatible correction and hardening within the current `0.MINOR` line.
+- `1.0.0` is reserved for the deliberate declaration that core supported contracts (persisted project files, workflow definitions, the runner HTTP API, canonical participant identifiers, CLI behavior) are stable.
+
+### Increment Decision Table
+
+| Change | Increment |
+| --- | --- |
+| Incompatible change to persisted project files, an established workflow-definition format, a supported runner HTTP API contract, canonical participant identifiers, a supported execution mode, or established CLI behavior (post-1.0) | MAJOR |
+| First Studio↔Runner integration slice; general workflow engine; new supported provider; significant new provider-driver capability; new execution/orchestration capability; new supported export format; substantial maturity-changing reliability work | MINOR |
+| Provider detection/filtering/submission fixes; false-positive/negative filter corrections; browser automation fixes restoring documented behavior; diagnostics corrections; regression additions accompanying fixes; documentation corrections; internal refactoring with unchanged contracts | PATCH |
+
+Size and excitement do not justify MAJOR. A PATCH may correct behavior that violated an already documented or intended contract; record the correction in the changelog.
+
+Ordinary documentation corrections accumulate under `Unreleased` and do not force a release. A documentation-only PATCH release is allowed when publishing corrected authoritative guidance is itself operationally important. Historical handoffs and dated reviews are never rewritten to modernize old version references.
+
+### Prereleases and Build Metadata
+
+Prerelease identifiers (`-alpha.N`, `-beta.N`, `-rc.N`) are used only for meaningful distributable test candidates: alpha (contracts may still change substantially), beta (feature set substantially complete, hardening remains), rc (only release-blocking corrections remain). Prerelease numbers are not incremented per commit, session, or local test. SemVer build metadata (`+sha`) is not used; if diagnostics need commit identity, report the Git commit separately from the release version.
+
+### Changelog Policy
+
+`CHANGELOG.md` at the repository root follows Keep-a-Changelog structure: an `## [Unreleased]` section accumulating ordinary development, and dated `## [X.Y.Z] - YYYY-MM-DD` sections for approved releases, using Added / Changed / Fixed / Deprecated / Removed / Security categories as needed. Entries describe user-visible, architectural, supported-contract, and operationally significant changes — not every commit or internal detail.
+
+### Version Verification
+
+Two deterministic root commands exist:
+
+```text
+npm run verify:version        # read-only verifier; --json for machine-readable output
+npm run test:version-verifier # fixture-based assertions for the verifier itself
+```
+
+The verifier checks the canonical owner, strict SemVer validity, package and lockfile reconciliation, changelog structure and reconciliation, absence of hardcoded version constants, journal release-history rows, and Git tag reconciliation. It performs no writes and no network access. The runner exposes `npm run dev -- version` (local-only; no browser, CDP, provider, or network access), printing `Maestriss <version>`.
+
+Version verification is not part of AI bootstrap readiness; a session must not fail because a historical handoff references an older release. Run the verifier before releases and when version surfaces change.
+
+### Release Checklist
+
+1. Release scope frozen; intended changes identified; unrelated worktree changes excluded.
+2. Reference documentation reconciled; Human and AI editions synchronized.
+3. Relevant deterministic provider regression suites pass.
+4. Root build and runner build pass.
+5. `npm run verify:version` passes.
+6. Affected live provider smoke tests run where operationally appropriate; browser/session failures distinguished from code failures.
+7. Changelog finalized: `Unreleased` entries moved into the new dated release section; fresh `Unreleased` left in place.
+8. Canonical version updated in root `package.json`; `runner/package.json` and both lockfiles reconciled; journal release-history row added.
+9. Final diff reviewed; only intended files staged.
+10. Human approval received.
+11. Release commit, annotated tag `vMAJOR.MINOR.PATCH`, and any push or GitHub release only after explicit authorization.
+
+### Schema and Format Versions
+
+Maestriss currently defines no separately versioned machine-readable contracts. Exported project JSON, workflow-definition JSON, Automa exports, prompt-pack and session-transcript formats, and the runner HTTP API are all covered by the project version under the pre-1.0 instability rule. Introduce a separate schema version only when an externally persisted artifact needs compatibility tracking independent of application releases, and define its owner and compatibility rules here first.

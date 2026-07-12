@@ -329,6 +329,7 @@ Run provider filter tests after modifying response filtering, candidate selectio
 
 ```text
 cd runner
+npm run test:chatgpt-filter
 npm run test:reka-filter
 npm run test:deepseek-filter
 npm run test:grok-filter
@@ -348,6 +349,20 @@ npm run build
 Participant tests should be run when a driver changes. Shared infrastructure changes should trigger multiple provider smoke tests.
 
 Regression suites should be executed before commits that change driver behavior, response filtering, diagnostics, or browser lifecycle.
+
+Run version verification from the repository root when version surfaces change and before any release (policy: Reference document 12, Versioning and Release Policy):
+
+```text
+npm run verify:version
+npm run test:version-verifier
+```
+
+The runner reports the canonical Maestriss version locally, with no browser, provider, or network access:
+
+```text
+cd runner
+npm run dev -- version
+```
 
 ## Operational Monitoring
 
@@ -496,6 +511,7 @@ After dependency updates, run:
 ```text
 cd runner
 npm run build
+npm run test:chatgpt-filter
 npm run test:claude-filter
 npm run test:gemini-filter
 npm run test:google-filter

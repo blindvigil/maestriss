@@ -46,6 +46,8 @@ git log --oneline -5
 
 Do not use destructive git commands unless explicitly instructed.
 
+If generated onboarding metadata names a source commit that differs from the current repository revision, report the mismatch as metadata drift. Do not treat generated metadata as authority over current source code, Reference documents, or the current worktree.
+
 ## Output
 
 Before substantive work, produce an engineer bootstrap report containing:
@@ -64,6 +66,15 @@ Before substantive work, produce an engineer bootstrap report containing:
 - intended change scope;
 - verification plan;
 - readiness status.
+
+For file access reporting, use these access states when useful:
+
+| State | Meaning |
+| --- | --- |
+| Read In Full | The full file content was inspected. |
+| Partially Inspected | Targeted sections or excerpts were inspected. |
+| Enumerated Only | The path or listing was inspected, but file contents were not read. |
+| Inaccessible | The file was required or relevant but could not be read. |
 
 ## Readiness States
 
@@ -131,6 +142,23 @@ Outputs:
 - role distinction between high-level project AI and VS Code engineer;
 - documentation category model.
 
+### Level 2A: Engineer Bootstrap Minimum Set
+
+For ordinary repository-attached implementation, review, or documentation tasks, the minimum authority set is:
+
+```text
+Documentation/README.md
+Documentation/Knowledge_System_Guide.md
+Documentation/Reference/AI/Start_Here.md
+Documentation/Reference/AI/VSC_AI_Prompt.md
+Documentation/Reference/AI/VSC_AI_Bootstrap.md
+most recent applicable milestone handoff
+task-specific Reference documents
+task-relevant source, scripts, tests, configs, diagnostics, or logs
+```
+
+Read the high-level project AI pair only when the task concerns AI onboarding architecture, high-level/project-AI behavior, or factual drift between the two role-specific onboarding pairs.
+
 ### Level 3: Current State Established
 
 Required actions:
@@ -138,6 +166,7 @@ Required actions:
 - Read the most recent applicable handoff.
 - Applicability is determined by date, status, supersession metadata where present, current branch/release, and task relevance.
 - Do not select a handoff solely through lexicographic filename order.
+- Prefer dated milestone or status handoffs over prompt-generation artifacts, bootstrap prompts, redirects, or other onboarding support files unless the task specifically concerns onboarding generation.
 - Treat reviews and handoffs as dated evidence, not current truth unless verified.
 
 Outputs:
@@ -192,6 +221,7 @@ Runner:
 npm run build
 npm run start
 npm run dev
+npm run test:chatgpt-filter
 npm run test:reka-filter
 npm run test:deepseek-filter
 npm run test:grok-filter
@@ -252,6 +282,7 @@ Provider filter tests:
 
 ```text
 cd runner
+npm run test:chatgpt-filter
 npm run test:reka-filter
 npm run test:deepseek-filter
 npm run test:grok-filter

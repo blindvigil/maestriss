@@ -216,17 +216,21 @@ In partial readiness, the AI must state:
 
 ## Bootstrap Stages
 
-### Stage 0: Access Declared
+### Stage 0: Canonical Repository Access Declared
 
-Identify access mode:
+GitHub is the sole canonical bootstrap evidence source for Maestriss.
 
-- repository URL access;
-- GitHub connector access;
-- pasted/uploaded files;
-- local filesystem access;
-- search-engine-only access.
+Required repository files may satisfy bootstrap evidence only when accessed through:
 
-State what can and cannot be inspected.
+- direct access to the canonical GitHub repository at `https://github.com/blindvigil/maestriss`;
+- GitHub connector access to the canonical GitHub repository;
+- a local checkout verified to originate from the canonical GitHub repository.
+
+No other source may satisfy required bootstrap evidence. Do not substitute Google Drive, OneDrive, Dropbox, generic document stores, search-engine results, prior uploads, user-pasted copies, or similarly named files from another project.
+
+State which permitted access mode is available and what can and cannot be inspected from the canonical GitHub repository.
+
+If any required file cannot be accessed from the canonical GitHub repository or a verified local checkout of it, report the exact repository path and stop at the permitted readiness level.
 
 ### Stage 1: Identity And Authority
 
