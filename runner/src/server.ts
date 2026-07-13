@@ -61,6 +61,7 @@ export type ProviderReadinessStatus =
   | 'logged-out'
   | 'security-verification'
   | 'unsupported-browser-login'
+  | 'provider-blocked'
   | 'driver-not-implemented'
   | 'unknown';
 
@@ -376,6 +377,38 @@ async function detectProviderStatus(
       pageUrl,
       pageTitle,
       status: 'security-verification',
+      notes,
+    };
+  }
+
+  // Provider-side blocked surface: the session is authenticated but the
+  // provider explicitly refuses this product surface for the account/tenant
+  // (observed live: Microsoft 365 routes Copilot Chat to /chat/blocked with
+  // "Copilot Chat isn't available" while Search and Apps keep working).
+  const blockedByProviderText = bodyContainsAny(combined, [
+    "Copilot Chat isn't available",
+    'Copilot Chat isn’t available',
+  ]);
+  const blockedByProviderUrl = (() => {
+    try {
+      return /\/blocked(\/|$)/i.test(new URL(pageUrl).pathname);
+    } catch {
+      return false;
+    }
+  })();
+
+  if (blockedByProviderText || blockedByProviderUrl) {
+    notes.push(
+      'Provider reports this chat surface is blocked/unavailable for this account or tenant ' +
+      `(${blockedByProviderUrl ? 'URL routed to a /blocked page' : 'blocked-page text detected'}). ` +
+      'This is provider-side state, not a driver failure; check tenant policy/licensing.',
+    );
+    return {
+      participant: participant.id,
+      driverImplemented,
+      pageUrl,
+      pageTitle,
+      status: 'provider-blocked',
       notes,
     };
   }

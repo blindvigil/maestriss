@@ -8,6 +8,19 @@ Ordinary development accumulates under `Unreleased`. Entries move into a dated r
 
 ## [Unreleased]
 
+### Added
+
+- Dedicated Perplexity response-filtering module (`runner/src/drivers/perplexityFiltering.ts`) with a deterministic assertion suite (`npm run test:perplexity-filter`), completing dedicated filter coverage for all nine providers.
+- Sequential multi-provider baton test (`npm run dev -- baton-test [--seed <value>] [--skip-unavailable]`): sends a deterministic seed through all nine participants in a fixed order over the normal `/ask` lifecycle, requiring each provider to return exactly the previous provider's actual extracted output plus its own token. Fails immediately on any wrong, stale, or unavailable-provider result; `--skip-unavailable` skips not-ready providers before their ask and reports `PARTIAL` instead of `PASS`. Orchestration logic lives in `runner/src/batonTest.ts` with a browser-free deterministic assertion suite (`npm run test:baton`).
+
+### Fixed
+
+- DeepSeek response detection no longer rejects valid answers in narrow/responsive layouts (live baton stall: the correct answer at x=20 was rejected as `left-sidebar-region` by an absolute `left < 250` cutoff for over 100 seconds). Geometry rules are now composer-relative — only candidates entirely left of the composer column are rejected geometrically, the transcript width cap is measured against the composer width, and structural sidebar ancestry rejection is unchanged — with the rules extracted to `deepSeekGeometryRejectionReason` in `runner/src/drivers/deepseekFiltering.ts` and geometry assertions (including the exact live fixture) added to `npm run test:deepseek-filter`.
+- Reka response extraction no longer returns a transcript-level parent containing the submitted prompt plus the answer (live baton false positive with long prompts; the prompt-only guard capped at 120+80 characters). Detection now prefers Reka's semantic assistant-answer containers (`div.prose.prose-chat` markdown nodes) over broad page-wide containers, structurally rejects the `justify-end` user-prompt bubble, and rejects any candidate containing the full submitted prompt, with candidate selection extracted into testable functions in `runner/src/drivers/rekaFiltering.ts` and response-selection assertions added to `npm run test:reka-filter`.
+- Copilot readiness now classifies the Microsoft 365 `/chat/blocked` page ("Copilot Chat isn't available") as an explicit `provider-blocked` status with a diagnostic note, instead of the generic `unknown`/no-composer result.
+- Reka submission no longer hard-fails on long multiline prompts (live baton failure: expanded composer pushed the send button outside the geometric composer box, zero candidates, and the failure fired before any keyboard fallback). Submit-control discovery now uses structural evidence first — the send button shares the composer's `<form>` (lucide-send icon) — with geometry as supporting evidence only (`runner/src/drivers/rekaSubmitTargets.ts`), and a missing clickable target no longer prevents verified keyboard submit strategies from running. Deterministic submit-target assertions were added to `npm run test:reka-filter`, including a fixture shaped on the saved failure DOM.
+- Perplexity response extraction no longer returns a transcript-level parent containing the submitted prompt plus the answer (live baton false positive with long prompts). Detection now prefers Perplexity's stable semantic answer containers (`[id^="markdown-content-"]`, prose/markdown nodes) over `main`/`article` fallbacks, structurally rejects the `group/query` prompt container, and rejects any candidate containing the full submitted prompt.
+
 ## [0.2.1] - 2026-07-11
 
 ### Added

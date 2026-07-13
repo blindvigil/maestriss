@@ -4,6 +4,12 @@ import type { ElementHandle, Page } from 'playwright';
 import type { ParticipantResponse } from '../types.js';
 import type { ParticipantDriver } from './base.js';
 import { verifyPastedPrompt } from './pasteVerification.js';
+import {
+  cleanPerplexityResponseText,
+  perplexityPromptNeedle,
+  selectPerplexityResponseCandidate,
+  type PerplexityCandidate,
+} from './perplexityFiltering.js';
 
 const composerSelectors = [
   'textarea',
@@ -11,14 +17,21 @@ const composerSelectors = [
   '[role="textbox"]',
 ];
 
-const answerSelectors = [
-  'main',
-  'article',
+// Stable semantic answer containers observed in the live Perplexity DOM.
+// These always beat transcript-level parents during candidate selection.
+const semanticAnswerSelectors = [
+  '[id^="markdown-content-"]',
   '[data-testid*="answer"]',
-  '[data-testid*="thread"]',
-  '[data-testid*="message"]',
   '[class*="prose"]',
   '[class*="markdown"]',
+];
+
+// Broad fallback containers, used only when no semantic answer node exists.
+const legacyContainerSelectors = [
+  'main',
+  'article',
+  '[data-testid*="thread"]',
+  '[data-testid*="message"]',
   '[class*="answer"]',
   '[class*="response"]',
 ];
@@ -83,31 +96,6 @@ async function savePerplexityLiveDebug(page: Page) {
   await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => undefined);
 
   return { htmlPath, screenshotPath };
-}
-
-function cleanPerplexityText(text: string) {
-  const seenLines = new Set<string>();
-
-  return text
-    .replace(/\r/g, '\n')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .filter((line) => !/^(sources?|related|share|copy|rewrite|follow-up|ask follow-up|sign in|sign up|try pro|upgrade|show all|more)$/i.test(line))
-    .filter((line) => !/^https?:\/\//i.test(line))
-    .filter((line) => {
-      const normalized = line.toLowerCase().replace(/\s+/g, ' ');
-
-      if (seenLines.has(normalized)) {
-        return false;
-      }
-
-      seenLines.add(normalized);
-      return true;
-    })
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
 }
 
 async function findComposer(page: Page): Promise<ComposerMatch> {
@@ -228,13 +216,9 @@ async function composerText(page: Page) {
   })()`);
 }
 
-function promptNeedle(prompt: string) {
-  return prompt.replace(/\s+/g, ' ').trim().slice(0, 80).toLowerCase();
-}
-
 async function userMessageDetected(page: Page, prompt: string) {
   return page.evaluate<boolean>(`(() => {
-    const promptNeedle = ${JSON.stringify(promptNeedle(prompt))};
+    const promptNeedle = ${JSON.stringify(perplexityPromptNeedle(prompt))};
 
     if (!promptNeedle) return false;
 
@@ -335,12 +319,13 @@ type PerplexityAnswerDiagnostics = {
   selectedText: string;
   selectedLength: number;
   selectedPreview: string;
+  rejectedSummaries: string[];
 };
 
-async function answerDiagnostics(page: Page, prompt = ''): Promise<PerplexityAnswerDiagnostics> {
-  return page.evaluate<PerplexityAnswerDiagnostics>(`(() => {
-    const selectors = ${JSON.stringify(answerSelectors)};
-    const promptNeedle = ${JSON.stringify(promptNeedle(prompt))};
+async function collectAnswerCandidates(page: Page): Promise<PerplexityCandidate[]> {
+  return page.evaluate<PerplexityCandidate[]>(`(() => {
+    const semanticSelectors = ${JSON.stringify(semanticAnswerSelectors)};
+    const legacySelectors = ${JSON.stringify(legacyContainerSelectors)};
 
     function visible(el) {
       const rect = el.getBoundingClientRect();
@@ -385,46 +370,54 @@ async function answerDiagnostics(page: Page, prompt = ''): Promise<PerplexityAns
       return String(clone.textContent || '').trim();
     }
 
-    const candidates = selectors
-      .flatMap((selector) => Array.from(document.querySelectorAll(selector)))
-      .filter((el) => visible(el) && !el.closest('nav, footer, header, aside, button, [role="button"], textarea, [contenteditable], [role="textbox"]'))
-      .map((el) => ({
-        bottom: el.getBoundingClientRect().bottom,
-        top: el.getBoundingClientRect().top,
-        text: readableText(el),
-      }))
-      .map((candidate) => ({
-        ...candidate,
-        text: candidate.text.replace(/\\r/g, '\\n').replace(/[ \\t]+/g, ' ').trim(),
-      }))
-      .filter((candidate) => {
-        if (candidate.text.length <= 5) return false;
+    const seen = new Set();
+    const candidates = [];
 
-        const normalized = candidate.text.replace(/\\s+/g, ' ').toLowerCase();
-        const onlyPrompt = promptNeedle &&
-          normalized.includes(promptNeedle) &&
-          normalized.length <= promptNeedle.length + 120;
+    function collect(selectors, tier) {
+      for (const selector of selectors) {
+        for (const el of Array.from(document.querySelectorAll(selector))) {
+          if (seen.has(el)) continue;
+          seen.add(el);
+          if (!visible(el)) continue;
+          if (el.closest('nav, footer, header, aside, button, [role="button"], textarea, [contenteditable], [role="textbox"]')) continue;
 
-        if (onlyPrompt) return false;
-        if (/^(share|copy|rewrite|sources?|related|ask follow-up|try pro|upgrade)$/i.test(candidate.text.trim())) return false;
-        return true;
-      })
-      .sort((a, b) => {
-        const bottomDelta = b.bottom - a.bottom;
-        if (Math.abs(bottomDelta) > 20) return bottomDelta;
-        return b.text.length - a.text.length;
-      });
+          const text = readableText(el).replace(/\\r/g, '\\n').replace(/[ \\t]+/g, ' ').trim();
 
-    const selectedText = candidates[0]?.text || '';
+          candidates.push({
+            text,
+            tier,
+            insideQueryContainer: Boolean(el.closest('[class*="group/query"], [role="heading"]')),
+            bottom: el.getBoundingClientRect().bottom,
+          });
+        }
+      }
+    }
 
-    return {
-      candidateCount: candidates.length,
-      topTextLengths: candidates.slice(0, 3).map((candidate) => candidate.text.length),
-      selectedText,
-      selectedLength: selectedText.length,
-      selectedPreview: selectedText.slice(0, 120)
-    };
+    collect(semanticSelectors, 'semantic-answer');
+    collect(legacySelectors, 'legacy-container');
+    return candidates;
   })()`);
+}
+
+async function answerDiagnostics(page: Page, prompt = ''): Promise<PerplexityAnswerDiagnostics> {
+  const candidates = await collectAnswerCandidates(page);
+  const selection = selectPerplexityResponseCandidate(candidates, prompt);
+  const selectedText = selection.selected?.text ?? '';
+  const acceptedLengths = candidates
+    .filter((candidate) => !selection.rejected.some((entry) => entry.candidate === candidate))
+    .map((candidate) => candidate.text.length)
+    .sort((a, b) => b - a);
+
+  return {
+    candidateCount: candidates.length,
+    topTextLengths: acceptedLengths.slice(0, 3),
+    selectedText,
+    selectedLength: selectedText.length,
+    selectedPreview: selectedText.slice(0, 120),
+    rejectedSummaries: selection.rejected.slice(0, 5).map((entry) => (
+      `${entry.reason} tier=${entry.candidate.tier} bottom=${Math.round(entry.candidate.bottom)} ${entry.candidate.text.replace(/\s+/g, ' ').slice(0, 120)}`
+    )),
+  };
 }
 
 async function latestAnswerText(page: Page, prompt = '') {
@@ -504,7 +497,7 @@ async function clickComposerSendButton(page: Page) {
 
 async function extractNormalized(page: Page, question: string, elapsedSeconds: number): Promise<ParticipantResponse> {
   const rawText = await latestAnswerText(page, question || pendingPerplexityPrompts.get(page) || '');
-  const cleanedText = cleanPerplexityText(rawText);
+  const cleanedText = cleanPerplexityResponseText(rawText);
 
   return {
     participant: 'perplexity',
@@ -624,7 +617,7 @@ export const perplexityDriver: ParticipantDriver = {
   },
 
   async waitForCompletion(page: Page) {
-    console.log('Perplexity response detector version: v2');
+    console.log('Perplexity response detector version: v3');
     const startedAt = Date.now();
     const hardTimeoutMs = 180000;
     const stableMs = 5000;
@@ -646,12 +639,12 @@ export const perplexityDriver: ParticipantDriver = {
 
       const stopVisible = await hasStopControl(page);
       const currentStableMs = Date.now() - stableSince;
-      const cleanedLength = cleanPerplexityText(text).length;
+      const cleanedLength = cleanPerplexityResponseText(text).length;
       const textStable = cleanedLength > 0 && currentStableMs >= stableMs;
 
       if (Date.now() - lastProgressLogAt >= 5000) {
         console.log([
-          `Perplexity wait v2: responseLength=${cleanedLength}`,
+          `Perplexity wait v3: responseLength=${cleanedLength}`,
           `stableMs=${currentStableMs}`,
           `stopVisible=${stopVisible}`,
           `candidateCount=${diagnostics.candidateCount}`,
@@ -659,6 +652,11 @@ export const perplexityDriver: ParticipantDriver = {
           `selectedLength=${diagnostics.selectedLength}`,
           `preview=${diagnostics.selectedPreview || '(none)'}`,
         ].join(' '));
+
+        for (const summary of diagnostics.rejectedSummaries) {
+          console.log(`Perplexity rejected candidate reason: ${summary}`);
+        }
+
         lastProgressLogAt = Date.now();
       }
 

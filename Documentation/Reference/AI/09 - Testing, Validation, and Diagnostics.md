@@ -203,6 +203,24 @@ Smoke tests detect regressions quickly. If a provider changes its composer, send
 
 Consecutive smoke tests are valuable when validating tab reuse and follow-up composers. A first ask may work on a landing page while a second ask fails on an existing conversation page. Both states matter.
 
+### Sequential Baton Test
+
+The sequential baton test is the validation level above independent exact-answer smoke tests. It sends a deterministic seed value (`MAESTRISS` by default) through every configured participant in a fixed order (ChatGPT, Claude, Gemini, Google, DeepSeek, Grok, Copilot, Perplexity, Reka). Each participant is instructed to return exactly the baton value it received plus its own token (for example `-CLAUDE`), and the actual cleaned answer extracted from each provider becomes the value supplied to the next provider. Expected values are computed for verification only; they are never substituted for provider output.
+
+A stage passes only when the actual extracted answer exactly matches the expected transformation, with outer whitespace trimmed per the normal response contract. Any mismatch — including a stale earlier answer, an unchanged baton, or a future baton not derived from the actual input — fails the stage and stops the chain. Failed runs report stage number, participant, input, expected, and actual values, plus a failure category when available.
+
+Run it against a live runner service with:
+
+```text
+npm run dev -- baton-test
+npm run dev -- baton-test --seed MAESTRISS
+npm run dev -- baton-test --skip-unavailable
+```
+
+With `--skip-unavailable`, a participant whose readiness status is not `ready` at run start is skipped before its ask, its token is omitted from the expected baton, and the overall result is `PARTIAL` rather than `PASS`. Skip mode never hides extraction, submission, timeout, or wrong-answer failures; those still fail the run. A full `PASS` requires every configured participant to return the exact transformation.
+
+The chain orchestration itself is covered by a deterministic assertion suite (`npm run test:baton`, `runner/src/batonTestAssertions.ts`) that uses injected synthetic ask functions and requires no browser or network access. The live command exercises the normal `/ask` lifecycle for every stage.
+
 ## Regression Tests
 
 Regression tests preserve lessons learned from failures. Every discovered bug should ideally become a permanent regression test.
@@ -219,7 +237,7 @@ Regression tests should be precise. They should capture the behavior that matter
 
 Response-filter regression tests are deterministic tests for provider-specific extraction behavior. They validate how raw candidate text becomes accepted response text or rejected non-answer text.
 
-Every provider should have its own filter assertions when it has nontrivial response detection. Provider-specific tests preserve provider-specific behavior without contaminating other drivers. The current coverage is uneven: several providers have dedicated assertion scripts, while Perplexity remains a candidate for additional provider-specific filter coverage.
+Every provider should have its own filter assertions when it has nontrivial response detection. Provider-specific tests preserve provider-specific behavior without contaminating other drivers. All nine providers now have dedicated assertion scripts; Perplexity's (`npm run test:perplexity-filter`) was added after a live transcript-extraction false positive in which a prompt-plus-answer parent container was selected over the answer-only node.
 
 Filter tests should cover prompt echoes. The submitted user prompt appears in the conversation and must not be returned as the assistant response.
 

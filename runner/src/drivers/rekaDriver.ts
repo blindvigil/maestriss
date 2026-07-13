@@ -5,11 +5,14 @@ import type { ParticipantResponse } from '../types.js';
 import type { ParticipantDriver } from './base.js';
 import { verifyPastedPrompt } from './pasteVerification.js';
 import {
-  evaluateRekaCandidateText,
   isKnownRekaChrome,
-  rekaChromeExactPhrases,
-  rekaChromeIncludesPhrases,
+  selectRekaResponseCandidate,
+  type RekaResponseCandidate,
 } from './rekaFiltering.js';
+import {
+  selectRekaSubmitTarget,
+  type RekaSubmitButtonDescriptor,
+} from './rekaSubmitTargets.js';
 
 const composerSelectors = [
   'textarea',
@@ -37,17 +40,32 @@ const composerSelectors = [
   '[class*="input" i] textarea',
 ];
 
-const answerSelectors = [
+// Stable semantic assistant-answer containers observed in the live Reka DOM
+// (div.prose.prose-chat markdown renderer inside a justify-start row). These
+// always beat transcript-level parents during candidate selection.
+const semanticAnswerSelectors = [
+  '[class*="prose"]',
+  '[class*="markdown-renderer"]',
+  '[class*="markdown"]',
   '[data-testid*="assistant" i]',
-  '[data-testid*="message" i]',
   '[data-role*="assistant" i]',
   '[data-message-author-role="assistant"]',
+];
+
+// Broad fallback containers, used only when no semantic answer node exists.
+const legacyContainerSelectors = [
+  '[data-testid*="message" i]',
   '[class*="assistant" i]',
   '[class*="response" i]',
   '[class*="message"]',
-  '[class*="markdown"]',
-  '[class*="prose"]',
   'article',
+  'main',
+  'section',
+  '[data-testid]',
+  '[class]',
+  'p',
+  'li',
+  'div',
 ];
 
 const pendingRekaPrompts = new WeakMap<Page, string>();
@@ -309,9 +327,7 @@ type RekaSubmitState = {
 };
 
 async function responseFingerprint(page: Page, prompt: string) {
-  const diagnostics = await answerDiagnostics(page, prompt);
-  const evaluation = evaluateRekaCandidateText(diagnostics.selectedText, promptNeedle(prompt));
-  return evaluation.accepted ? diagnostics.selectedText : '';
+  return (await answerDiagnostics(page, prompt)).selectedText;
 }
 
 async function submitGenerationStarted(
@@ -427,24 +443,12 @@ type RekaAnswerDiagnostics = {
   selectedPreview: string;
 };
 
-async function answerDiagnostics(page: Page, submittedPrompt = '') {
-  logRekaEvaluateBlock('answerDiagnostics');
-  return page.evaluate<RekaAnswerDiagnostics>(`(() => {
-    const selectors = [
-      ${JSON.stringify(answerSelectors)}.join(','),
-      'main',
-      'article',
-      'section',
-      '[data-testid]',
-      '[class]',
-      'p',
-      'li',
-      'div'
-    ].filter(Boolean);
-    const promptNeedle = ${JSON.stringify(promptNeedle(submittedPrompt))};
+async function collectAnswerCandidates(page: Page): Promise<RekaResponseCandidate[]> {
+  logRekaEvaluateBlock('collectAnswerCandidates');
+  return page.evaluate<RekaResponseCandidate[]>(`(() => {
+    const semanticSelectors = ${JSON.stringify(semanticAnswerSelectors)};
+    const legacySelectors = ${JSON.stringify(legacyContainerSelectors)};
     const submittedAt = ${JSON.stringify(pendingRekaSubmittedAt.get(page) ?? 0)};
-    const chromeExactPhrases = ${JSON.stringify(rekaChromeExactPhrases)};
-    const chromeIncludesPhrases = ${JSON.stringify(rekaChromeIncludesPhrases)};
 
     function visible(el) {
       const rect = el.getBoundingClientRect();
@@ -496,90 +500,80 @@ async function answerDiagnostics(page: Page, submittedPrompt = '') {
     const composerTop = composer ? composer.getBoundingClientRect().top : 0;
     const composerBottom = composer ? composer.getBoundingClientRect().bottom : 0;
 
-    function chromeText(text) {
-      const normalized = text.replace(/\\s+/g, ' ').trim();
-      const normalizedLower = normalized.toLowerCase();
-      return chromeExactPhrases.includes(normalizedLower) ||
-        chromeIncludesPhrases.some((phrase) => normalizedLower.includes(phrase));
-    }
+    const seen = new Set();
+    const candidates = [];
 
-    function rejectionReason(candidate) {
-      const text = candidate.text.replace(/\\s+/g, ' ').trim();
-      if (text.length <= 5) return 'too-short';
-      if (composer && candidate.top >= composerTop - 8 && candidate.bottom <= composerBottom + 8) return 'inside-composer';
-      if (submittedAt && candidate.createdAt && candidate.createdAt < submittedAt - 50) return 'before-submit';
-      if (chromeText(text)) return 'known-reka-chrome';
+    function collect(selectors, tier) {
+      for (const selector of selectors) {
+        for (const el of Array.from(document.querySelectorAll(selector))) {
+          if (seen.has(el)) continue;
+          seen.add(el);
+          if (!visible(el)) continue;
+          if (el.closest('nav, footer, header, aside, button, [role="button"], textarea, [contenteditable], [role="textbox"]')) continue;
 
-      if (promptNeedle) {
-        const lowerText = text.toLowerCase();
-        const onlyPrompt = lowerText.includes(promptNeedle) && text.length <= promptNeedle.length + 80;
-        if (onlyPrompt) return 'submitted-prompt-only';
-      }
+          const rect = el.getBoundingClientRect();
 
-      return '';
-    }
+          // Candidates fully inside the composer area are stale echoes of the
+          // pasted prompt, not conversation content.
+          if (composer && rect.top >= composerTop - 8 && rect.bottom <= composerBottom + 8) continue;
 
-    const candidatesBeforeFiltering = selectors
-      .flatMap((selector) => Array.from(document.querySelectorAll(selector)))
-      .filter((el) => visible(el) && !el.closest('nav, footer, header, aside, button, [role="button"], textarea, [contenteditable], [role="textbox"]'))
-      .map((el) => {
-        const text = readableText(el).replace(/\\r/g, '\\n').replace(/[ \\t]+/g, ' ').trim();
-        const previousText = el.getAttribute('data-maestriss-seen-text') || '';
+          const text = readableText(el).replace(/\\r/g, '\\n').replace(/[ \\t]+/g, ' ').trim();
+          const previousText = el.getAttribute('data-maestriss-seen-text') || '';
 
-        if (!el.getAttribute('data-maestriss-seen-at') || previousText !== text) {
-          el.setAttribute('data-maestriss-seen-at', String(Date.now()));
-          el.setAttribute('data-maestriss-seen-text', text);
+          if (!el.getAttribute('data-maestriss-seen-at') || previousText !== text) {
+            el.setAttribute('data-maestriss-seen-at', String(Date.now()));
+            el.setAttribute('data-maestriss-seen-text', text);
+          }
+
+          const createdAt = Number(el.getAttribute('data-maestriss-seen-at') || 0);
+
+          // Content last observed before this submit is a stale prior answer.
+          if (submittedAt && createdAt && createdAt < submittedAt - 50) continue;
+
+          candidates.push({
+            text,
+            tier,
+            insideUserBubble: Boolean(el.closest('[class*="justify-end"]')),
+            bottom: rect.bottom,
+            createdAt,
+          });
         }
+      }
+    }
 
-        return {
-          bottom: el.getBoundingClientRect().bottom,
-          top: el.getBoundingClientRect().top,
-          createdAt: Number(el.getAttribute('data-maestriss-seen-at') || 0),
-          text,
-        };
-      })
-      .map((candidate) => ({
-        ...candidate,
-        text: candidate.text.replace(/\\r/g, '\\n').replace(/[ \\t]+/g, ' ').trim(),
-      }));
-
-    const rejectedTop = candidatesBeforeFiltering
-      .map((candidate) => ({
-        preview: candidate.text.slice(0, 120),
-        reason: rejectionReason(candidate),
-      }))
-      .filter((candidate) => candidate.reason)
-      .slice(0, 5);
-
-    const candidates = candidatesBeforeFiltering
-      .filter((candidate) => !rejectionReason(candidate))
-      .sort((a, b) => {
-        const createdDelta = b.createdAt - a.createdAt;
-        if (Math.abs(createdDelta) > 0) return createdDelta;
-        const bottomDelta = b.bottom - a.bottom;
-        if (Math.abs(bottomDelta) > 20) return bottomDelta;
-        return b.text.length - a.text.length;
-      });
-
-    const selectedText = candidates[0]?.text || '';
-
-    return {
-      candidateCount: candidates.length,
-      topTextLengths: candidates.slice(0, 3).map((candidate) => candidate.text.length),
-      topPreviews: candidates.slice(0, 3).map((candidate) => candidate.text.slice(0, 120)),
-      rejectedTop,
-      selectedText,
-      selectedLength: selectedText.length,
-      selectedPreview: selectedText.slice(0, 120)
-    };
+    collect(semanticSelectors, 'semantic-answer');
+    collect(legacySelectors, 'legacy-container');
+    return candidates;
   })()`);
 }
 
-async function latestAnswerText(page: Page, submittedPrompt = '') {
-  const diagnostics = await answerDiagnostics(page, submittedPrompt);
-  const evaluation = evaluateRekaCandidateText(diagnostics.selectedText, promptNeedle(submittedPrompt));
+async function answerDiagnostics(page: Page, submittedPrompt = ''): Promise<RekaAnswerDiagnostics> {
+  const candidates = await collectAnswerCandidates(page);
+  const selection = selectRekaResponseCandidate(candidates, submittedPrompt);
+  const selectedText = selection.selected?.text ?? '';
+  const rejectedByCandidate = new Map(selection.rejected.map((entry) => [entry.candidate, entry.reason]));
+  const accepted = candidates
+    .filter((candidate) => !rejectedByCandidate.has(candidate))
+    .sort((a, b) => b.text.length - a.text.length);
 
-  return evaluation.accepted ? diagnostics.selectedText : '';
+  return {
+    candidateCount: candidates.length,
+    topTextLengths: accepted.slice(0, 3).map((candidate) => candidate.text.length),
+    topPreviews: accepted.slice(0, 3).map((candidate) => candidate.text.slice(0, 120)),
+    rejectedTop: selection.rejected.slice(0, 5).map((entry) => ({
+      preview: `tier=${entry.candidate.tier} ${entry.candidate.text.slice(0, 120)}`,
+      reason: entry.reason,
+    })),
+    selectedText,
+    selectedLength: selectedText.length,
+    selectedPreview: selectedText.slice(0, 120),
+  };
+}
+
+async function latestAnswerText(page: Page, submittedPrompt = '') {
+  // Selection already runs the full candidate evaluation, so the selected
+  // text is the accepted answer (or empty when none survives).
+  return (await answerDiagnostics(page, submittedPrompt)).selectedText;
 }
 
 async function dispatchComposerInputEvents(page: Page) {
@@ -640,9 +634,15 @@ type RekaCoordinateSubmitTarget = {
   }>;
 };
 
-async function findRekaCoordinateSubmitTarget(page: Page): Promise<RekaCoordinateSubmitTarget> {
-  logRekaEvaluateBlock('findRekaCoordinateSubmitTarget');
-  return page.evaluate<RekaCoordinateSubmitTarget>(`(() => {
+type RekaSubmitCandidateCollection = {
+  composerFound: boolean;
+  composerBox: { x: number; y: number; width: number; height: number } | null;
+  candidates: RekaSubmitButtonDescriptor[];
+};
+
+async function collectRekaSubmitCandidates(page: Page): Promise<RekaSubmitCandidateCollection> {
+  logRekaEvaluateBlock('collectRekaSubmitCandidates');
+  return page.evaluate<RekaSubmitCandidateCollection>(`(() => {
     const selectors = ${JSON.stringify(composerSelectors.join(','))};
 
     function visible(el) {
@@ -665,6 +665,7 @@ async function findRekaCoordinateSubmitTarget(page: Page): Promise<RekaCoordinat
         el.getAttribute('aria-label'),
         el.getAttribute('title'),
         el.getAttribute('data-testid'),
+        el.getAttribute('data-slot'),
         el.getAttribute('class'),
         Array.from(el.querySelectorAll('svg,path')).map((svg) => [
           svg.getAttribute('aria-label'),
@@ -675,18 +676,7 @@ async function findRekaCoordinateSubmitTarget(page: Page): Promise<RekaCoordinat
       ].filter(Boolean).join(' ').toLowerCase();
     }
 
-    function labelFor(el, score) {
-      const label = [
-        el.getAttribute('aria-label'),
-        el.getAttribute('title'),
-        el.getAttribute('data-testid'),
-        (el.textContent || '').trim(),
-      ].filter(Boolean).join(' | ').replace(/\\s+/g, ' ').slice(0, 100);
-      const classes = String(el.getAttribute('class') || '').replace(/\\s+/g, ' ').slice(0, 160);
-      return 'selector=' + el.tagName.toLowerCase() + ' label="' + label + '" class="' + classes + '" score=' + Math.round(score);
-    }
-
-    function composerControlBox(composer) {
+    function legacyComposerControlBox(composer) {
       let current = composer;
       let best = composer;
 
@@ -712,93 +702,125 @@ async function findRekaCoordinateSubmitTarget(page: Page): Promise<RekaCoordinat
     }) || composers[0];
 
     if (!composer) {
-      return { found: false, label: 'no visible Reka composer found' };
+      return { composerFound: false, composerBox: null, candidates: [] };
     }
 
-    const composerBox = composerControlBox(composer);
+    const composerBox = legacyComposerControlBox(composer);
     const overlapsComposerBox = (rect) => rect.left < composerBox.right + 4 &&
       rect.right > composerBox.left - 4 &&
       rect.top < composerBox.bottom + 4 &&
       rect.bottom > composerBox.top - 4;
+
+    // Structural scopes: the composer's form is the strongest relation, then
+    // the nearest composer ancestor that contains buttons.
+    const composerForm = composer.closest('form');
+    let ancestorWithButtons = null;
+    let current = composer.parentElement;
+
+    for (let depth = 0; current && depth < 8; depth += 1) {
+      if (current.querySelectorAll('button, [role="button"]').length > 0) {
+        ancestorWithButtons = current;
+        break;
+      }
+      current = current.parentElement;
+    }
 
     const candidates = Array.from(document.querySelectorAll('button, [role="button"]'))
       .filter((button, index, all) => all.indexOf(button) === index)
       .filter((button) => visible(button) && enabled(button))
       .map((button) => {
         const rect = button.getBoundingClientRect();
-        const text = textFor(button);
-        const paperPlane = /send|submit|arrow|paper-plane|plane|corner|lucide-send|send-horizontal/.test(text);
-        const excluded = /attach|attachment|paperclip|clip|file|upload|model|settings|menu|sidebar|side panel|user|account|avatar/.test(text);
-        let score = rect.right;
-        score += Math.min(rect.width * rect.height, 3600) / 20;
-        if (paperPlane) score += 800;
-        if (button.querySelector('svg')) score += 80;
-        if (excluded) score -= 2000;
+        const scope = composerForm && composerForm.contains(button)
+          ? 'form'
+          : ancestorWithButtons && ancestorWithButtons.contains(button)
+            ? 'ancestor'
+            : 'page';
 
         return {
-          button,
-          rect,
-          score,
-          excluded,
-          text,
-          classes: String(button.getAttribute('class') || ''),
+          tag: button.tagName.toLowerCase(),
+          text: textFor(button).replace(/\\s+/g, ' ').trim().slice(0, 240),
+          classes: String(button.getAttribute('class') || '').replace(/\\s+/g, ' ').trim().slice(0, 220),
+          scope,
+          overlapsComposerBox: overlapsComposerBox(rect),
+          hasSvgIcon: Boolean(button.querySelector('svg')),
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+          centerX: rect.x + rect.width / 2,
+          centerY: rect.y + rect.height / 2,
           backgroundColor: getComputedStyle(button).backgroundColor,
         };
       })
-      .filter((candidate) => !candidate.excluded)
-      .filter((candidate) => overlapsComposerBox(candidate.rect))
-      .sort((left, right) => right.score - left.score);
-
-    const selected = candidates[0];
-    if (!selected) {
-      return {
-        found: false,
-        label: 'no visible button inside or overlapping Reka composer box',
-        candidateCount: 0,
-        composerBox: {
-          x: composerBox.x,
-          y: composerBox.y,
-          width: composerBox.width,
-          height: composerBox.height,
-        },
-        candidates: [],
-      };
-    }
+      // Page-scope buttons are only considered with geometric overlap
+      // evidence; structurally related buttons are always considered.
+      .filter((candidate) => candidate.scope !== 'page' || candidate.overlapsComposerBox)
+      .map((candidate, index) => ({ ...candidate, index }));
 
     return {
-      found: true,
-      label: labelFor(selected.button, selected.score),
-      candidateCount: candidates.length,
-      selectedIndex: 0,
-      x: selected.rect.x + selected.rect.width / 2,
-      y: selected.rect.y + selected.rect.height / 2,
+      composerFound: true,
       composerBox: {
         x: composerBox.x,
         y: composerBox.y,
         width: composerBox.width,
         height: composerBox.height,
       },
-      boundingBox: {
-        x: selected.rect.x,
-        y: selected.rect.y,
-        width: selected.rect.width,
-        height: selected.rect.height,
-      },
-      candidates: candidates.map((candidate, index) => ({
-        index,
-        tag: candidate.button.tagName.toLowerCase(),
-        text: candidate.text.replace(/\\s+/g, ' ').trim().slice(0, 180),
-        classes: candidate.classes.replace(/\\s+/g, ' ').trim().slice(0, 220),
-        x: candidate.rect.x,
-        y: candidate.rect.y,
-        width: candidate.rect.width,
-        height: candidate.rect.height,
-        centerX: candidate.rect.x + candidate.rect.width / 2,
-        centerY: candidate.rect.y + candidate.rect.height / 2,
-        backgroundColor: candidate.backgroundColor,
-      })),
+      candidates,
     };
   })()`);
+}
+
+async function findRekaCoordinateSubmitTarget(page: Page): Promise<RekaCoordinateSubmitTarget> {
+  const collection = await collectRekaSubmitCandidates(page);
+
+  if (!collection.composerFound) {
+    return { found: false, label: 'no visible Reka composer found' };
+  }
+
+  const selection = selectRekaSubmitTarget(collection.candidates);
+  const composerBox = collection.composerBox ?? undefined;
+  const candidates = collection.candidates.map((candidate) => ({
+    index: candidate.index,
+    tag: candidate.tag,
+    text: `${candidate.scope}${candidate.overlapsComposerBox ? '+overlap' : ''} ${candidate.text}`.slice(0, 180),
+    classes: candidate.classes,
+    x: candidate.x,
+    y: candidate.y,
+    width: candidate.width,
+    height: candidate.height,
+    centerX: candidate.centerX,
+    centerY: candidate.centerY,
+    backgroundColor: candidate.backgroundColor,
+  }));
+
+  if (!selection.selected) {
+    return {
+      found: false,
+      label: 'no structural or composer-overlapping Reka submit button found',
+      candidateCount: selection.consideredCount,
+      ...(composerBox ? { composerBox } : {}),
+      candidates,
+    };
+  }
+
+  const selected = selection.selected;
+
+  return {
+    found: true,
+    label: `selector=${selected.tag} scope=${selected.scope} class="${selected.classes.slice(0, 160)}" score=${Math.round(selection.score ?? 0)}`,
+    candidateCount: selection.consideredCount,
+    selectedIndex: selected.index,
+    x: selected.centerX,
+    y: selected.centerY,
+    ...(composerBox ? { composerBox } : {}),
+    boundingBox: {
+      x: selected.x,
+      y: selected.y,
+      width: selected.width,
+      height: selected.height,
+    },
+    candidates,
+  };
 }
 
 async function performRekaDomSubmitStrategy(
@@ -1048,14 +1070,14 @@ export const rekaDriver: ParticipantDriver = {
     console.log(`Reka actual submit control: ${coordinateTarget.label}`);
     console.log(`Reka submit bounding box: ${JSON.stringify(coordinateTarget.boundingBox ?? null)}`);
 
-    if (!coordinateTarget.found || coordinateTarget.x === undefined || coordinateTarget.y === undefined) {
-      const artifacts = await saveRekaSubmitFailedDebug(page);
-      throw new Error([
-        'reka-submit-failed',
-        coordinateTarget.label,
-        `Debug HTML: ${artifacts.htmlPath}`,
-        `Debug screenshot: ${artifacts.screenshotPath}`,
-      ].join('\n'));
+    const hasClickTarget = coordinateTarget.found &&
+      coordinateTarget.x !== undefined &&
+      coordinateTarget.y !== undefined;
+
+    if (!hasClickTarget) {
+      // A missing clickable target must not block verified keyboard
+      // submission; keyboard strategies only need the composer.
+      console.log('Reka submit control not found; attempting keyboard strategies before failing');
     }
 
     async function runStrategy(strategy: string, action: () => Promise<void>, waitMs = 1000) {
@@ -1097,6 +1119,17 @@ export const rekaDriver: ParticipantDriver = {
       }
     }
 
+    if (!hasClickTarget) {
+      const artifacts = await saveRekaSubmitFailedDebug(page);
+      throw new Error([
+        'reka-submit-failed',
+        coordinateTarget.label,
+        'Keyboard submit strategies produced no accepted-submission evidence and no clickable submit control was found.',
+        `Debug HTML: ${artifacts.htmlPath}`,
+        `Debug screenshot: ${artifacts.screenshotPath}`,
+      ].join('\n'));
+    }
+
     const domStrategies: Array<{
       strategy: string;
       mode: 'target-events' | 'ancestor-events' | 'form-submit';
@@ -1123,7 +1156,7 @@ export const rekaDriver: ParticipantDriver = {
 
     console.log(`Reka mouse click at: ${coordinateTarget.x},${coordinateTarget.y}`);
     pendingRekaSubmittedAt.set(page, Date.now());
-    await page.mouse.click(coordinateTarget.x, coordinateTarget.y);
+    await page.mouse.click(coordinateTarget.x!, coordinateTarget.y!);
     const afterClickScreenshotPath = await saveRekaAfterCoordinateClickDebug(page);
     console.log(`Reka after coordinate click screenshot: ${afterClickScreenshotPath}`);
     console.log(`Reka composer text after click: ${await composerText(page)}`);
@@ -1157,7 +1190,7 @@ export const rekaDriver: ParticipantDriver = {
   },
 
   async waitForCompletion(page: Page) {
-    console.log('Reka response detector version: v2');
+    console.log('Reka response detector version: v3');
     const startedAt = Date.now();
     const hardTimeoutMs = 180000;
     const stableMs = 5000;
@@ -1169,8 +1202,7 @@ export const rekaDriver: ParticipantDriver = {
 
     while (Date.now() - startedAt < hardTimeoutMs) {
       const diagnostics = await answerDiagnostics(page, submittedPrompt);
-      const selectedEvaluation = evaluateRekaCandidateText(diagnostics.selectedText, promptNeedle(submittedPrompt));
-      const text = selectedEvaluation.accepted ? diagnostics.selectedText : '';
+      const text = diagnostics.selectedText;
 
       if (text !== lastText) {
         lastText = text;
@@ -1187,11 +1219,8 @@ export const rekaDriver: ParticipantDriver = {
         diagnostics.topPreviews.forEach((preview, index) => {
           console.log(`Reka candidate ${index + 1}: ${preview || '(empty)'}`);
         });
-        if (!selectedEvaluation.accepted && diagnostics.selectedText) {
-          console.log(`Reka selected candidate rejected: ${selectedEvaluation.reason ?? 'unknown'} ${diagnostics.selectedPreview}`);
-        }
         diagnostics.rejectedTop.forEach((candidate) => {
-          console.log(`Reka selected candidate rejected: ${candidate.reason} ${candidate.preview}`);
+          console.log(`Reka rejected candidate reason: ${candidate.reason} ${candidate.preview}`);
         });
         lastProgressLogAt = Date.now();
       }

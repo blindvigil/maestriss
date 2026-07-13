@@ -106,3 +106,127 @@ export function evaluateRekaCandidateText(text: string, promptNeedle = ''): Reka
     accepted: true,
   };
 }
+
+// Reka response candidate selection.
+//
+// Live DOM evidence (2026-07-13, runner/debug/reka.html, real conversation):
+// - assistant answers render in div.prose.prose-chat (markdown renderer)
+//   inside a div.flex.justify-start row;
+// - the submitted user prompt renders in p.whitespace-pre-line inside a
+//   div.flex.justify-end bubble;
+// - transcript-level column parents contain prompt + answer + chrome and are
+//   also bottom-most and longest, so they must never win by geometry alone.
+//
+// The previous detector scanned page-wide selectors and picked the
+// newest/bottom-most/longest candidate; its prompt-only guard capped at
+// needle + 80 chars, so any prompt longer than ~200 chars let both the
+// transcript parent and the user bubble survive filtering.
+
+export type RekaCandidateTier = 'semantic-answer' | 'legacy-container';
+
+export type RekaResponseCandidate = {
+  text: string;
+  tier: RekaCandidateTier;
+  insideUserBubble: boolean;
+  bottom: number;
+  createdAt: number;
+};
+
+export type RekaSelectionResult = {
+  selected?: RekaResponseCandidate;
+  rejected: Array<{ candidate: RekaResponseCandidate; reason: string }>;
+};
+
+export function evaluateRekaResponseCandidate(
+  candidate: RekaResponseCandidate,
+  prompt = '',
+): RekaCandidateEvaluation {
+  if (candidate.insideUserBubble) {
+    return {
+      accepted: false,
+      reason: 'submitted-prompt-container',
+    };
+  }
+
+  const needle = normalizeRekaCandidateText(prompt).slice(0, 120);
+  const baseEvaluation = evaluateRekaCandidateText(candidate.text, needle);
+
+  if (!baseEvaluation.accepted) {
+    return baseEvaluation;
+  }
+
+  const normalized = normalizeRekaCandidateText(candidate.text);
+  const normalizedPrompt = normalizeRekaCandidateText(prompt);
+
+  if (normalizedPrompt && normalized === normalizedPrompt) {
+    return {
+      accepted: false,
+      reason: 'submitted-prompt-only',
+    };
+  }
+
+  // A candidate containing the entire submitted prompt plus more text is a
+  // transcript-shaped parent (prompt + answer + chrome), not the answer.
+  if (normalizedPrompt && normalized.includes(normalizedPrompt) && normalized.length > normalizedPrompt.length) {
+    return {
+      accepted: false,
+      reason: 'contains-submitted-prompt',
+    };
+  }
+
+  return {
+    accepted: true,
+  };
+}
+
+function byRecencyBottomLength(a: RekaResponseCandidate, b: RekaResponseCandidate) {
+  const createdDelta = b.createdAt - a.createdAt;
+
+  if (Math.abs(createdDelta) > 0) {
+    return createdDelta;
+  }
+
+  const bottomDelta = b.bottom - a.bottom;
+
+  if (Math.abs(bottomDelta) > 20) {
+    return bottomDelta;
+  }
+
+  return b.text.length - a.text.length;
+}
+
+export function selectRekaResponseCandidate(
+  candidates: RekaResponseCandidate[],
+  prompt = '',
+): RekaSelectionResult {
+  const rejected: Array<{ candidate: RekaResponseCandidate; reason: string }> = [];
+  const accepted: RekaResponseCandidate[] = [];
+
+  for (const candidate of candidates) {
+    const evaluation = evaluateRekaResponseCandidate(candidate, prompt);
+
+    if (evaluation.accepted) {
+      accepted.push(candidate);
+    } else {
+      rejected.push({ candidate, reason: evaluation.reason ?? 'rejected' });
+    }
+  }
+
+  const semanticCandidates = accepted.filter((candidate) => candidate.tier === 'semantic-answer');
+  const pool = semanticCandidates.length > 0 ? semanticCandidates : accepted;
+
+  if (semanticCandidates.length > 0) {
+    for (const candidate of accepted) {
+      if (candidate.tier === 'legacy-container') {
+        rejected.push({ candidate, reason: 'legacy-container-superseded-by-semantic-answer' });
+      }
+    }
+  }
+
+  const sorted = [...pool].sort(byRecencyBottomLength);
+
+  return {
+    ...(sorted[0] ? { selected: sorted[0] } : {}),
+    rejected,
+  };
+}

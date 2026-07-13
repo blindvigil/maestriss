@@ -324,11 +324,27 @@ async function deepSeekResponseDiagnostics(page: Page, submittedPrompt = '') {
       return buttons.length > 0;
     }
 
+    const composerElement = Array.from(document.querySelectorAll('textarea, [contenteditable="true"], [contenteditable], [role="textbox"]'))
+      .filter(visible)
+      .sort((a, b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom)[0];
+    const composerRect = composerElement ? composerElement.getBoundingClientRect() : null;
+    const composerLeft = composerRect ? composerRect.left : null;
+    const composerWidth = composerRect ? composerRect.width : null;
+
+    // Keep in sync with deepSeekGeometryRejectionReason in deepseekFiltering.ts:
+    // geometry is composer-relative supporting evidence, never absolute x cutoffs.
+    function geometryRejectionReason(candidate) {
+      if (candidate.insideSidebar) return 'sidebar-history-container';
+      if (composerLeft !== null && candidate.right < composerLeft - 24) return 'left-of-conversation-column';
+      const widthCap = composerWidth !== null ? composerWidth + 64 : Math.min(window.innerWidth * 0.72, 920);
+      if (candidate.width > widthCap) return 'page-or-transcript-parent-container';
+      return '';
+    }
+
     function rejectionReason(candidate) {
       if (candidate.text.length <= 5) return 'too-short';
-      if (candidate.left < 250) return 'left-sidebar-region';
-      if (candidate.width > Math.min(window.innerWidth * 0.72, 920)) return 'page-or-transcript-parent-container';
-      if (candidate.insideSidebar) return 'sidebar-history-container';
+      const geometryReason = geometryRejectionReason(candidate);
+      if (geometryReason) return geometryReason;
       if (historyText(candidate.text)) return 'history-sidebar-marker';
       if (chromeText(candidate.text)) return 'known-deepseek-chrome';
       if (promptOnly(candidate.text)) return 'submitted-prompt-only';

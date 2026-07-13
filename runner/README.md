@@ -214,6 +214,35 @@ npm run dev -- run-random "Tell me about reforestation and what hopes we have"
 
 This requires the runner service to be running. The workflow fixes Google as the first participant, ChatGPT as the final participant, shuffles the middle participants each run, skips Claude by default, and records normalized error responses for providers whose drivers are not implemented yet.
 
+## Sequential Baton Test
+
+Run the deterministic multi-provider baton test with:
+
+```bash
+npm run dev -- baton-test
+```
+
+This requires the runner service to be running. The test sends the seed `MAESTRISS` through all nine participants in a fixed order (ChatGPT, Claude, Gemini, Google, DeepSeek, Grok, Copilot, Perplexity, Reka). Each participant must return exactly the baton it received plus its own token (for example `-CLAUDE`), and the actual extracted answer becomes the input to the next participant. A full pass ends with:
+
+```text
+MAESTRISS-CHATGPT-CLAUDE-GEMINI-GOOGLE-DEEPSEEK-GROK-COPILOT-PERPLEXITY-REKA
+```
+
+Any wrong, stale, or missing answer fails that stage immediately and stops the chain; no fabricated baton is ever forwarded. Options:
+
+```bash
+npm run dev -- baton-test --seed MAESTRISS
+npm run dev -- baton-test --skip-unavailable
+```
+
+`--skip-unavailable` checks provider readiness once at run start, skips participants that are not `ready`, omits their tokens from the expected baton, and reports `PARTIAL` instead of `PASS`. It never hides submission, extraction, timeout, or wrong-answer failures.
+
+The orchestration logic has a deterministic assertion suite that needs no browser or service:
+
+```bash
+npm run test:baton
+```
+
 ## Claude Ask Smoke Test
 
 Run the Claude prompt automation smoke test with:

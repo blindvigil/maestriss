@@ -321,6 +321,16 @@ Smoke tests verify navigation or tab reuse, paste, submit, generation, extractio
 
 Run smoke tests after driver changes, browser automation changes, provider-specific fixes, Chrome updates, dependency updates, and before release candidates.
 
+After the per-provider smoke tests pass, the sequential baton test validates exact multi-provider handoff through the same live ask lifecycle (see Reference document 09, Sequential Baton Test):
+
+```text
+cd runner
+npm run dev -- baton-test
+npm run dev -- baton-test --skip-unavailable
+```
+
+The default form fails on any unavailable provider or wrong answer. The `--skip-unavailable` form skips participants whose readiness is not `ready` at run start and reports `PARTIAL` instead of `PASS`.
+
 ## Regression Testing
 
 Regression tests preserve known behavior and discovered bug fixes.
@@ -330,6 +340,7 @@ Run provider filter tests after modifying response filtering, candidate selectio
 ```text
 cd runner
 npm run test:chatgpt-filter
+npm run test:perplexity-filter
 npm run test:reka-filter
 npm run test:deepseek-filter
 npm run test:grok-filter
@@ -337,6 +348,13 @@ npm run test:copilot-filter
 npm run test:claude-filter
 npm run test:gemini-filter
 npm run test:google-filter
+```
+
+Run the deterministic baton orchestration suite after changing baton test logic; it requires no browser, provider, or network access:
+
+```text
+cd runner
+npm run test:baton
 ```
 
 Run build verification after TypeScript changes:

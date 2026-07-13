@@ -12,6 +12,11 @@ import {
   type ProviderStatus,
   type RandomRunResponse,
 } from './server.js';
+import {
+  defaultBatonSeed,
+  runBatonTest,
+  type BatonStageResult,
+} from './batonTest.js';
 import { participants } from './participants.js';
 import type { ParticipantRunResponse } from './types.js';
 
@@ -358,6 +363,158 @@ async function runRandomClient(promptParts: string[], verbose: boolean) {
   console.log('Done.');
 }
 
+function batonDisplayName(participantId: string) {
+  const participant = participants.find((candidate) => candidate.id === participantId);
+  return participant?.name ?? participantId;
+}
+
+function printBatonStage(stage: BatonStageResult) {
+  const displayName = batonDisplayName(stage.participant);
+
+  if (stage.outcome === 'fail') {
+    console.log(`\nFAIL at stage ${stage.stage}/${stage.stageCount}: ${displayName}`);
+    console.log('\nInput:');
+    console.log(stage.inputBaton);
+    console.log('\nExpected:');
+    console.log(stage.expectedOutput);
+    console.log('\nActual:');
+    console.log(stage.actualOutput ?? '[No answer text detected]');
+
+    if (stage.failureReason) {
+      console.log(`\nFailure category: ${stage.failureReason}`);
+    }
+
+    if (stage.error) {
+      console.log(`Error: ${stage.error}`);
+    }
+
+    return;
+  }
+
+  console.log(`\n[${stage.stage}/${stage.stageCount}] ${displayName}`);
+
+  if (stage.outcome === 'not-run') {
+    console.log('NOT RUN — chain stopped at an earlier stage');
+    return;
+  }
+
+  if (stage.outcome === 'skipped') {
+    console.log(`SKIPPED — provider unavailable before ask (status: ${stage.readinessStatus ?? 'unknown'})`);
+
+    if (stage.readinessNotes?.length) {
+      console.log(`  ${stage.readinessNotes.join(' ')}`);
+    }
+
+    return;
+  }
+
+  console.log(`Input:    ${stage.inputBaton}`);
+  console.log(`Expected: ${stage.expectedOutput}`);
+  console.log(`Actual:   ${stage.actualOutput}`);
+  console.log('PASS');
+}
+
+async function runBatonTestClient(args: string[]) {
+  let seed = defaultBatonSeed;
+  let skipUnavailable = false;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === '--seed') {
+      const value = args[index + 1];
+
+      if (!value || value.startsWith('--')) {
+        throw new Error('Missing seed value. Usage: npm run dev -- baton-test --seed MAESTRISS');
+      }
+
+      seed = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--skip-unavailable') {
+      skipUnavailable = true;
+      continue;
+    }
+
+    throw new Error(
+      `Unknown baton-test argument "${arg}". Usage: npm run dev -- baton-test [--seed MAESTRISS] [--skip-unavailable]`,
+    );
+  }
+
+  let readinessSnapshot: Map<string, ProviderStatus> | undefined;
+
+  const getReadiness = async (participantId: string) => {
+    if (!readinessSnapshot) {
+      const statusResult = await getJson<{ providers: ProviderStatus[] }>('/providers/status');
+
+      if (!statusResult) {
+        throw new Error('Runner service is not reachable for provider readiness.');
+      }
+
+      readinessSnapshot = new Map(
+        statusResult.providers.map((provider) => [provider.participant, provider]),
+      );
+    }
+
+    return readinessSnapshot.get(participantId);
+  };
+
+  const ask = async (participantId: string, prompt: string): Promise<ParticipantRunResponse> => {
+    const result = await postJson<AskResponse>('/ask', {
+      participant: participantId,
+      prompt,
+    });
+
+    if (!result) {
+      throw new Error('Runner service is not reachable.');
+    }
+
+    return result.normalizedResponse ?? {
+      participant: participantId,
+      question: prompt,
+      answer: result.response ?? '',
+      citations: [],
+      elapsedSeconds: 0,
+      rawText: result.response ?? '',
+      cleanedText: result.response ?? '',
+    };
+  };
+
+  console.log('\nMaestriss Sequential Baton Test\n');
+  console.log('Seed:');
+  console.log(seed);
+
+  if (skipUnavailable) {
+    console.log('\nSkip mode enabled: provider readiness is checked once at run start.');
+  }
+
+  const result = await runBatonTest({
+    ask,
+    seed,
+    skipUnavailable,
+    ...(skipUnavailable ? { getReadiness } : {}),
+    onStage: printBatonStage,
+  });
+
+  console.log(`\nFINAL RESULT: ${result.finalResult}`);
+
+  if (result.finalResult === 'FAIL') {
+    console.log('\nChain stopped. No fabricated baton was forwarded.');
+    process.exitCode = 1;
+    return;
+  }
+
+  console.log('\nFinal baton:');
+  console.log(result.finalBaton);
+
+  if (result.finalResult === 'PARTIAL') {
+    console.log('\nExpected final baton (skipped tokens omitted):');
+    console.log(result.expectedFinalBaton);
+  }
+}
+
 async function runCheckProvidersClient(verbose: boolean) {
   const result = await getJson<{ providers: ProviderStatus[] }>('/providers/status');
 
@@ -430,6 +587,7 @@ function printUsage() {
   console.log('  npm run dev -- ask chatgpt "prompt here"');
   console.log('  npm run dev -- chain google chatgpt "optional prompt"');
   console.log('  npm run dev -- run-random "original prompt here" [--verbose]');
+  console.log('  npm run dev -- baton-test [--seed MAESTRISS] [--skip-unavailable]');
   console.log('  npm run dev -- inspect claude');
   console.log('  npm run dev -- version');
 }
@@ -495,6 +653,11 @@ async function main() {
 
   if (command === 'run-random') {
     await runRandomClient([target, ...args].filter((part): part is string => Boolean(part)), verbose);
+    return;
+  }
+
+  if (command === 'baton-test') {
+    await runBatonTestClient([target, ...args].filter((part): part is string => Boolean(part)));
     return;
   }
 
