@@ -119,7 +119,15 @@ The Automa exporter is a Studio-side export adapter. It generates Automa workflo
 
 Current integration is limited. The Studio application does not yet directly call the native runner server for live execution, provider health, run history, or participant status. The runner can be operated independently through its CLI and local server. Studio-to-runner integration is future work and should not be assumed by operators or engineers reading the current code.
 
-The participant roster and prompt-template vocabulary currently exist in more than one place. The runner has its own participant metadata and prompt-template rendering for native workflows. Studio has its own participant defaults, prompt-variable catalog, and exporter-oriented prompt construction. This duplication is a known transitional state. Future integration should consolidate or explicitly map these concepts so configuration and execution remain consistent.
+The participant roster and prompt-template vocabulary have historically existed in more than one place. The runner's participant metadata now derives from the shared canonical provider registry in `shared/council/`; Studio still carries its own participant defaults, prompt-variable catalog, and exporter-oriented prompt construction. The remaining duplication is a known transitional state. Studio's planned migration onto the shared vocabulary should consolidate or explicitly map these concepts so configuration and execution remain consistent.
+
+### Council Orchestration Contract
+
+Maestriss defines a shared council orchestration contract in `shared/council/`: plain TypeScript consumed by both the Studio build and the runner build, with no React, Playwright, browser, or driver dependencies. It owns the canonical provider registry (the execution-verified runner identities), the six-role library (fantasy presentation titles paired with practical provider-facing framings), the three built-in preset factories (Council of X, Trial by Fire, The Editorial Court), the versioned Council Configuration schema (`schemaVersion: 1`; fantasy name: Council Scroll), council rules, behavioral variables, input/output/failure-policy vocabularies, prompt budgets, and the deterministic prompt-composition pipeline. Fantasy titles are presentation only; provider-facing prompt text uses practical, constructive wording and is covered by refusal-safety assertions.
+
+Council execution follows the runner-first direction: sequential orchestration over the existing ask lifecycle, deterministic tests through injected boundaries, and Studio consuming the same configuration documents later. Runner council execution, persisted council run records, Studio's vocabulary migration (including the `reka-chat` to `reka` participant id and the Copilot URL), and the graphical Council Composer are planned future slices, not current behavior.
+
+The earlier dormant graph-based workflow scaffolding (`WorkflowDefinition`, `WorkflowNode`, `WorkflowEdge`, and the sample workflow JSON) was retired in favor of this contract after a repository-wide reference check confirmed nothing consumed it.
 
 ```text
                          +----------------------+

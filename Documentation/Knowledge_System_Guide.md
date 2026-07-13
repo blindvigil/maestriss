@@ -147,6 +147,8 @@ This glossary defines project terms at the documentation-system level. Detailed 
 | Candidate | A possible response element discovered during response detection. | `Reference/Human/05 - Response Detection and Filtering Philosophy.md` and AI companion |
 | CDP mode | Execution mode that connects to an existing browser through Chrome DevTools Protocol. | `Reference/Human/04 - Browser and Tab Management.md` and AI companion |
 | Conversation | Current user instructions or assistant discussion. It is not durable project memory. | `Reference/Human/Start_Here.md` and AI companion |
+| Council Configuration | Versioned shared configuration document (fantasy name: Council Scroll) defining a multi-participant council: stages, providers, roles, rules, variables, budgets, and policies. | `Reference/Human/02 - System Architecture.md` and AI companion |
+| Council role | Reusable behavioral lens for a council stage, pairing a fantasy presentation title with a practical provider-facing framing. | `Reference/Human/02 - System Architecture.md` and AI companion |
 | Driver | Provider-specific automation implementation for a participant. | `Reference/Human/03 - Driver Lifecycle Specification.md` and AI companion |
 | Handoff | A dated milestone state document used for continuity. | `Documentation/Handoffs/` |
 | Human edition | The human-oriented copy of the permanent Reference library, optimized for comprehension and narrative flow. | `Reference/Human/Start_Here.md` |
@@ -170,6 +172,7 @@ Use this index to determine where concepts are owned and what code should be che
 | Browser lifecycle | `04 - Browser and Tab Management.md` | `runner/src/server.ts`, `runner/src/runner.ts`, `runner/restart-runner.ps1` |
 | Browser automation infrastructure | `08 - Browser Automation Architecture.md` | `runner/src/` |
 | Code review standards | `12 - Development Workflow and Engineering Standards.md` | Repository conventions and current diff |
+| Council orchestration contract | `02 - System Architecture.md` | `shared/council/`, `runner/src/councilAssertions.ts` |
 | Current maturity | `11 - Project Status and Development Journal.md` | Code, test scripts, latest handoff |
 | Diagnostics | `09 - Testing, Validation, and Diagnostics.md` | `runner/debug/`, provider tests, runtime logs |
 | Documentation source-of-truth rules | `Start_Here.md`, `Reference/README.md`, this guide | Documentation structure and current files |
@@ -223,6 +226,7 @@ Use this index to determine where concepts are owned and what code should be che
 | `runner/src/server.ts` | `04 - Browser and Tab Management.md`, `08 - Browser Automation Architecture.md` | `14 - Operational Runbook.md` |
 | `runner/src/runner.ts` | `03 - Driver Lifecycle Specification.md`, `08 - Browser Automation Architecture.md` | `09 - Testing, Validation, and Diagnostics.md` |
 | `runner/restart-runner.ps1` | `14 - Operational Runbook.md` | `04 - Browser and Tab Management.md` |
+| `shared/council/` | `02 - System Architecture.md` | `09 - Testing, Validation, and Diagnostics.md`, `10 - Future Roadmap and Vision.md` |
 | Provider filter assertion files | `05 - Response Detection and Filtering Philosophy.md`, `09 - Testing, Validation, and Diagnostics.md` | `07 - Participant Driver Reference.md` |
 | `Documentation/Handoffs/` | `Web_AI_Bootstrap_Prompt.md` and dated handoff files | `Start_Here.md`, `Web_AI_Prompt.md`, `Web_AI_Bootstrap.md`, this guide |
 | `Documentation/Reviews/` | This guide | `Start_Here.md` |

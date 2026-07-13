@@ -30,21 +30,7 @@ export type PromptTemplate = {
   template: string;
 };
 
-export type WorkflowNode = {
-  id: string;
-  participant: string;
-};
-
-export type WorkflowEdge = {
-  id: string;
-  from: string;
-  to: string;
-  promptTemplate: string;
-};
-
-export type WorkflowDefinition = {
-  id: string;
-  name: string;
-  nodes: WorkflowNode[];
-  edges: WorkflowEdge[];
-};
+// The dormant WorkflowDefinition/WorkflowNode/WorkflowEdge graph types and
+// the sample workflow JSON were retired in favor of the shared Council
+// Configuration model (shared/council/): a repository-wide reference check
+// confirmed nothing consumed them.

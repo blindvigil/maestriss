@@ -192,6 +192,8 @@ The regression suite should grow over time. Growth is not a sign of fragility; i
 
 Regression tests should be precise. They should capture the behavior that matters without overfitting to incidental implementation details. The best regression tests explain why a case should be accepted, rejected, or cleaned.
 
+The shared council orchestration contract has its own deterministic suite (`npm run test:council`, `runner/src/councilAssertions.ts`): canonical provider-registry equivalence, schema validation accept/reject cases, preset invariants, role metadata and refusal-safety wording checks, and prompt-composition behavior including input policies, budgets, exact truncation and omission notices, precedence, and a locked full-prompt snapshot. It requires no browser, runner service, or network access.
+
 ## Filter Tests
 
 Response-filter regression tests are deterministic tests for provider-specific extraction behavior. They validate how raw candidate text becomes accepted response text or rejected non-answer text.

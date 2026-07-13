@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -21,7 +21,31 @@ import { participants } from './participants.js';
 import type { ParticipantRunResponse } from './types.js';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const runnerRoot = path.resolve(currentDir, '..');
+
+// The compiled entry point's depth differs between tsx (src/) and the built
+// output (dist/runner/src/), so resolve the runner package root by walking
+// up to the nearest package.json instead of assuming a fixed depth.
+function findRunnerRoot(startDir: string): string {
+  let current = startDir;
+
+  for (let depth = 0; depth < 8; depth += 1) {
+    if (existsSync(path.join(current, 'package.json'))) {
+      return current;
+    }
+
+    const parent = path.dirname(current);
+
+    if (parent === current) {
+      break;
+    }
+
+    current = parent;
+  }
+
+  throw new Error(`Could not locate the runner package root from ${startDir}.`);
+}
+
+const runnerRoot = findRunnerRoot(currentDir);
 const userDataDir = path.join(runnerRoot, '.user-data');
 
 // Canonical Maestriss version owner: root package.json (Reference doc 12,

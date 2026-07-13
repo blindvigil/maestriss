@@ -150,6 +150,16 @@ This section is intended to be updated frequently.
 
 Entries should be added chronologically, newest at the top.
 
+### 2026-07-13
+
+**Area:** Council Architecture (Slice 1)
+
+**Summary:** Implemented the shared council orchestration contract in `shared/council/`: the canonical provider registry (the runner's execution-verified identities become the single roster source), a six-role library with practical provider-facing framings, three deterministic preset factories (Council of X, Trial by Fire, The Editorial Court), the versioned Council Configuration schema (`schemaVersion: 1`) with a deterministic validator, council rules, behavioral variables, input/output/failure-policy vocabularies, prompt budgets, and the deterministic prompt-composition pipeline. The runner's participant roster now re-exports the shared registry with no behavioral change, and the dormant `WorkflowDefinition` graph types plus the sample workflow JSON were retired after a repository-wide reference check confirmed they had no consumer.
+
+**Outcome:** `npm run test:council` (126 deterministic assertions), the runner build (now emitting `dist/runner/src` and `dist/shared`), the root build, all nine provider filter suites, the baton suite, and the version verifier pass. No live council execution exists yet; execution, persisted run records, Studio vocabulary migration, and the graphical Council Composer are later slices.
+
+**Lessons Learned:** Compiled-entry depth assumptions (`dist/index.js`) break when a build gains a second source root; resolving the runner package root by walking up to the nearest `package.json` made the CLI location-independent. The refusal-safe wording discipline learned from the live baton refusal is now enforced by assertions over every provider-facing council sentence rather than by convention.
+
 ### 2026-07-11
 
 **Area:** Release Validation

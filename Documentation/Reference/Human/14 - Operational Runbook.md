@@ -357,6 +357,13 @@ cd runner
 npm run test:baton
 ```
 
+Run the deterministic council contract suite after changing the shared council vocabulary, schema, roles, presets, or prompt composition; it requires no browser, provider, or network access:
+
+```text
+cd runner
+npm run test:council
+```
+
 Run build verification after TypeScript changes:
 
 ```text

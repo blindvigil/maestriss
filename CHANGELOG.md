@@ -10,8 +10,17 @@ Ordinary development accumulates under `Unreleased`. Entries move into a dated r
 
 ### Added
 
+- Shared Council orchestration contract (`shared/council/`, Council Slice 1): canonical provider registry adopting the runner's execution-verified identities (the runner roster now re-exports it with no behavioral change), a six-role library (Lantern Bearer, Inquisitor, Rival, Wild Mage, Magistrate, Royal Scribe) with refusal-safe provider-facing framings, three deterministic preset factories (Council of X, Trial by Fire, The Editorial Court), the versioned Council Configuration schema (`schemaVersion: 1`) with a deterministic validator, council rules, behavioral variables, input/output/failure-policy vocabularies, prompt budgets, and a deterministic prompt-composition pipeline — all covered by `npm run test:council` (126 browser-free assertions). No live council execution exists yet.
 - Dedicated Perplexity response-filtering module (`runner/src/drivers/perplexityFiltering.ts`) with a deterministic assertion suite (`npm run test:perplexity-filter`), completing dedicated filter coverage for all nine providers.
 - Sequential multi-provider baton test (`npm run dev -- baton-test [--seed <value>] [--skip-unavailable]`): sends a deterministic seed through all nine participants in a fixed order over the normal `/ask` lifecycle, requiring each provider to return exactly the previous provider's actual extracted output plus its own token. Fails immediately on any wrong, stale, or unavailable-provider result; `--skip-unavailable` skips not-ready providers before their ask and reports `PARTIAL` instead of `PASS`. Orchestration logic lives in `runner/src/batonTest.ts` with a browser-free deterministic assertion suite (`npm run test:baton`).
+
+### Changed
+
+- Runner build output now emits under `dist/runner/src` and `dist/shared` because the runner compiles the shared council module; `npm start` points at the new entry path, and the runner CLI resolves its package root by walking up to the nearest `package.json` instead of assuming a fixed compiled depth.
+
+### Removed
+
+- Dormant graph-based workflow scaffolding: the unused `WorkflowDefinition`/`WorkflowNode`/`WorkflowEdge` types and `runner/workflows/google-chatgpt.workflow.json`, retired in favor of the shared Council Configuration model after a repository-wide reference check confirmed no consumer.
 
 ### Fixed
 
