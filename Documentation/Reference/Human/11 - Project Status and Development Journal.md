@@ -111,6 +111,26 @@ Entries should be added chronologically, newest at the top.
 
 ### 2026-07-13
 
+**Area:** Sixteen Built-In Council Presets
+
+**Summary:** Expanded the built-in preset library from three to sixteen goal-specific councils built on the party model — each ordered stage is one party slot assigning a role and a provider, with duplicate roles and duplicate providers explicitly valid (Idea Forge fields two Wild Mages; Campaign seats Claude and ChatGPT three times each). The library: Concord, Idea Forge, Crucible, Editorial Court, Council of X, Arcane Expedition, Scholar's Conclave, Academy, Decision Chamber, Trial by Fire, War Room, Workshop, Oracle's Table, Creative Studio, Socratic Circle, and Campaign. Trial by Fire and Editorial Court adopted their approved expanded compositions. Council of X was redesigned around a new seventeenth canonical role, Councillor (General Deliberator): every voting seat holds the same equal-status Councillor role, seats deliberate independently in one shared round, and default providers rotate across seats in canonical registry order so no provider is senior; voting semantics remain future execution work, and a future non-voting synthesis/tally stage will be modeled separately rather than consuming a voting seat. Per-slot input/failure policies follow deterministic v1 defaults (first slot original-only; final slot full-record and halting; mid-chain judges/combiners full-record) intended for tuning after real council runs. `CouncilPreset` gained a `defaultSize` metadata field for the future preset browser; preset and role names carry no leading "The".
+
+**Outcome:** Council suite grew to 326 assertions, including exact ordered role/provider compositions for all fifteen fixed presets, duplicate-preservation checks, no-leading-"The" checks, and the existing validation/determinism/flavour-override loops now covering sixteen presets. Runner and Studio builds pass. No schema change was needed — the existing CouncilConfiguration represents built-in and future user-created councils alike.
+
+**Lessons Learned:** The party model held with zero schema changes, confirming the stage grammar was the right abstraction. Preset compositions are deliberately treated as version-one defaults for post-live tuning rather than final chemistry.
+
+### 2026-07-13
+
+**Area:** Canonical Sixteen-Role Council Library
+
+**Summary:** Expanded the canonical council role library from six to exactly sixteen roles using the approved provider-facing flavour text: the original six (Lantern Bearer, Inquisitor, Rival, Wild Mage, Royal Scribe, Magistrate) received their approved richer flavour text and descriptions, and ten roles were added — Empath, Saboteur (framed strictly as defensive failure-mode analysis), Cartographer, Archivist, Alchemist, Scout, Quartermaster, Oracle, Master of Questions, and Smith. Fantasy titles remain presentation-only; every flavour text passes the refusal-safety assertions. The role-position hint gained a `late` value to distinguish late-stage judgment/synthesis roles from the single final synthesizer. The Role Grimoire picked up the ten new roles automatically through shared enumeration, with new heraldic icons and the existing fallback.
+
+**Outcome:** Council suite grew to 225 assertions, including the exact sixteen-role inventory, original-six id stability, a new-role composition fixture (Smith), and a council-level override test on a new role (Oracle). Presets are unchanged and remain deterministic (Council of X still rotates Inquisitor/Rival/Wild Mage). Runner and Studio builds pass. Full-intensity prompts for the original six deliberately changed wording per the approved library; the locked light-intensity snapshot is unchanged.
+
+**Lessons Learned:** Role-id fixtures in validator tests must use ids that can never become real ('saboteur' was a test's fake id until it wasn't). Documentation edits belong in precise editing tools; shell round-trips can corrupt encodings silently.
+
+### 2026-07-13
+
 **Area:** Council Flavour-Override Integration
 
 **Summary:** Integrated editable role flavour text into the Council configuration contract. `CouncilConfiguration` gains an optional compact `roleFlavourOverrides` record (customized roles only, validated against the role library), effective role framing resolves council override first and canonical text otherwise, preset factories accept overrides as a build option, and the Role Grimoire projects its browser-local edits into that portable shape via a shared converter plus a copy-as-JSON control. Light role intensity remains the fixed one-liner regardless of overrides.

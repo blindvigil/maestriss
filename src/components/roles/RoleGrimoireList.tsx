@@ -1,23 +1,46 @@
 import {
+  Archive,
   BookOpen,
+  Compass,
+  Eye,
   Feather,
+  FlaskConical,
+  Hammer,
+  HeartHandshake,
   Lamp,
+  Map,
+  MessageCircleQuestion,
+  Package,
   Scale,
+  ShieldAlert,
   ShieldQuestion,
   Swords,
+  Users,
   Wand2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { RoleDefinition } from '../../../shared/council/index.js';
 import './RoleGrimoireList.css';
 
+// Unknown/future roles fall back to BookOpen; no role-specific UI branches.
 const roleIcons: Record<string, LucideIcon> = {
   'lantern-bearer': Lamp,
   inquisitor: ShieldQuestion,
   rival: Swords,
   'wild-mage': Wand2,
-  magistrate: Scale,
   'royal-scribe': Feather,
+  magistrate: Scale,
+  empath: HeartHandshake,
+  saboteur: ShieldAlert,
+  cartographer: Map,
+  archivist: Archive,
+  alchemist: FlaskConical,
+  scout: Compass,
+  quartermaster: Package,
+  oracle: Eye,
+  'master-of-questions': MessageCircleQuestion,
+  smith: Hammer,
+  councillor: Users,
 };
 
 type RoleGrimoireListProps = {

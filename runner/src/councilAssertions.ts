@@ -160,7 +160,43 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
 // Role library
 // =========================================================================
 {
-  assert(councilRoles.length === 6, 'role library contains exactly six roles');
+  const canonicalRoleIds = [
+    'lantern-bearer',
+    'inquisitor',
+    'rival',
+    'wild-mage',
+    'royal-scribe',
+    'magistrate',
+    'empath',
+    'saboteur',
+    'cartographer',
+    'archivist',
+    'alchemist',
+    'scout',
+    'quartermaster',
+    'oracle',
+    'master-of-questions',
+    'smith',
+    'councillor',
+  ];
+
+  assert(councilRoles.length === 17, 'role library contains exactly seventeen roles');
+  assert(
+    getCouncilRole('councillor')?.practicalTitle === 'General Deliberator' &&
+    getCouncilRole('councillor')?.providerAffinity === undefined &&
+    getCouncilRole('councillor')?.preferredPosition === undefined,
+    'Councillor exists as an equal-seat generalist with no affinity or position bias',
+  );
+  assert(
+    JSON.stringify(councilRoles.map((role) => role.id)) === JSON.stringify(canonicalRoleIds),
+    'role library matches the canonical sixteen-role inventory in order',
+    councilRoles.map((role) => role.id).join(','),
+  );
+  assert(
+    ['lantern-bearer', 'inquisitor', 'rival', 'wild-mage', 'magistrate', 'royal-scribe']
+      .every((id) => canonicalRoleIds.includes(id) && Boolean(getCouncilRole(id))),
+    'the original six role ids remain unchanged',
+  );
   assert(
     new Set(councilRoles.map((role) => role.id)).size === councilRoles.length,
     'role ids are unique',
@@ -228,7 +264,39 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
 // Preset invariants
 // =========================================================================
 {
-  assert(councilPresets.length === 3, 'preset library contains exactly three presets');
+  assert(councilPresets.length === 16, 'preset library contains exactly sixteen presets');
+
+  const expectedPresetOrder = [
+    'concord',
+    'idea-forge',
+    'crucible',
+    'editorial-court',
+    'council-of-x',
+    'arcane-expedition',
+    'scholars-conclave',
+    'academy',
+    'decision-chamber',
+    'trial-by-fire',
+    'war-room',
+    'workshop',
+    'oracles-table',
+    'creative-studio',
+    'socratic-circle',
+    'campaign',
+  ];
+  assert(
+    JSON.stringify(councilPresets.map((preset) => preset.id)) === JSON.stringify(expectedPresetOrder),
+    'preset library matches the canonical inventory in order',
+    councilPresets.map((preset) => preset.id).join(','),
+  );
+  assert(
+    councilPresets.every((preset) => !preset.fantasyTitle.startsWith('The ')),
+    'no preset title begins with a leading "The"',
+  );
+  assert(
+    councilRoles.every((role) => !role.fantasyTitle.startsWith('The ')),
+    'no canonical fantasy role title begins with a leading "The"',
+  );
 
   for (const preset of councilPresets) {
     const configuration = preset.build();
@@ -254,18 +322,31 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   }
 
   const councilOfX = getCouncilPreset('council-of-x')!;
-  assert(councilOfX.build().stages.length === councilOfXDefaultSize, 'Council of X defaults to 4 stages');
+  assert(
+    councilOfX.build().stages.length === councilOfXDefaultSize && councilOfX.defaultSize === councilOfXDefaultSize,
+    'Council of X defaults to 4 stages',
+  );
 
   for (const size of [councilOfXMinSize, 3, 7, councilOfXMaxSize]) {
     const configuration = councilOfX.build({ size });
-    assert(configuration.stages.length === size, `Council of X produces exactly ${size} stages`);
+    assert(configuration.stages.length === size, `Council of ${size} seats exactly ${size} Councillors`);
     assert(
-      configuration.stages[configuration.stages.length - 1].role === 'royal-scribe',
-      `Council of ${size} ends with the Royal Scribe`,
+      configuration.stages.every((stage) => stage.role === 'councillor'),
+      `Council of ${size} gives every seat equal Councillor role identity`,
     );
     assert(
-      configuration.stages[0].role === 'lantern-bearer',
-      `Council of ${size} opens with the Lantern Bearer`,
+      !configuration.stages.some((stage) => stage.role === 'royal-scribe'),
+      `Council of ${size} has no synthesis or specialized role consuming a voting seat`,
+    );
+    assert(
+      configuration.stages.every((stage) =>
+        stage.inputPolicy === 'independent-round' && stage.round === 'deliberation'),
+      `Council of ${size} seats deliberate independently in one shared round`,
+    );
+    assert(
+      new Set(configuration.stages.slice(0, Math.min(size, 9)).map((stage) => stage.provider)).size ===
+      Math.min(size, 9),
+      `Council of ${size} distributes distinct providers across seats (registry rotation)`,
     );
     assert(
       validateCouncilConfiguration(configuration).valid,
@@ -273,29 +354,137 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     );
   }
 
+  assert(
+    councilOfX.build({ size: councilOfXMaxSize }).stages[9].provider ===
+    councilOfX.build({ size: councilOfXMaxSize }).stages[0].provider,
+    'Council of X seats beyond the registry wrap the provider rotation (duplicates allowed)',
+  );
+  assert(
+    renderRoleFraming(getCouncilRole('councillor')!, 'full') === roleFlavourTexts.councillor &&
+    resolveCouncilRoleFlavourText('councillor', { councillor: 'Custom seat framing.' }) === 'Custom seat framing.',
+    'Councillor flavour text resolves canonically and honors overrides',
+  );
+
   assertThrows(() => councilOfX.build({ size: 1 }), 'Council of X rejects size below minimum');
   assertThrows(() => councilOfX.build({ size: 13 }), 'Council of X rejects size above maximum');
   assertThrows(() => councilOfX.build({ size: 2.5 }), 'Council of X rejects non-integer size');
 
+  // Exact ordered party compositions (slot -> role -> provider) for every
+  // fixed-size preset, per the approved 2026-07-13 v1 defaults.
+  const expectedParties: Record<string, Array<[string, string]>> = {
+    concord: [
+      ['empath', 'claude'], ['cartographer', 'gemini'], ['rival', 'chatgpt'], ['inquisitor', 'claude'],
+      ['alchemist', 'gemini'], ['magistrate', 'claude'], ['royal-scribe', 'chatgpt'],
+    ],
+    'idea-forge': [
+      ['master-of-questions', 'claude'], ['cartographer', 'gemini'], ['wild-mage', 'grok'], ['wild-mage', 'chatgpt'],
+      ['rival', 'gemini'], ['alchemist', 'claude'], ['royal-scribe', 'chatgpt'],
+    ],
+    crucible: [
+      ['cartographer', 'chatgpt'], ['lantern-bearer', 'perplexity'], ['rival', 'gemini'], ['inquisitor', 'claude'],
+      ['saboteur', 'grok'], ['lantern-bearer', 'google'], ['magistrate', 'claude'], ['royal-scribe', 'chatgpt'],
+    ],
+    'editorial-court': [
+      ['archivist', 'claude'], ['lantern-bearer', 'perplexity'], ['cartographer', 'gemini'], ['inquisitor', 'claude'],
+      ['empath', 'chatgpt'], ['smith', 'claude'], ['royal-scribe', 'chatgpt'],
+    ],
+    'arcane-expedition': [
+      ['master-of-questions', 'claude'], ['scout', 'google'], ['scout', 'perplexity'], ['archivist', 'claude'],
+      ['lantern-bearer', 'perplexity'], ['cartographer', 'gemini'], ['oracle', 'chatgpt'], ['royal-scribe', 'claude'],
+    ],
+    'scholars-conclave': [
+      ['master-of-questions', 'claude'], ['scout', 'google'], ['lantern-bearer', 'perplexity'], ['archivist', 'claude'],
+      ['cartographer', 'gemini'], ['inquisitor', 'claude'], ['magistrate', 'chatgpt'], ['royal-scribe', 'claude'],
+    ],
+    academy: [
+      ['master-of-questions', 'claude'], ['cartographer', 'gemini'], ['empath', 'chatgpt'], ['archivist', 'claude'],
+      ['wild-mage', 'gemini'], ['smith', 'claude'], ['royal-scribe', 'chatgpt'],
+    ],
+    'decision-chamber': [
+      ['cartographer', 'gemini'], ['lantern-bearer', 'perplexity'], ['rival', 'chatgpt'], ['inquisitor', 'claude'],
+      ['oracle', 'gemini'], ['magistrate', 'claude'], ['royal-scribe', 'chatgpt'],
+    ],
+    'trial-by-fire': [
+      ['cartographer', 'chatgpt'], ['inquisitor', 'claude'], ['saboteur', 'grok'], ['rival', 'gemini'],
+      ['saboteur', 'claude'], ['magistrate', 'claude'], ['royal-scribe', 'chatgpt'],
+    ],
+    'war-room': [
+      ['cartographer', 'gemini'], ['scout', 'perplexity'], ['oracle', 'chatgpt'], ['rival', 'gemini'],
+      ['saboteur', 'claude'], ['quartermaster', 'chatgpt'], ['magistrate', 'claude'], ['royal-scribe', 'chatgpt'],
+    ],
+    workshop: [
+      ['master-of-questions', 'claude'], ['cartographer', 'chatgpt'], ['scout', 'perplexity'], ['wild-mage', 'grok'],
+      ['alchemist', 'gemini'], ['smith', 'claude'], ['royal-scribe', 'chatgpt'],
+    ],
+    'oracles-table': [
+      ['cartographer', 'gemini'], ['scout', 'perplexity'], ['lantern-bearer', 'google'], ['oracle', 'chatgpt'],
+      ['oracle', 'gemini'], ['inquisitor', 'claude'], ['magistrate', 'claude'], ['royal-scribe', 'chatgpt'],
+    ],
+    'creative-studio': [
+      ['master-of-questions', 'claude'], ['wild-mage', 'grok'], ['wild-mage', 'chatgpt'], ['rival', 'gemini'],
+      ['empath', 'claude'], ['alchemist', 'chatgpt'], ['smith', 'claude'],
+    ],
+    'socratic-circle': [
+      ['master-of-questions', 'claude'], ['master-of-questions', 'chatgpt'], ['cartographer', 'gemini'],
+      ['inquisitor', 'claude'], ['empath', 'chatgpt'], ['oracle', 'gemini'], ['royal-scribe', 'claude'],
+    ],
+    campaign: [
+      ['cartographer', 'gemini'], ['master-of-questions', 'claude'], ['scout', 'perplexity'], ['quartermaster', 'chatgpt'],
+      ['saboteur', 'claude'], ['smith', 'chatgpt'], ['magistrate', 'claude'], ['royal-scribe', 'chatgpt'],
+    ],
+  };
+
+  for (const [presetId, expectedParty] of Object.entries(expectedParties)) {
+    const preset = getCouncilPreset(presetId)!;
+    const built = preset.build();
+    const actualParty = built.stages.map((stage) => [stage.role, stage.provider]);
+
+    assert(
+      JSON.stringify(actualParty) === JSON.stringify(expectedParty),
+      `${presetId} builds its exact ordered role/provider party`,
+      JSON.stringify(actualParty),
+    );
+    assert(
+      preset.defaultSize === expectedParty.length && built.stages.length === preset.defaultSize,
+      `${presetId} default party size is ${expectedParty.length}`,
+    );
+    assert(
+      built.stages[0].inputPolicy === 'original-only' &&
+      built.stages[built.stages.length - 1].inputPolicy === 'full-record' &&
+      built.stages[built.stages.length - 1].failurePolicy === 'halt',
+      `${presetId} opens from the original request and ends with a halting full-record slot`,
+    );
+  }
+
+  // Duplicate roles and duplicate providers are intentional and preserved.
+  const ideaForge = getCouncilPreset('idea-forge')!.build();
+  assert(
+    ideaForge.stages.filter((stage) => stage.role === 'wild-mage').length === 2,
+    'duplicate roles are preserved (Idea Forge fields two Wild Mages)',
+  );
+  const campaignBuilt = getCouncilPreset('campaign')!.build();
+  assert(
+    campaignBuilt.stages.filter((stage) => stage.provider === 'claude').length === 3 &&
+    campaignBuilt.stages.filter((stage) => stage.provider === 'chatgpt').length === 3,
+    'duplicate providers are preserved (Campaign seats Claude and ChatGPT three times each)',
+  );
+  const socratic = getCouncilPreset('socratic-circle')!.build();
+  assert(
+    socratic.stages[0].role === 'master-of-questions' && socratic.stages[1].role === 'master-of-questions',
+    'consecutive duplicate roles are preserved (Socratic Circle opens with two questioning passes)',
+  );
+
   const trial = getCouncilPreset('trial-by-fire')!.build();
   assert(
-    trial.stages.some((stage) => stage.role === 'inquisitor') && trial.variables.dissent === 'adversarial',
-    'Trial by Fire includes a critical review stage and adversarial dissent',
-  );
-  assert(
-    trial.stages[trial.stages.length - 1].role === 'magistrate' &&
-    trial.rules.preserveDissentInSynthesis,
-    'Trial by Fire ends in judgment and preserves dissent',
+    trial.variables.dissent === 'adversarial' && trial.rules.preserveDissentInSynthesis,
+    'Trial by Fire remains adversarial and preserves dissent',
   );
 
   const editorial = getCouncilPreset('editorial-court')!.build();
   assert(
-    editorial.stages[editorial.stages.length - 1].role === 'royal-scribe',
-    'Editorial Court always ends with the Royal Scribe',
-  );
-  assert(
+    editorial.stages[editorial.stages.length - 1].role === 'royal-scribe' &&
     editorial.stages[editorial.stages.length - 1].inputPolicy === 'full-record',
-    'Editorial Court synthesizer reads the full budgeted record',
+    'Editorial Court still ends with a full-record Royal Scribe synthesis',
   );
 }
 
@@ -328,7 +517,7 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   rejects((config) => { config.stages = []; }, 'zero stages is rejected', 'stages');
   rejects((config) => { config.stages[1].id = 'stage-1'; }, 'duplicate stage ids are rejected', 'stages[1].id');
   rejects((config) => { config.stages[0].provider = 'openai'; }, 'unknown provider is rejected', 'stages[0].provider');
-  rejects((config) => { config.stages[0].role = 'saboteur'; }, 'unknown role is rejected', 'stages[0].role');
+  rejects((config) => { config.stages[0].role = 'trickster'; }, 'unknown role is rejected', 'stages[0].role');
   rejects((config) => { config.stages[0].inputPolicy = 'last-n'; }, 'last-n without N is rejected', 'stages[0].inputPolicyN');
   rejects((config) => {
     config.stages[0].inputPolicy = 'last-n';
@@ -672,7 +861,7 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   );
   assert(
     composed.prompt.includes('Approach this from the perspective of a Skeptic / Critical Reviewer.') &&
-    !composed.prompt.includes('claims that have not yet earned acceptance'),
+    !composed.prompt.includes('have not yet earned acceptance'),
     'light role intensity renders the one-line perspective instead of full framing',
   );
   assert(
@@ -688,7 +877,7 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     priorContributions: priors,
   });
   assert(
-    fullIntensity.prompt.includes('claims that have not yet earned acceptance'),
+    fullIntensity.prompt.includes('have not yet earned acceptance'),
     'full role intensity renders the complete role framing',
   );
 
@@ -887,10 +1076,10 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   );
 
   const unknownRole = validateCouncilConfiguration(
-    baseConfiguration({ roleFlavourOverrides: { saboteur: 'x' } }),
+    baseConfiguration({ roleFlavourOverrides: { trickster: 'x' } }),
   );
   assert(
-    !unknownRole.valid && unknownRole.issues.some((issue) => issue.path === 'roleFlavourOverrides.saboteur'),
+    !unknownRole.valid && unknownRole.issues.some((issue) => issue.path === 'roleFlavourOverrides.trickster'),
     'override for an unknown role id is rejected',
   );
   assert(
@@ -991,13 +1180,53 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     resolveCouncilRoleFlavourText('magistrate', councilRecord) === roleFlavourTexts.magistrate,
     'council-record resolution prefers overrides and falls back to canonical text',
   );
+
+  // Newly added roles participate with no special cases: composition fixture
+  // for a new role, and a council override using a new role.
+  const smithComposed = composeStagePrompt({
+    configuration: baseConfiguration(),
+    stage: {
+      id: 'stage-x',
+      provider: 'chatgpt',
+      role: 'smith',
+      inputPolicy: 'original-only',
+      failurePolicy: 'halt',
+    },
+    request: 'Plan the rollout.',
+    priorContributions: [],
+  });
+  assert(
+    smithComposed.prompt.includes(roleFlavourTexts.smith) &&
+    smithComposed.prompt.includes('acting as its Implementation Planner / Builder') &&
+    smithComposed.outputPolicy === 'recommendation',
+    'a newly added role composes with its canonical flavour text and role defaults',
+  );
+
+  const oracleOverride = 'Sketch three futures for this plan and name the early warning signs of each.';
+  const oracleComposed = composeStagePrompt({
+    configuration: baseConfiguration({ roleFlavourOverrides: { oracle: oracleOverride } }),
+    stage: {
+      id: 'stage-x',
+      provider: 'gemini',
+      role: 'oracle',
+      inputPolicy: 'original-only',
+      failurePolicy: 'halt',
+    },
+    request: 'Plan the rollout.',
+    priorContributions: [],
+  });
+  assert(
+    oracleComposed.prompt.includes(oracleOverride) &&
+    !oracleComposed.prompt.includes(roleFlavourTexts.oracle),
+    'a council-level flavour override works for a newly added role',
+  );
 }
 
 // =========================================================================
 // Role lookup sanity
 // =========================================================================
 {
-  assert(getCouncilRole('royal-scribe')?.fantasyTitle === 'The Royal Scribe', 'role lookup resolves by id');
+  assert(getCouncilRole('royal-scribe')?.fantasyTitle === 'Royal Scribe', 'role lookup resolves by id');
   assert(getCouncilRole('nonexistent') === undefined, 'unknown role lookup returns undefined');
 }
 

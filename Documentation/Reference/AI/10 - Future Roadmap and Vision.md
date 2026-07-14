@@ -222,7 +222,7 @@ Research assistants could coordinate search, extraction, summarization, contradi
 
 Knowledge synthesis could combine outputs from many participants into structured reports, decision records, plans, or technical references.
 
-AI councils could formalize roles such as proposer, critic, verifier, domain specialist, moderator, and final editor. Current implementation: the shared council configuration contract (`shared/council/` — schema, six roles, three presets, deterministic prompt composition) exists as of 2026-07-13; live council execution, persisted run records, expansion of the role library beyond the initial six roles, additional presets, and the graphical composer remain planned work.
+AI councils could formalize roles such as proposer, critic, verifier, domain specialist, moderator, and final editor. Current implementation: the shared council configuration contract (`shared/council/` — schema, the canonical seventeen-role library, sixteen built-in presets, deterministic prompt composition) exists as of 2026-07-13; live council execution, persisted run records, Council-of-X voting semantics, user-created saved Councils, and the graphical composer remain planned work.
 
 Autonomous workflows may eventually run with limited supervision, but autonomy should be earned through reliability, observability, and user-configurable boundaries.
 
