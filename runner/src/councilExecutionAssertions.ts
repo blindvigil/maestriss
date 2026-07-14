@@ -8,6 +8,7 @@
 
 import {
   composeStagePrompt,
+  resolveCognitiveStats,
   councilSchemaVersion,
   defaultCouncilBudgets,
   defaultCouncilRules,
@@ -317,9 +318,12 @@ async function testRetryOnce() {
   const failingResult = await runCouncil({
     configuration: failingConfiguration,
     request: testRequest,
+    // Retry-once governs real execution failures (e.g. timeouts). Structured
+    // availability failures no longer retry: they advance the provider chain
+    // instead (asserted in testProviderFallback).
     ask: makeScriptedAsk(failingCalls, [
-      (provider, prompt) => failedResponse(provider, prompt, 'Blocked', 'provider-blocked'),
-      (provider, prompt) => failedResponse(provider, prompt, 'Blocked again', 'provider-blocked'),
+      (provider, prompt) => failedResponse(provider, prompt, 'Timed out', 'timeout'),
+      (provider, prompt) => failedResponse(provider, prompt, 'Timed out again', 'timeout'),
     ]),
   });
 
@@ -496,6 +500,269 @@ async function testEmptyResponseAndErrors() {
   assert(invalidConfigurationRejected, 'an invalid Council Configuration is rejected before execution');
 }
 
+// Provider fallback: a seat is a stable positional identity owning its
+// Calling and its preferred Mind; fallback Minds may execute the same
+// unchanged seat only for structured availability conditions, always with
+// the exact same composed prompt (composed once, from the preferred Mind's
+// seat identity). Non-availability failures are owned by the failure policy
+// and never advance the chain.
+async function testProviderFallback() {
+  const allReady = async () => ({ status: 'ready' });
+  const blockedSet = (blocked: Record<string, string>) => async (providerId: string) =>
+    blocked[providerId] ? { status: blocked[providerId] } : { status: 'ready' };
+  const fallbackStage = (overrides: Partial<CouncilStage> = {}): CouncilStage => makeStage({
+    id: 's1',
+    provider: 'copilot',
+    providerFallbacks: ['claude', 'chatgpt', 'gemini', 'grok'],
+    inputPolicy: 'original-only',
+    ...overrides,
+  });
+
+  // Preferred provider available: no fallback, full structured chain.
+  {
+    const configuration = makeConfiguration([fallbackStage()]);
+    const calls: AskCall[] = [];
+    const result = await runCouncil({
+      configuration, request: testRequest, ask: makeScriptedAsk(calls), getReadiness: allReady,
+    });
+    const selection = result.seats[0].providerSelection!;
+
+    assert(
+      calls.length === 1 && calls[0].provider === 'copilot' &&
+      selection.executedProvider === 'copilot' && selection.fallbackUsed === false &&
+      selection.rejectedProviders.length === 0 && !selection.chainExhausted &&
+      selection.providerChain.join(',') === 'copilot,claude,chatgpt,gemini,grok',
+      'an available preferred provider executes with no fallback and the chain is fully recorded',
+    );
+  }
+
+  // Readiness-blocked preferred: the second choice executes the seat with
+  // the exact same composed prompt; the seat identity is unchanged.
+  {
+    const configuration = makeConfiguration([fallbackStage()]);
+    const calls: AskCall[] = [];
+    const transitions: string[] = [];
+    const result = await runCouncil({
+      configuration, request: testRequest, ask: makeScriptedAsk(calls),
+      getReadiness: blockedSet({ copilot: 'provider-blocked' }),
+      onProviderRejected: (event) => transitions.push(
+        `${event.rejection.provider}:${event.rejection.phase}:${event.rejection.reason}>${event.nextProvider ?? '-'}`),
+    });
+    const seat = result.seats[0];
+    const expected = expectedPromptFor(configuration, 0, []);
+
+    assert(
+      calls.length === 1 && calls[0].provider === 'claude' &&
+      calls[0].prompt === expected && seat.prompt === expected,
+      'the fallback provider receives the exact composed prompt, never a recomposition',
+    );
+    assert(
+      seat.calling === 'sage' &&
+      JSON.stringify(seat.composition?.resolvedCognitiveStats) ===
+      JSON.stringify(resolveCognitiveStats('copilot', 'sage')) &&
+      seat.composition?.eligibleContributionIds.length === 0,
+      'fallback changes neither the Calling, the cognitive stats (preferred-provider identity), nor context selection',
+    );
+    assert(
+      seat.providerSelection?.executedProvider === 'claude' &&
+      seat.providerSelection?.preferredProvider === 'copilot' &&
+      seat.providerSelection?.fallbackUsed === true &&
+      JSON.stringify(transitions) === JSON.stringify(['copilot:readiness:provider-blocked>claude']),
+      'structured records identify preferred and executing providers and the rejection transition',
+    );
+    assert(
+      result.contributions[0].provider === 'claude',
+      'the contribution is attributed to the provider that actually produced it',
+    );
+  }
+
+  // Deeper chains: third and fifth choices execute after ordered rejections.
+  {
+    const third = await runCouncil({
+      configuration: makeConfiguration([fallbackStage()]), request: testRequest,
+      ask: makeScriptedAsk([]), getReadiness: blockedSet({ copilot: 'provider-blocked', claude: 'logged-out' }),
+    });
+    assert(
+      third.seats[0].providerSelection?.executedProvider === 'chatgpt' &&
+      third.seats[0].providerSelection?.rejectedProviders.map((r) => `${r.provider}:${r.reason}`).join(',') ===
+      'copilot:provider-blocked,claude:logged-out',
+      'two unavailable providers advance to the third choice with ordered structured rejections',
+    );
+
+    const fifth = await runCouncil({
+      configuration: makeConfiguration([fallbackStage()]), request: testRequest,
+      ask: makeScriptedAsk([]),
+      getReadiness: blockedSet({
+        copilot: 'provider-blocked', claude: 'logged-out', chatgpt: 'security-verification', gemini: 'unknown',
+      }),
+    });
+    assert(
+      fifth.seats[0].providerSelection?.executedProvider === 'grok' &&
+      fifth.seats[0].providerSelection?.rejectedProviders.length === 4 &&
+      fifth.finalResult === 'PASS',
+      'four unavailable providers advance to the fifth choice deterministically',
+    );
+  }
+
+  // All five unavailable: chain exhaustion, then the failure policy.
+  {
+    const everyBlocked = blockedSet({
+      copilot: 'provider-blocked', claude: 'logged-out', chatgpt: 'security-verification',
+      gemini: 'unknown', grok: 'provider-blocked',
+    });
+    const skipCalls: AskCall[] = [];
+    const skipped = await runCouncil({
+      configuration: makeConfiguration([
+        fallbackStage(),
+        makeStage({ id: 's2', provider: 'deepseek', failurePolicy: 'halt' }),
+      ]),
+      request: testRequest, ask: makeScriptedAsk(skipCalls), getReadiness: everyBlocked,
+    });
+    const exhausted = skipped.seats[0];
+
+    assert(
+      exhausted.outcome === 'skipped' && exhausted.attempts === 0 &&
+      exhausted.failureReason === 'provider-unavailable' &&
+      exhausted.readinessStatus === 'provider-blocked' &&
+      exhausted.providerSelection?.chainExhausted === true &&
+      exhausted.providerSelection?.executedProvider === undefined &&
+      exhausted.providerSelection?.rejectedProviders.length === 5 &&
+      skipCalls.every((call) => call.provider === 'deepseek'),
+      'a fully exhausted chain sends no ask, records all five rejections, and resolves via skip-and-record',
+    );
+
+    const halted = await runCouncil({
+      configuration: makeConfiguration([fallbackStage({ failurePolicy: 'halt' })]),
+      request: testRequest, ask: makeScriptedAsk([]), getReadiness: everyBlocked,
+    });
+    assert(
+      halted.finalResult === 'FAIL' && halted.seats[0].providerSelection?.chainExhausted === true,
+      'a fully exhausted chain under halt fails the Council with the exhaustion recorded',
+    );
+  }
+
+  // A structured availability failure surfaced by the ask itself advances
+  // the chain without consuming the seat's retry budget; normal retry
+  // semantics then apply to the executing provider with the same prompt.
+  {
+    const configuration = makeConfiguration([fallbackStage({ failurePolicy: 'retry-once' })]);
+    const calls: AskCall[] = [];
+    const result = await runCouncil({
+      configuration, request: testRequest, getReadiness: allReady,
+      ask: makeScriptedAsk(calls, [
+        (provider, prompt) => failedResponse(provider, prompt, 'Usage limit reached', 'usage-limit'),
+        (provider, prompt) => failedResponse(provider, prompt, 'Transient', 'timeout'),
+        (provider, prompt) => completedResponse(provider, prompt, 'Recovered real answer'),
+      ]),
+    });
+    const seat = result.seats[0];
+
+    assert(
+      calls.map((call) => call.provider).join(',') === 'copilot,claude,claude' &&
+      new Set(calls.map((call) => call.prompt)).size === 1,
+      'an ask-phase availability failure advances the chain and every ask reuses the identical prompt',
+    );
+    assert(
+      seat.outcome === 'pass' && seat.attempts === 3 &&
+      seat.providerSelection?.executedProvider === 'claude' &&
+      seat.providerSelection?.rejectedProviders.map((r) => `${r.provider}:${r.phase}:${r.reason}`).join(',') ===
+      'copilot:ask:usage-limit' &&
+      result.contributions.length === 1,
+      'availability rejection consumes no retry budget; retry-once still governs the executing provider',
+    );
+  }
+
+  // A readiness rejection likewise leaves the executing provider its full
+  // retry budget.
+  {
+    const calls: AskCall[] = [];
+    const result = await runCouncil({
+      configuration: makeConfiguration([fallbackStage({ failurePolicy: 'retry-once' })]),
+      request: testRequest, getReadiness: blockedSet({ copilot: 'provider-blocked' }),
+      ask: makeScriptedAsk(calls, [
+        (provider, prompt) => failedResponse(provider, prompt, 'Transient', 'timeout'),
+        (provider, prompt) => completedResponse(provider, prompt, 'Recovered real answer'),
+      ]),
+    });
+
+    assert(
+      result.finalResult === 'PASS' &&
+      calls.map((call) => call.provider).join(',') === 'claude,claude',
+      'a readiness rejection does not consume retry-once on the fallback executing provider',
+    );
+  }
+
+  // Non-availability failures never trigger fallback.
+  {
+    const calls: AskCall[] = [];
+    const result = await runCouncil({
+      configuration: makeConfiguration([
+        fallbackStage(),
+        makeStage({ id: 's2', provider: 'deepseek', failurePolicy: 'halt' }),
+      ]),
+      request: testRequest, getReadiness: allReady,
+      ask: makeScriptedAsk(calls, [
+        (provider, prompt) => failedResponse(provider, prompt, 'Refused', 'refusal'),
+      ]),
+    });
+    const seat = result.seats[0];
+
+    assert(
+      seat.outcome === 'skipped' && seat.failureReason === 'refusal' &&
+      seat.providerSelection?.executedProvider === 'copilot' &&
+      seat.providerSelection?.rejectedProviders.length === 0 &&
+      seat.providerSelection?.chainExhausted === false &&
+      calls.filter((call) => call.provider !== 'deepseek').length === 1,
+      'a non-availability failure is owned by the failure policy and never disguised by fallback',
+    );
+  }
+
+  // A single-provider seat whose only provider surfaces an availability
+  // failure at ask time is never blindly retried: the chain of one is
+  // exhausted after exactly one ask and the failure policy resolves it.
+  {
+    const calls: AskCall[] = [];
+    const result = await runCouncil({
+      configuration: makeConfiguration([
+        makeStage({ id: 's1', inputPolicy: 'original-only', failurePolicy: 'retry-once' }),
+      ]),
+      request: testRequest, getReadiness: allReady,
+      ask: makeScriptedAsk(calls, [
+        (provider, prompt) => failedResponse(provider, prompt, 'Blocked', 'provider-blocked'),
+      ]),
+    });
+    const seat = result.seats[0];
+
+    assert(
+      calls.length === 1 && seat.attempts === 1 &&
+      seat.outcome === 'fail' && result.finalResult === 'FAIL' &&
+      seat.failureReason === 'provider-unavailable' &&
+      seat.providerSelection?.chainExhausted === true &&
+      seat.providerSelection?.rejectedProviders[0]?.phase === 'ask',
+      'an availability ask failure on a chain of one is not retried; the exhausted chain resolves via the failure policy',
+    );
+  }
+
+  // Single-provider seats keep exactly the existing behavior, now with the
+  // chain-of-one recorded.
+  {
+    const begins: string[] = [];
+    const result = await runCouncil({
+      configuration: makeConfiguration([makeStage({ id: 's1', inputPolicy: 'original-only' })]),
+      request: testRequest, ask: makeScriptedAsk([]),
+      onSeatBegin: (begin) => begins.push(begin.providerChain.join(',')),
+    });
+
+    assert(
+      result.finalResult === 'PASS' &&
+      JSON.stringify(begins) === JSON.stringify(['claude']) &&
+      result.seats[0].providerSelection?.providerChain.join(',') === 'claude' &&
+      result.seats[0].providerSelection?.fallbackUsed === false,
+      'a single-provider seat behaves exactly as before, with its chain of one recorded',
+    );
+  }
+}
+
 // Observability metadata is additive: it must reflect real execution facts
 // without changing any execution semantics.
 async function testStructuredObservabilityMetadata() {
@@ -670,6 +937,7 @@ async function main() {
   await testSkipAndRecord();
   await testReadinessGate();
   await testEmptyResponseAndErrors();
+  await testProviderFallback();
   await testStructuredObservabilityMetadata();
   await testDoctrineCognitiveFlows();
   await testCrownCouncilHonesty();

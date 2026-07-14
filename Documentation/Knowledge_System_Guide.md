@@ -157,6 +157,7 @@ This glossary defines project terms at the documentation-system level. Detailed 
 | Handoff | A dated milestone state document used for continuity. | `Documentation/Handoffs/` |
 | Human edition | The human-oriented copy of the permanent Reference library, optimized for comprehension and narrative flow. | `Reference/Human/Start_Here.md` |
 | Maestriss Studio | Graphical configuration and export application. | `Reference/Human/02 - System Architecture.md` and AI companion |
+| Mind | The preferred AI/provider bound to a Council seat. Bound seat state, but not guaranteed to be the executing provider: a seat's fallback chain lists ordered alternate Minds permitted to execute the exact unchanged seat when the preferred Mind is unavailable. | `Reference/Human/02 - System Architecture.md` and AI companion |
 | Native Runner | Browser automation execution engine for native participant execution. | `Reference/Human/02 - System Architecture.md` and AI companion |
 | Participant | An independent AI system or provider that Maestriss can orchestrate. | `Reference/Human/07 - Participant Driver Reference.md` and AI companion |
 | Persistent-profile mode | Execution mode using a managed browser profile for local session continuity. | `Reference/Human/04 - Browser and Tab Management.md` and AI companion |

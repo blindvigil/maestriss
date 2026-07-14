@@ -24,13 +24,38 @@
 // retried — recomposing against unchanged state cannot succeed — so under
 // retry-once they halt after a single composition attempt.
 //
-// Provider readiness (when a readiness function is injected) is a pre-ask
-// gate: a not-ready provider consumes no ask attempt. Under skip-and-record
-// the seat is recorded as skipped; under halt or retry-once the Council
-// halts (there is no ask attempt to retry).
+// Provider fallback: a seat is a stable positional identity that owns its
+// Calling, its preferred Mind (stage.provider), its cognitive overrides,
+// and its fallback preferences. The preferred Mind is bound seat state but
+// is not guaranteed to be the executing provider: the fallback chain
+// (effectiveProviderChain: preferred Mind first, then the ordered fallback
+// Minds) lists the alternates permitted to execute the same unchanged seat.
+// The prompt is composed exactly once per seat — with cognitive stats
+// resolved from the PREFERRED Mind, preserving the seat's identity — and
+// provider unavailability walks the chain, sending that byte-identical
+// prompt to the next Mind. Fallback is strictly limited to structured
+// provider-availability conditions: any non-ready readiness status, or an
+// ask failure whose category is in providerUnavailableAskReasons. All other
+// failures (composition errors, timeouts, refusals, empty extractions,
+// transport errors) belong to the seat's failure policy and are never
+// disguised by fallback.
+//
+// Fallback and failure policy ordering: availability rejections consume no
+// retry budget; once a provider actually executes the seat (readiness ok
+// and its ask fails for a non-availability reason, or succeeds), normal
+// seat attempt semantics apply to that executing provider — retry-once
+// retries the same provider with the same prompt, and a non-availability
+// failure never advances the chain. If an ask fails with a structured
+// availability category (e.g. a usage limit hit after the readiness
+// snapshot), the chain advances exactly as a readiness rejection would.
+// An exhausted chain (every provider unavailable) is recorded with
+// failureReason 'provider-unavailable': under skip-and-record the seat is
+// skipped; under halt or retry-once the Council halts (there is no
+// available provider to retry).
 
 import {
   composeStagePrompt,
+  effectiveProviderChain,
   validateCouncilConfiguration,
   type CognitiveStats,
   type CouncilConfiguration,
@@ -50,6 +75,58 @@ export type CouncilSeatReadiness = {
 export type CouncilReadinessFn = (providerId: string) => Promise<CouncilSeatReadiness | undefined>;
 
 export type CouncilSeatOutcome = 'pass' | 'fail' | 'skipped' | 'not-run';
+
+// Structured provider-availability categories that make an ask failure
+// fallback-eligible. Deliberately narrow and explicit: drivers introducing
+// a new availability category must add it here — fallback must never become
+// a generic "try another AI whenever anything breaks" mechanism.
+export const providerUnavailableAskReasons: ReadonlySet<string> = new Set([
+  // Readiness vocabulary that can also surface as ask failure categories.
+  'provider-blocked',
+  'logged-out',
+  'security-verification',
+  'unsupported-browser-login',
+  'driver-not-implemented',
+  // Structured driver availability categories observed live.
+  'grok-capacity-error',
+  'grok-rate-limited',
+  // Generic availability categories reserved for provider drivers.
+  'provider-unavailable',
+  'account-restricted',
+  'usage-limit',
+  'rate-limited',
+  'session-unavailable',
+]);
+
+export function isProviderUnavailabilityReason(reason: string | undefined): boolean {
+  return reason !== undefined && providerUnavailableAskReasons.has(reason);
+}
+
+// One provider rejected during a seat's chain walk. phase 'readiness' means
+// no ask was sent to it; phase 'ask' means one real ask surfaced a
+// structured availability failure.
+export type CouncilProviderRejection = {
+  provider: string;
+  phase: 'readiness' | 'ask';
+  reason: string;
+  error?: string;
+  notes?: string[];
+  elapsedMs?: number;
+};
+
+// Full structured provider-selection state for one seat, sufficient for a
+// future Studio UI to render fallback live without parsing CLI text.
+// Vocabulary: preferredProvider is the seat's bound preferred Mind;
+// executedProvider is the provider that actually completed the seat (a
+// fallback Mind when it differs from the preferred Mind).
+export type CouncilSeatProviderSelection = {
+  preferredProvider: string;
+  providerChain: string[];
+  executedProvider?: string;
+  fallbackUsed: boolean;
+  rejectedProviders: CouncilProviderRejection[];
+  chainExhausted: boolean;
+};
 
 // Structured composition diagnostics for one seat, captured verbatim from
 // the shared composition pipeline. Pure observability: nothing here alters
@@ -85,6 +162,10 @@ export type CouncilSeatResult = {
   // Actual extracted provider response (successful seats only).
   response?: string;
   responseChars?: number;
+  // Provider-selection state: preferred provider, the effective chain,
+  // rejections, the executing provider, and whether the chain was
+  // exhausted. Present for every seat that reached provider selection.
+  providerSelection?: CouncilSeatProviderSelection;
   // Wall-clock milliseconds across all ask attempts for this seat (absent
   // when no attempt was made). Measured via the injectable clock.
   elapsedMs?: number;
@@ -116,11 +197,48 @@ export type CouncilRunResult = {
   voteAggregationImplemented: false;
 };
 
+// Fired exactly once per seat after successful prompt composition, before
+// any provider is checked: the seat block for operator surfaces.
+export type CouncilSeatBegin = {
+  seat: number;
+  seatCount: number;
+  stageId: string;
+  calling: string;
+  inputPolicy: CouncilInputPolicy;
+  failurePolicy: CouncilFailurePolicy;
+  preferredProvider: string;
+  providerChain: string[];
+  prompt: string;
+  composition: CouncilSeatComposition;
+};
+
+// Fired when a provider in the seat's chain is rejected as unavailable
+// (readiness phase or structured ask-availability failure).
+export type CouncilProviderRejectedEvent = {
+  seat: number;
+  seatCount: number;
+  stageId: string;
+  calling: string;
+  preferredProvider: string;
+  providerChain: string[];
+  // 1-based position of the rejected provider in the chain.
+  choiceIndex: number;
+  rejection: CouncilProviderRejection;
+  nextProvider?: string;
+  nextChoiceIndex?: number;
+};
+
 export type CouncilSeatStart = {
   seat: number;
   seatCount: number;
   stageId: string;
+  // The provider this ask is being sent to (the executing candidate).
   provider: string;
+  preferredProvider: string;
+  providerChain: string[];
+  // 1-based position of the executing provider in the chain.
+  choiceIndex: number;
+  fallbackUsed: boolean;
   calling: string;
   inputPolicy: CouncilInputPolicy;
   failurePolicy: CouncilFailurePolicy;
@@ -158,9 +276,15 @@ export type RunCouncilOptions = {
   getReadiness?: CouncilReadinessFn;
   // Injectable clock for deterministic timing in assertions.
   now?: () => number;
-  // Fired once per real ask attempt, before it is sent.
+  // Fired once per seat after composition, before provider selection.
+  onSeatBegin?: (begin: CouncilSeatBegin) => void;
+  // Fired when a chain provider is rejected as unavailable.
+  onProviderRejected?: (event: CouncilProviderRejectedEvent) => void;
+  // Fired once per real ask attempt on the executing provider, before it is
+  // sent. (Asks that end in a structured availability rejection fire
+  // onProviderRejected instead of onSeatAttempt.)
   onSeatStart?: (start: CouncilSeatStart) => void;
-  // Fired once per real ask attempt, after it resolves.
+  // Fired once per executing-provider ask attempt, after it resolves.
   onSeatAttempt?: (attempt: CouncilSeatAttempt) => void;
   onSeatResult?: (seat: CouncilSeatResult) => void;
 };
@@ -228,42 +352,11 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
       continue;
     }
 
-    if (options.getReadiness) {
-      const readiness = await options.getReadiness(stage.provider);
-
-      if (readiness?.status !== 'ready') {
-        const readinessFields = {
-          readinessStatus: readiness?.status ?? 'unknown',
-          ...(readiness?.notes?.length ? { readinessNotes: readiness.notes } : {}),
-        };
-
-        if (stage.failurePolicy === 'skip-and-record') {
-          record({
-            ...base,
-            attempts: 0,
-            outcome: 'skipped',
-            failureReason: 'provider-unavailable',
-            ...readinessFields,
-          });
-          continue;
-        }
-
-        // halt and retry-once: no ask attempt exists to retry, so the
-        // Council halts on an unavailable provider.
-        haltedAtSeat = base.seat;
-        record({
-          ...base,
-          attempts: 0,
-          outcome: 'fail',
-          failureReason: 'provider-unavailable',
-          ...readinessFields,
-        });
-        continue;
-      }
-    }
-
-    // Compose against real prior contributions only. Composition failures
-    // (e.g. budget exceeded) are deterministic, so they are never retried.
+    // Compose exactly once per seat, before provider selection: the prompt
+    // belongs to the seat (Calling framing, cognitive stats resolved from
+    // the PREFERRED provider, context, budgets) and is reused byte-identical
+    // by any fallback provider. Composition failures are deterministic
+    // Maestriss failures — never retried and never disguised by fallback.
     let prompt: string;
     let composition: CouncilSeatComposition;
 
@@ -316,64 +409,171 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
       continue;
     }
 
+    const providerChain = effectiveProviderChain(stage);
+    const rejectedProviders: CouncilProviderRejection[] = [];
     const maxAttempts = stage.failurePolicy === 'retry-once' ? 2 : 1;
     let attempts = 0;
+    let executedProvider: string | undefined;
     let lastFailure: SeatAttemptFailure | undefined;
     let successText: string | undefined;
     const seatStartedAt = now();
 
-    while (attempts < maxAttempts && successText === undefined) {
-      attempts += 1;
-      options.onSeatStart?.({ ...base, prompt, composition, attempt: attempts, maxAttempts });
-      const attemptStartedAt = now();
-      let attemptFailure: SeatAttemptFailure | undefined;
+    options.onSeatBegin?.({
+      seat: base.seat,
+      seatCount: base.seatCount,
+      stageId: base.stageId,
+      calling: base.calling,
+      inputPolicy: base.inputPolicy,
+      failurePolicy: base.failurePolicy,
+      preferredProvider: stage.provider,
+      providerChain,
+      prompt,
+      composition,
+    });
 
-      try {
-        const response = await ask(stage.provider, prompt);
-        const failure = askFailure(response);
+    for (let choice = 0; choice < providerChain.length && successText === undefined; choice += 1) {
+      const candidate = providerChain[choice];
+      const nextProvider = providerChain[choice + 1];
 
-        if (failure) {
-          attemptFailure = failure;
-        } else {
-          // Outer-whitespace trim only, matching the provider response
-          // contract; the text itself is never rewritten.
-          successText = (response as { answer: string }).answer.trim();
+      const rejectCandidate = (rejection: CouncilProviderRejection) => {
+        rejectedProviders.push(rejection);
+        options.onProviderRejected?.({
+          seat: base.seat,
+          seatCount: base.seatCount,
+          stageId: base.stageId,
+          calling: base.calling,
+          preferredProvider: stage.provider,
+          providerChain,
+          choiceIndex: choice + 1,
+          rejection,
+          ...(nextProvider !== undefined ? { nextProvider, nextChoiceIndex: choice + 2 } : {}),
+        });
+      };
+
+      if (options.getReadiness) {
+        const readiness = await options.getReadiness(candidate);
+
+        if (readiness?.status !== 'ready') {
+          rejectCandidate({
+            provider: candidate,
+            phase: 'readiness',
+            reason: readiness?.status ?? 'unknown',
+            ...(readiness?.notes?.length ? { notes: readiness.notes } : {}),
+          });
+          continue;
         }
-      } catch (error) {
-        attemptFailure = {
-          failureReason: 'ask-error',
-          error: error instanceof Error ? error.message : String(error),
-        };
       }
 
-      if (attemptFailure) {
-        lastFailure = attemptFailure;
+      // This candidate executes the seat. Availability rejections above
+      // consumed no retry budget; normal attempt/failure-policy semantics
+      // now apply to this provider with the same exact composed prompt.
+      executedProvider = candidate;
+      lastFailure = undefined;
+      let providerAttempts = 0;
+      let availabilityRejection = false;
+
+      while (providerAttempts < maxAttempts && successText === undefined) {
+        providerAttempts += 1;
+        attempts += 1;
+        options.onSeatStart?.({
+          ...base,
+          provider: candidate,
+          preferredProvider: stage.provider,
+          providerChain,
+          choiceIndex: choice + 1,
+          fallbackUsed: candidate !== stage.provider,
+          prompt,
+          composition,
+          attempt: providerAttempts,
+          maxAttempts,
+        });
+        const attemptStartedAt = now();
+        let attemptFailure: SeatAttemptFailure | undefined;
+
+        try {
+          const response = await ask(candidate, prompt);
+          const failure = askFailure(response);
+
+          if (failure) {
+            attemptFailure = failure;
+          } else {
+            // Outer-whitespace trim only, matching the provider response
+            // contract; the text itself is never rewritten.
+            successText = (response as { answer: string }).answer.trim();
+          }
+        } catch (error) {
+          attemptFailure = {
+            failureReason: 'ask-error',
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+
+        const attemptElapsedMs = now() - attemptStartedAt;
+
+        if (attemptFailure && isProviderUnavailabilityReason(attemptFailure.failureReason)) {
+          // The ask itself surfaced a structured availability failure
+          // (e.g. a usage limit hit after the readiness snapshot). This is
+          // a provider rejection, not a seat execution failure: it consumes
+          // no retry budget and the chain advances with the same prompt.
+          rejectCandidate({
+            provider: candidate,
+            phase: 'ask',
+            reason: attemptFailure.failureReason,
+            ...(attemptFailure.error ? { error: attemptFailure.error } : {}),
+            elapsedMs: attemptElapsedMs,
+          });
+          executedProvider = undefined;
+          availabilityRejection = true;
+          break;
+        }
+
+        if (attemptFailure) {
+          lastFailure = attemptFailure;
+        }
+
+        options.onSeatAttempt?.({
+          seat: base.seat,
+          seatCount: base.seatCount,
+          stageId: base.stageId,
+          provider: candidate,
+          calling: base.calling,
+          failurePolicy: base.failurePolicy,
+          attempt: providerAttempts,
+          maxAttempts,
+          outcome: successText !== undefined ? 'pass' : 'fail',
+          ...(attemptFailure ? { failureReason: attemptFailure.failureReason } : {}),
+          ...(attemptFailure?.error ? { error: attemptFailure.error } : {}),
+          elapsedMs: attemptElapsedMs,
+          ...(successText !== undefined ? { responseChars: successText.length } : {}),
+          willRetry: successText === undefined && providerAttempts < maxAttempts,
+        });
       }
 
-      options.onSeatAttempt?.({
-        seat: base.seat,
-        seatCount: base.seatCount,
-        stageId: base.stageId,
-        provider: base.provider,
-        calling: base.calling,
-        failurePolicy: base.failurePolicy,
-        attempt: attempts,
-        maxAttempts,
-        outcome: successText !== undefined ? 'pass' : 'fail',
-        ...(attemptFailure ? { failureReason: attemptFailure.failureReason } : {}),
-        ...(attemptFailure?.error ? { error: attemptFailure.error } : {}),
-        elapsedMs: now() - attemptStartedAt,
-        ...(successText !== undefined ? { responseChars: successText.length } : {}),
-        willRetry: successText === undefined && attempts < maxAttempts,
-      });
+      if (successText === undefined && !availabilityRejection) {
+        // A real execution failure on the executing provider: the seat's
+        // failure policy owns it. Fallback never disguises non-availability
+        // failures, so the chain does not advance.
+        break;
+      }
     }
 
     const elapsedMs = now() - seatStartedAt;
+    const chainExhausted = successText === undefined && executedProvider === undefined;
+    const providerSelection: CouncilSeatProviderSelection = {
+      preferredProvider: stage.provider,
+      providerChain,
+      ...(executedProvider !== undefined ? { executedProvider } : {}),
+      fallbackUsed: executedProvider !== undefined && executedProvider !== stage.provider,
+      rejectedProviders,
+      chainExhausted,
+    };
 
     if (successText !== undefined) {
+      // The contribution is attributed to the provider that actually
+      // produced it.
       contributions.push({
         stageId: stage.id,
-        provider: stage.provider,
+        provider: executedProvider ?? stage.provider,
         calling: stage.calling,
         text: successText,
       });
@@ -381,6 +581,7 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
         ...base,
         prompt,
         composition,
+        providerSelection,
         attempts,
         outcome: 'pass',
         response: successText,
@@ -390,19 +591,52 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
       continue;
     }
 
+    if (chainExhausted) {
+      // Every configured provider choice was unavailable. Compatibility:
+      // readinessStatus reflects the preferred provider's readiness
+      // rejection when that is how it was rejected.
+      const preferredRejection = rejectedProviders[0];
+      const readinessFields = preferredRejection?.phase === 'readiness'
+        ? {
+            readinessStatus: preferredRejection.reason,
+            ...(preferredRejection.notes?.length ? { readinessNotes: preferredRejection.notes } : {}),
+          }
+        : {};
+      const exhaustionFields = {
+        prompt,
+        composition,
+        providerSelection,
+        attempts,
+        failureReason: 'provider-unavailable',
+        elapsedMs,
+        ...readinessFields,
+      };
+
+      if (stage.failurePolicy === 'skip-and-record') {
+        record({ ...base, ...exhaustionFields, outcome: 'skipped' });
+        continue;
+      }
+
+      // halt and retry-once: an exhausted provider chain leaves no
+      // available provider to retry, so the Council halts.
+      haltedAtSeat = base.seat;
+      record({ ...base, ...exhaustionFields, outcome: 'fail' });
+      continue;
+    }
+
     const failureFields = {
       ...(lastFailure?.error ? { error: lastFailure.error } : {}),
       failureReason: lastFailure?.failureReason ?? 'unknown',
     };
 
     if (stage.failurePolicy === 'skip-and-record') {
-      record({ ...base, prompt, composition, attempts, outcome: 'skipped', elapsedMs, ...failureFields });
+      record({ ...base, prompt, composition, providerSelection, attempts, outcome: 'skipped', elapsedMs, ...failureFields });
       continue;
     }
 
     // halt, and retry-once whose retry also failed: stop the Council.
     haltedAtSeat = base.seat;
-    record({ ...base, prompt, composition, attempts, outcome: 'fail', elapsedMs, ...failureFields });
+    record({ ...base, prompt, composition, providerSelection, attempts, outcome: 'fail', elapsedMs, ...failureFields });
   }
 
   const reachedEndCleanly = haltedAtSeat === undefined;

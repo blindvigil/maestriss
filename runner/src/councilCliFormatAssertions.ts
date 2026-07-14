@@ -139,6 +139,8 @@ async function runScenario(options: ScenarioOptions) {
     ask: makeScriptedAsk(options.script ?? []),
     now,
     ...(options.getReadiness ? { getReadiness: options.getReadiness } : {}),
+    onSeatBegin: reporter.onSeatBegin,
+    onProviderRejected: reporter.onProviderRejected,
     onSeatStart: reporter.onSeatStart,
     onSeatAttempt: reporter.onSeatAttempt,
     onSeatResult: reporter.onSeatResult,
@@ -226,10 +228,15 @@ async function testSuccessfulSeatOutput() {
 
   assert(
     text.includes('SEAT 1 OF 2 — SAGE') &&
-    text.includes('AI: Claude') &&
+    text.includes('Preferred Mind: Claude') &&
     text.includes('Calling: Clarifier / Socratic Examiner') &&
     text.includes('Stage id: s1'),
     'seat header includes seat X of N, Calling, provider, and stage id',
+  );
+  assert(
+    text.includes('Executed by: Claude') &&
+    text.includes('Fallback used: NO'),
+    'a no-fallback seat still states its executing provider explicitly',
   );
   assert(
     text.includes('Temperament: 4 — Slightly Precise') &&
@@ -467,11 +474,121 @@ async function testReadinessSkipOutput() {
   });
 
   assert(
-    text.includes('Status: SKIPPED BEFORE ASK') &&
-    text.includes('Failure category: provider-unavailable') &&
-    text.includes('Provider readiness: provider-blocked') &&
+    text.includes('Status: COPILOT UNAVAILABLE — provider-blocked') &&
+    text.includes('Copilot cannot execute this seat.') &&
     text.includes('Copilot chat is blocked for this account.'),
-    'a readiness-gated seat renders its own compact block with the provider status',
+    'a readiness-rejected provider renders its structured unavailability',
+  );
+  assert(
+    text.includes('PROVIDER CHAIN EXHAUSTED') &&
+    /Attempted:\n {2}1\. Copilot — provider-blocked/.test(text) &&
+    text.includes('No provider executed this seat.') &&
+    text.includes('Decision: SKIPPING SEAT'),
+    'a single-provider seat with an unavailable provider reports chain exhaustion and the failure-policy decision',
+  );
+}
+
+async function testFallbackRendering() {
+  const { text, result } = await runScenario({
+    stages: [
+      makeStage({
+        id: 's1',
+        provider: 'copilot',
+        providerFallbacks: ['claude', 'chatgpt'],
+        inputPolicy: 'original-only',
+      }),
+    ],
+    getReadiness: async (providerId) =>
+      providerId === 'copilot'
+        ? { status: 'provider-blocked', notes: ['Plan upgrade required.'] }
+        : { status: 'ready' },
+  });
+
+  assert(
+    text.includes('Preferred Mind: Copilot') &&
+    text.includes('Provider chain: Copilot → Claude → ChatGPT'),
+    'the seat block shows the preferred provider and the full ordered chain',
+  );
+  assert(
+    text.includes('Status: COPILOT UNAVAILABLE — provider-blocked') &&
+    text.includes('Fallback: TRYING CLAUDE (choice 2 of 3)...') &&
+    text.includes('The seat is unchanged: same Calling, cognitive stats, context, and composed prompt.'),
+    'provider transitions state the rejection, the next choice, and seat invariance',
+  );
+  assert(
+    text.includes('Status: SENDING TO CLAUDE (fallback choice 2 of 3, attempt 1 of 1)...'),
+    'the sending line identifies the fallback position in the chain',
+  );
+  assert(
+    text.includes('Executed by: Claude') &&
+    text.includes('Preferred Mind: Copilot') &&
+    text.includes('Fallback used: YES') &&
+    text.includes('Final result: PASS'),
+    'normal mode states preferred versus executing provider without verbose diagnostics',
+  );
+  assert(
+    result.seats[0].providerSelection?.executedProvider === 'claude' &&
+    result.seats[0].providerSelection?.fallbackUsed === true,
+    'the structured record matches the rendered fallback state',
+  );
+}
+
+async function testExhaustionRendering() {
+  const { text } = await runScenario({
+    stages: [
+      makeStage({
+        id: 's1',
+        provider: 'copilot',
+        providerFallbacks: ['claude'],
+        inputPolicy: 'original-only',
+      }),
+      makeStage({ id: 's2', provider: 'gemini', calling: 'oracle', failurePolicy: 'halt' }),
+    ],
+    getReadiness: async (providerId) =>
+      providerId === 'copilot'
+        ? { status: 'provider-blocked' }
+        : providerId === 'claude'
+          ? { status: 'logged-out' }
+          : { status: 'ready' },
+  });
+
+  assert(
+    text.includes('PROVIDER CHAIN EXHAUSTED') &&
+    /Attempted:\n {2}1\. Copilot — provider-blocked\n {2}2\. Claude — logged-out/.test(text) &&
+    text.includes('No provider executed this seat.'),
+    'chain exhaustion lists every attempted provider with its structured reason in order',
+  );
+  assert(
+    text.includes('Decision: SKIPPING SEAT') &&
+    text.includes('RESULT: SKIPPED — no contribution recorded, nothing forwarded from this seat') &&
+    text.includes('Final result: PARTIAL'),
+    'after exhaustion the seat failure policy resolves the outcome coherently',
+  );
+}
+
+async function testVerbosePromptIdentity() {
+  const { text } = await runScenario({
+    stages: [
+      makeStage({
+        id: 's1',
+        provider: 'copilot',
+        providerFallbacks: ['claude'],
+        inputPolicy: 'original-only',
+      }),
+    ],
+    verbose: true,
+    getReadiness: async (providerId) =>
+      providerId === 'copilot' ? { status: 'provider-blocked' } : { status: 'ready' },
+  });
+
+  const identities = [...text.matchAll(/fnv1a ([0-9a-f]{8})/g)].map((match) => match[1]);
+  assert(
+    text.includes('Prompt identity: fnv1a') &&
+    text.includes('Prompt identity unchanged: fnv1a') &&
+    identities.length === 2 &&
+    identities[0] === identities[1],
+    'verbose mode proves the composed prompt is byte-identical across the fallback via its identity hash',
+    identities.join(','),
   );
 }
 
@@ -534,6 +651,10 @@ async function testHeartbeat() {
     seatCount: 1,
     stageId: 's1',
     provider: 'claude',
+    preferredProvider: 'claude',
+    providerChain: ['claude'],
+    choiceIndex: 1,
+    fallbackUsed: false,
     calling: 'sage',
     inputPolicy: 'original-only',
     failurePolicy: 'skip-and-record',
@@ -598,6 +719,9 @@ async function main() {
   await testHaltOutput();
   await testMemoryVersusBudgetDiagnostics();
   await testReadinessSkipOutput();
+  await testFallbackRendering();
+  await testExhaustionRendering();
+  await testVerbosePromptIdentity();
   await testVerboseDiagnostics();
   await testHeartbeat();
 

@@ -9,6 +9,7 @@ import {
   crownCouncilDefaultSize,
   crownCouncilMaxSize,
   crownCouncilMinSize,
+  effectiveProviderChain,
   getCanonicalCallingFlavourText,
   parseCallingFlavourOverrides,
   renderCallingFraming,
@@ -222,7 +223,7 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     magistrate: 'claude',
     'royal-scribe': 'chatgpt',
     saboteur: 'claude',
-    empath: 'claude',
+    empath: 'reka',
     alchemist: 'chatgpt',
     cartographer: 'gemini',
     oracle: 'gemini',
@@ -243,10 +244,17 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
       calling.suggestedProvider === undefined || Boolean(getCouncilProvider(calling.suggestedProvider))),
     'every defined Suggested AI resolves to the canonical provider registry',
   );
+  // Canonical invariant: exactly one canonical answer to which Mind best
+  // suits a Calling — the affinity ranking's head IS the Suggested Mind.
+  // Seat-level divergence belongs to a seat's Preferred Mind, never to
+  // Calling metadata.
   assert(
-    getCouncilCalling('cartographer')?.suggestedProvider !== getCouncilCalling('cartographer')?.providerAffinity?.[0] &&
-    getCouncilCalling('pathfinder')?.suggestedProvider !== getCouncilCalling('pathfinder')?.providerAffinity?.[0],
-    'Suggested AI is independent of affinity ordering (Cartographer and Pathfinder deliberately differ)',
+    councilCallings.every((calling) => calling.providerAffinity?.[0] === calling.suggestedProvider),
+    'every Calling affinity ranking leads with its Suggested Mind (providerAffinity[0] === suggestedProvider)',
+    councilCallings
+      .filter((calling) => calling.providerAffinity?.[0] !== calling.suggestedProvider)
+      .map((calling) => `${calling.id}: ${calling.providerAffinity?.[0]} vs ${calling.suggestedProvider}`)
+      .join(','),
   );
 
   const summitBuilt = getCouncilDoctrine('realm-summit')!.build();
@@ -587,6 +595,47 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     imperial.stages[imperial.stages.length - 1].inputPolicy === 'full-record',
     'Imperial Court ends with a full-record Royal Scribe synthesis',
   );
+
+  // Provider preference chains: every Calling carries a five-provider
+  // canonical affinity ranking, and every built-in seat derives its ordered
+  // fallback chain from that ranking (assigned provider first, ranking
+  // minus that provider, capped at five total).
+  assert(
+    councilCallings.every((calling) =>
+      calling.providerAffinity?.length === 5 &&
+      new Set(calling.providerAffinity).size === 5 &&
+      calling.providerAffinity.every((provider) => Boolean(getCouncilProvider(provider)))),
+    'every Calling carries a five-provider canonical affinity ranking with unique known ids',
+  );
+
+  for (const doctrine of councilDoctrines) {
+    const built = doctrine.id === 'crown-council'
+      ? getCouncilDoctrine('crown-council')!.build({ size: 12 })
+      : doctrine.build();
+    const chainsDerived = built.stages.every((stage) => {
+      const chain = effectiveProviderChain(stage);
+      const affinity = getCouncilCalling(stage.calling)?.providerAffinity ?? [];
+      const expectedFallbacks = affinity.filter((provider) => provider !== stage.provider).slice(0, 4);
+
+      return chain[0] === stage.provider &&
+        chain.length <= 5 &&
+        new Set(chain).size === chain.length &&
+        JSON.stringify(stage.providerFallbacks ?? []) === JSON.stringify(expectedFallbacks);
+    });
+
+    assert(
+      chainsDerived && validateCouncilConfiguration(built).valid,
+      `${doctrine.id} seats derive role-sensitive fallback chains from the Calling affinity ranking and stay schema-valid`,
+    );
+  }
+
+  const crucibleBuilt = getCouncilDoctrine('crucible')!.build();
+  const googleLantern = crucibleBuilt.stages[5];
+  assert(
+    googleLantern.calling === 'lantern-bearer' && googleLantern.provider === 'google' &&
+    (googleLantern.providerFallbacks ?? []).join(',') === 'perplexity,gemini,claude,chatgpt',
+    'a Google-assigned Lantern Bearer falls back through the evidence-oriented ranking',
+  );
 }
 
 // =========================================================================
@@ -643,6 +692,32 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   rejects((config) => {
     config.stages[0].cognitiveOverrides = { temperature: 7 } as never;
   }, 'unknown cognitive stat key is rejected (closed object)', 'stages[0].cognitiveOverrides.temperature');
+
+  // Provider fallback chains: one deterministic effective order, canonical
+  // ids only, no duplicates, at most five total choices.
+  rejects((config) => {
+    config.stages[0].providerFallbacks = ['perplexity'];
+  }, 'a fallback duplicating the preferred provider is rejected', 'stages[0].providerFallbacks');
+  rejects((config) => {
+    config.stages[0].providerFallbacks = ['claude', 'claude'];
+  }, 'duplicate providers within the fallback list are rejected', 'stages[0].providerFallbacks');
+  rejects((config) => {
+    config.stages[0].providerFallbacks = ['openai'];
+  }, 'an unknown fallback provider id is rejected, never silently discarded', 'stages[0].providerFallbacks[0]');
+  rejects((config) => {
+    config.stages[0].providerFallbacks = ['claude', 'chatgpt', 'gemini', 'grok', 'google'];
+  }, 'more than five total provider choices are rejected', 'stages[0].providerFallbacks');
+  rejects((config) => {
+    config.stages[0].providerFallbacks = 'claude' as never;
+  }, 'non-array fallback data fails clearly', 'stages[0].providerFallbacks');
+
+  const withChain = baseConfiguration();
+  withChain.stages[0].providerFallbacks = ['claude', 'chatgpt', 'gemini', 'grok'];
+  assert(
+    validateCouncilConfiguration(withChain).valid &&
+    effectiveProviderChain(withChain.stages[0]).join(',') === 'perplexity,claude,chatgpt,gemini,grok',
+    'a valid four-fallback chain is accepted and the preferred provider is always first in effective order',
+  );
   rejects((config) => { (config.rules as { forbidRepetition: unknown }).forbidRepetition = 'yes'; }, 'non-boolean rule flag is rejected', 'rules.forbidRepetition');
   rejects((config) => { (config.stages[0] as { round?: unknown }).round = 4; }, 'non-string round is rejected', 'stages[0].round');
 

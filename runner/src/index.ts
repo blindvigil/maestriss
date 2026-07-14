@@ -689,6 +689,8 @@ async function runCouncilRunClient(args: string[], verbose: boolean) {
       request: cli.request,
       ask,
       getReadiness: async (providerId) => readinessSnapshot.get(providerId),
+      onSeatBegin: reporter.onSeatBegin,
+      onProviderRejected: reporter.onProviderRejected,
       onSeatStart: reporter.onSeatStart,
       onSeatAttempt: reporter.onSeatAttempt,
       onSeatResult: reporter.onSeatResult,

@@ -21,8 +21,10 @@ import {
   type CouncilInputPolicy,
 } from '../../shared/council/index.js';
 import type {
+  CouncilProviderRejectedEvent,
   CouncilRunResult,
   CouncilSeatAttempt,
+  CouncilSeatBegin,
   CouncilSeatComposition,
   CouncilSeatResult,
   CouncilSeatStart,
@@ -33,6 +35,20 @@ const lightRule = '-'.repeat(60);
 
 export function formatChars(count: number): string {
   return count.toLocaleString('en-US');
+}
+
+// Deterministic FNV-1a 32-bit identity of a composed prompt: a cheap
+// diagnostic proving the exact same prompt is reused across retries and
+// provider fallbacks. Not cryptographic; display metadata only.
+export function promptIdentity(prompt: string): string {
+  let hash = 0x811c9dc5;
+
+  for (let index = 0; index < prompt.length; index += 1) {
+    hash ^= prompt.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+
+  return hash.toString(16).padStart(8, '0');
 }
 
 export function formatClock(elapsedMs: number): string {
@@ -108,6 +124,8 @@ export type CouncilRunReporterOptions = {
 
 export type CouncilRunReporter = {
   start: () => void;
+  onSeatBegin: (begin: CouncilSeatBegin) => void;
+  onProviderRejected: (event: CouncilProviderRejectedEvent) => void;
   onSeatStart: (start: CouncilSeatStart) => void;
   onSeatAttempt: (attempt: CouncilSeatAttempt) => void;
   onSeatResult: (seat: CouncilSeatResult) => void;
@@ -125,6 +143,8 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
   const counters: ReporterCounters = { passed: 0, skipped: 0, failed: 0, processed: 0 };
   let runStartedAt = 0;
   let activeAsk: { provider: string; startedAt: number } | undefined;
+  let seatHeaderPrinted = false;
+  let seatPromptIdentity = '';
 
   const contributionLine = (marker: string, stageId: string) => {
     const info = contributionInfo.get(stageId);
@@ -193,8 +213,8 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
     }
   };
 
-  const printVerboseDiagnostics = (start: CouncilSeatStart) => {
-    const { composition } = start;
+  const printVerboseDiagnostics = (source: { prompt: string; composition: CouncilSeatComposition }) => {
+    const { composition } = source;
     const ids = (list: string[]) => (list.length > 0 ? list.join(', ') : '(none)');
     const guidance = renderCognitiveGuidance(composition.resolvedCognitiveStats);
 
@@ -213,7 +233,7 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
     print('--- END COUNCIL COMPOSITION DIAGNOSTICS ---');
     print('');
     print('--- provider-facing prompt ---');
-    print(start.prompt);
+    print(source.prompt);
     print('--- end provider-facing prompt ---');
   };
 
@@ -285,6 +305,68 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
       print(heavyRule);
     },
 
+    onSeatBegin: (begin) => {
+      seatHeaderPrinted = true;
+      seatPromptIdentity = promptIdentity(begin.prompt);
+      const { composition } = begin;
+
+      print('');
+      print(lightRule);
+      print(`SEAT ${begin.seat} OF ${begin.seatCount} — ${callingTitle(begin.calling).toUpperCase()}`);
+      print(`Preferred Mind: ${providerDisplayName(begin.preferredProvider)}`);
+
+      if (begin.providerChain.length > 1) {
+        print(`Provider chain: ${begin.providerChain.map(providerDisplayName).join(' → ')}`);
+      }
+
+      print(`Calling: ${callingPracticalTitle(begin.calling)}`);
+      print(`Stage id: ${begin.stageId}`);
+      print('');
+      print(`Input policy: ${begin.inputPolicy}`);
+      print(`  ${describeInputPolicy(begin.inputPolicy, configuration.stages[begin.seat - 1]?.inputPolicyN)}`);
+      print('');
+      printContextFlow(composition);
+      print('');
+      printCognitiveStats(composition);
+      print('');
+      print(`Prompt length: ${formatChars(composition.promptChars)} chars`);
+      print(`Calling flavour: ${composition.callingFlavourSource}`);
+      print(`Failure policy: ${begin.failurePolicy}`);
+      print('');
+      print('Status: PROMPT COMPOSED — OK');
+
+      if (verbose) {
+        printVerboseDiagnostics(begin);
+        print(`Prompt identity: fnv1a ${seatPromptIdentity}`);
+        print('');
+      }
+    },
+
+    onProviderRejected: (event) => {
+      activeAsk = undefined;
+      const name = providerDisplayName(event.rejection.provider);
+
+      print('');
+      print(`Status: ${name.toUpperCase()} UNAVAILABLE — ${event.rejection.reason}`);
+      print(`${name} cannot execute this seat.`);
+
+      if (event.rejection.notes?.length) {
+        print(`  ${event.rejection.notes.join(' ')}`);
+      }
+
+      if (event.rejection.error) {
+        print(`Message: ${event.rejection.error}`);
+      }
+
+      if (event.nextProvider !== undefined) {
+        print(
+          `Fallback: TRYING ${providerDisplayName(event.nextProvider).toUpperCase()} ` +
+          `(choice ${event.nextChoiceIndex} of ${event.providerChain.length})...`,
+        );
+        print('The seat is unchanged: same Calling, cognitive stats, context, and composed prompt.');
+      }
+    },
+
     onSeatStart: (start) => {
       if (start.attempt > 1) {
         print('');
@@ -294,34 +376,15 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
         return;
       }
 
-      const { composition } = start;
-
-      print('');
-      print(lightRule);
-      print(`SEAT ${start.seat} OF ${start.seatCount} — ${callingTitle(start.calling).toUpperCase()}`);
-      print(`AI: ${providerDisplayName(start.provider)}`);
-      print(`Calling: ${callingPracticalTitle(start.calling)}`);
-      print(`Stage id: ${start.stageId}`);
-      print('');
-      print(`Input policy: ${start.inputPolicy}`);
-      print(`  ${describeInputPolicy(start.inputPolicy, configuration.stages[start.seat - 1]?.inputPolicyN)}`);
-      print('');
-      printContextFlow(composition);
-      print('');
-      printCognitiveStats(composition);
-      print('');
-      print(`Prompt length: ${formatChars(composition.promptChars)} chars`);
-      print(`Calling flavour: ${composition.callingFlavourSource}`);
-      print(`Failure policy: ${start.failurePolicy}`);
-      print('');
-      print('Status: PROMPT COMPOSED — OK');
-
-      if (verbose) {
-        printVerboseDiagnostics(start);
-        print('');
+      if (start.fallbackUsed && verbose) {
+        print(`Prompt identity unchanged: fnv1a ${promptIdentity(start.prompt)}`);
       }
 
-      print(`Status: SENDING TO ${providerDisplayName(start.provider).toUpperCase()} (attempt ${start.attempt} of ${start.maxAttempts})...`);
+      const attemptSuffix = start.choiceIndex > 1
+        ? `(fallback choice ${start.choiceIndex} of ${start.providerChain.length}, attempt ${start.attempt} of ${start.maxAttempts})`
+        : `(attempt ${start.attempt} of ${start.maxAttempts})`;
+
+      print(`Status: SENDING TO ${providerDisplayName(start.provider).toUpperCase()} ${attemptSuffix}...`);
       activeAsk = { provider: start.provider, startedAt: now() };
     },
 
@@ -351,6 +414,8 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
 
     onSeatResult: (seat) => {
       activeAsk = undefined;
+      const headerPrinted = seatHeaderPrinted;
+      seatHeaderPrinted = false;
 
       if (seat.outcome === 'not-run') {
         print('');
@@ -358,25 +423,30 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
         return;
       }
 
-      // Seats rejected before any ask (readiness gate or composition
-      // failure) never fired onSeatStart/onSeatAttempt, so print a compact
-      // block here.
-      if (seat.attempts === 0) {
+      const selection = seat.providerSelection;
+
+      // Every configured provider choice was unavailable.
+      if (selection?.chainExhausted) {
+        print('');
+        print('PROVIDER CHAIN EXHAUSTED');
+        print('');
+        print('Attempted:');
+        selection.rejectedProviders.forEach((rejection, index) => {
+          print(`  ${index + 1}. ${providerDisplayName(rejection.provider)} — ${rejection.reason}`);
+        });
+        print('');
+        print('No provider executed this seat.');
+        printFailureDecision(seat.failurePolicy, false);
+      } else if (seat.attempts === 0 && !headerPrinted) {
+        // Composition failed before provider selection: no seat block was
+        // printed, so print a compact one here.
         print('');
         print(lightRule);
         print(`SEAT ${seat.seat} OF ${seat.seatCount} — ${callingTitle(seat.calling).toUpperCase()}`);
-        print(`AI: ${providerDisplayName(seat.provider)}`);
+        print(`Preferred Mind: ${providerDisplayName(seat.provider)}`);
         print('');
         print(`Status: ${seat.outcome === 'skipped' ? 'SKIPPED BEFORE ASK' : 'FAILED BEFORE ASK'}`);
         print(`Failure category: ${seat.failureReason ?? 'unknown'}`);
-
-        if (seat.readinessStatus) {
-          print(`Provider readiness: ${seat.readinessStatus}`);
-        }
-
-        if (seat.readinessNotes?.length) {
-          print(`  ${seat.readinessNotes.join(' ')}`);
-        }
 
         if (seat.error) {
           print(`Message: ${seat.error}`);
@@ -386,17 +456,23 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
       }
 
       if (seat.outcome === 'pass') {
+        const executedProvider = selection?.executedProvider ?? seat.provider;
+
         counters.passed += 1;
         counters.processed += 1;
         contributionInfo.set(seat.stageId, {
           seat: seat.seat,
           calling: seat.calling,
-          provider: seat.provider,
+          provider: executedProvider,
           chars: seat.responseChars ?? seat.response?.length ?? 0,
         });
         print('');
+        print(`Executed by: ${providerDisplayName(executedProvider)}`);
+        print(`Preferred Mind: ${providerDisplayName(selection?.preferredProvider ?? seat.provider)}`);
+        print(`Fallback used: ${selection?.fallbackUsed ? 'YES' : 'NO'}`);
+        print('');
         print('Contribution recorded:');
-        print(`  Seat ${seat.seat} — ${seatLabel(seat.calling, seat.provider)}`);
+        print(`  Seat ${seat.seat} — ${seatLabel(seat.calling, executedProvider)}`);
         print(`  Council contributions now: ${contributionInfo.size}`);
         print('');
         print('Response:');

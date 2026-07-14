@@ -64,11 +64,27 @@ export type CouncilOutputPolicy =
 
 export type CouncilFailurePolicy = 'halt' | 'retry-once' | 'skip-and-record';
 
-// A stage is one ordered seat in the Council's Formation: it assigns a
-// Calling and a provider (AI) to that seat.
+// A stage is one ordered seat in the Council's Formation.
+//
+// Canonical seat model: a Seat is a stable positional identity that OWNS its
+// Calling (the cognitive duty bound to the seat), its preferred Mind
+// (`provider` — the AI bound to the seat), its cognitive overrides
+// (including Voice, the verbosity configuration), its policies, and its
+// fallback preferences. The same Calling may occupy multiple seats with
+// different preferred Minds and different cognitive overrides.
+//
+// The preferred Mind is bound seat state; it is simply not guaranteed to be
+// the EXECUTING provider: `providerFallbacks` lists the ordered alternate
+// (fallback) Minds permitted to execute the same unchanged seat when the
+// preferred Mind is unavailable, forming one deterministic effective chain
+// (effectiveProviderChain) of at most maxSeatProviderChoices Minds.
+// Fallback preserves the exact seat — same identity, Calling, cognitive
+// stats, context and Memory exposure, policies, budgets, and byte-identical
+// composed prompt; only the executing provider changes.
 export type CouncilStage = {
   id: string;
   provider: string;
+  providerFallbacks?: string[];
   calling: string;
   inputPolicy: CouncilInputPolicy;
   inputPolicyN?: number;
@@ -124,6 +140,19 @@ export const defaultCouncilBudgets: CouncilBudgets = {
   perContributionChars: 4000,
   totalPromptChars: 12000,
 };
+
+// Maximum total provider choices per seat: the preferred provider plus up
+// to four ordered fallbacks.
+export const maxSeatProviderChoices = 5;
+
+// The single deterministic effective provider preference order for a seat:
+// the preferred provider first, then the ordered fallbacks. There is no
+// other provider-order concept.
+export function effectiveProviderChain(
+  stage: Pick<CouncilStage, 'provider' | 'providerFallbacks'>,
+): string[] {
+  return [stage.provider, ...(stage.providerFallbacks ?? [])];
+}
 
 const minPerContributionChars = 100;
 const minTotalPromptChars = 500;
@@ -333,6 +362,40 @@ export function validateCouncilConfiguration(value: unknown): CouncilValidationR
           path: `${path}.provider`,
           message: `Unknown provider ${JSON.stringify(stage.provider)}; must be a canonical provider id.`,
         });
+      }
+
+      if (stage.providerFallbacks !== undefined) {
+        if (!Array.isArray(stage.providerFallbacks)) {
+          issues.push({ path: `${path}.providerFallbacks`, message: 'providerFallbacks must be an array of provider ids.' });
+        } else {
+          stage.providerFallbacks.forEach((fallback, fallbackIndex) => {
+            if (!isNonEmptyString(fallback) || !getCouncilProvider(fallback)) {
+              issues.push({
+                path: `${path}.providerFallbacks[${fallbackIndex}]`,
+                message: `Unknown provider ${JSON.stringify(fallback)}; must be a canonical provider id.`,
+              });
+            }
+          });
+
+          const chain = [
+            ...(isNonEmptyString(stage.provider) ? [stage.provider] : []),
+            ...stage.providerFallbacks.filter(isNonEmptyString),
+          ];
+
+          if (new Set(chain).size !== chain.length) {
+            issues.push({
+              path: `${path}.providerFallbacks`,
+              message: 'The effective provider chain must not contain duplicate provider ids.',
+            });
+          }
+
+          if (1 + stage.providerFallbacks.length > maxSeatProviderChoices) {
+            issues.push({
+              path: `${path}.providerFallbacks`,
+              message: `A seat may have at most ${maxSeatProviderChoices} total provider choices (preferred plus fallbacks).`,
+            });
+          }
+        }
       }
 
       if (!isNonEmptyString(stage.calling) || !getCouncilCalling(stage.calling)) {

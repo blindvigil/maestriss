@@ -31,12 +31,21 @@ export type CallingDefinition = {
   // provider defaults and below Formation seat overrides in resolution.
   cognitiveDefaults?: CognitiveStatOverrides;
   preferredPosition?: CallingPosition;
-  // The single default/best-fit provider (Suggested AI) for this Calling. A
-  // soft recommendation only: it never invalidates a configuration that
-  // assigns a different provider, and Doctrines may deliberately override it.
+  // The Suggested Mind: the single AI we believe is best suited to this
+  // Calling. A soft recommendation only — it never invalidates a
+  // configuration that binds a different preferred Mind to a seat, and
+  // Doctrines freely do so. Canonical invariant: providerAffinity[0] ===
+  // suggestedProvider, so there is exactly one canonical answer to which
+  // Mind best suits the Calling; seat-level divergence belongs to the
+  // seat's Preferred Mind, never to Calling metadata.
   suggestedProvider?: string;
-  // Soft hint only: the broader ordered list of suitable alternatives.
-  // Never used to reject a configuration.
+  // The canonical ordered provider ranking for this Calling: the broader
+  // list of suitable Minds, best fit first (its head equals the Suggested
+  // Mind, per the invariant above). Soft metadata — never used to reject a
+  // configuration — but it is the single canonical source the Doctrine
+  // factories use to derive each seat's ordered provider fallback chain
+  // (assigned preferred Mind first, then this ranking minus that Mind).
+  // Per-seat customization lives on CouncilStage.providerFallbacks.
   providerAffinity?: string[];
 };
 
@@ -50,7 +59,7 @@ export const councilCallings: CallingDefinition[] = [
     cognitiveDefaults: { temperament: 1, depth: 8 },
     preferredPosition: 'opening',
     suggestedProvider: 'perplexity',
-    providerAffinity: ['perplexity', 'google', 'gemini'],
+    providerAffinity: ['perplexity', 'google', 'gemini', 'claude', 'chatgpt'],
   },
   {
     id: 'inquisitor',
@@ -61,7 +70,7 @@ export const councilCallings: CallingDefinition[] = [
     cognitiveDefaults: { dissent: 9, depth: 8 },
     preferredPosition: 'middle',
     suggestedProvider: 'claude',
-    providerAffinity: ['claude', 'grok'],
+    providerAffinity: ['claude', 'grok', 'chatgpt', 'deepseek', 'gemini'],
   },
   {
     id: 'rival',
@@ -72,7 +81,7 @@ export const councilCallings: CallingDefinition[] = [
     cognitiveDefaults: { conviction: 8, dissent: 8 },
     preferredPosition: 'middle',
     suggestedProvider: 'gemini',
-    providerAffinity: ['gemini', 'chatgpt', 'claude'],
+    providerAffinity: ['gemini', 'chatgpt', 'claude', 'grok', 'deepseek'],
   },
   {
     id: 'wild-mage',
@@ -83,7 +92,7 @@ export const councilCallings: CallingDefinition[] = [
     cognitiveDefaults: { temperament: 9, conviction: 3 },
     preferredPosition: 'middle',
     suggestedProvider: 'grok',
-    providerAffinity: ['grok', 'chatgpt', 'gemini'],
+    providerAffinity: ['grok', 'chatgpt', 'gemini', 'claude', 'reka'],
   },
   {
     id: 'magistrate',
@@ -94,7 +103,7 @@ export const councilCallings: CallingDefinition[] = [
     cognitiveDefaults: { temperament: 2, conviction: 8, dissent: 5 },
     preferredPosition: 'late',
     suggestedProvider: 'claude',
-    providerAffinity: ['claude', 'chatgpt'],
+    providerAffinity: ['claude', 'chatgpt', 'gemini', 'deepseek', 'grok'],
   },
   {
     id: 'royal-scribe',
@@ -105,7 +114,7 @@ export const councilCallings: CallingDefinition[] = [
     cognitiveDefaults: { voice: 8, dissent: 2, memory: 9 },
     preferredPosition: 'final',
     suggestedProvider: 'chatgpt',
-    providerAffinity: ['chatgpt', 'claude'],
+    providerAffinity: ['chatgpt', 'claude', 'gemini', 'deepseek', 'copilot'],
   },
   {
     id: 'saboteur',
@@ -116,7 +125,7 @@ export const councilCallings: CallingDefinition[] = [
     cognitiveDefaults: { dissent: 9, conviction: 8 },
     preferredPosition: 'middle',
     suggestedProvider: 'claude',
-    providerAffinity: ['claude', 'grok', 'chatgpt'],
+    providerAffinity: ['claude', 'grok', 'chatgpt', 'deepseek', 'gemini'],
   },
   {
     id: 'empath',
@@ -126,8 +135,9 @@ export const councilCallings: CallingDefinition[] = [
     defaultOutputPolicy: 'free-response',
     cognitiveDefaults: { dissent: 1, conviction: 3 },
     preferredPosition: 'middle',
-    suggestedProvider: 'claude',
-    providerAffinity: ['claude', 'chatgpt'],
+    // Explicit product decision: Reka is the Empath's default Mind.
+    suggestedProvider: 'reka',
+    providerAffinity: ['reka', 'claude', 'chatgpt', 'gemini', 'copilot'],
   },
   {
     id: 'alchemist',
@@ -138,7 +148,7 @@ export const councilCallings: CallingDefinition[] = [
     cognitiveDefaults: { temperament: 7, dissent: 1, memory: 8 },
     preferredPosition: 'late',
     suggestedProvider: 'chatgpt',
-    providerAffinity: ['chatgpt', 'claude', 'gemini'],
+    providerAffinity: ['chatgpt', 'claude', 'gemini', 'deepseek', 'reka'],
   },
   {
     id: 'cartographer',
@@ -149,7 +159,7 @@ export const councilCallings: CallingDefinition[] = [
     cognitiveDefaults: { temperament: 2, depth: 8 },
     preferredPosition: 'opening',
     suggestedProvider: 'gemini',
-    providerAffinity: ['claude', 'gemini', 'chatgpt'],
+    providerAffinity: ['gemini', 'claude', 'chatgpt', 'deepseek', 'grok'],
   },
   {
     id: 'oracle',
@@ -160,7 +170,7 @@ export const councilCallings: CallingDefinition[] = [
     cognitiveDefaults: { temperament: 8, depth: 9 },
     preferredPosition: 'middle',
     suggestedProvider: 'gemini',
-    providerAffinity: ['gemini', 'claude', 'chatgpt'],
+    providerAffinity: ['gemini', 'claude', 'chatgpt', 'grok', 'deepseek'],
   },
   {
     id: 'sage',
@@ -171,7 +181,7 @@ export const councilCallings: CallingDefinition[] = [
     cognitiveDefaults: { conviction: 2, depth: 8 },
     preferredPosition: 'opening',
     suggestedProvider: 'claude',
-    providerAffinity: ['claude', 'chatgpt'],
+    providerAffinity: ['claude', 'chatgpt', 'gemini', 'deepseek', 'reka'],
   },
   {
     id: 'pathfinder',
@@ -182,7 +192,7 @@ export const councilCallings: CallingDefinition[] = [
     cognitiveDefaults: { temperament: 8, depth: 7 },
     preferredPosition: 'middle',
     suggestedProvider: 'perplexity',
-    providerAffinity: ['grok', 'gemini', 'perplexity'],
+    providerAffinity: ['perplexity', 'grok', 'gemini', 'google', 'chatgpt'],
   },
   {
     id: 'archivist',
@@ -193,7 +203,7 @@ export const councilCallings: CallingDefinition[] = [
     cognitiveDefaults: { temperament: 1, memory: 9 },
     preferredPosition: 'middle',
     suggestedProvider: 'claude',
-    providerAffinity: ['claude', 'chatgpt'],
+    providerAffinity: ['claude', 'chatgpt', 'perplexity', 'google', 'gemini'],
   },
   {
     id: 'quartermaster',
@@ -204,7 +214,7 @@ export const councilCallings: CallingDefinition[] = [
     cognitiveDefaults: { temperament: 2, voice: 3 },
     preferredPosition: 'late',
     suggestedProvider: 'chatgpt',
-    providerAffinity: ['chatgpt', 'claude'],
+    providerAffinity: ['chatgpt', 'claude', 'gemini', 'deepseek', 'copilot'],
   },
   {
     id: 'architect',
@@ -215,7 +225,7 @@ export const councilCallings: CallingDefinition[] = [
     cognitiveDefaults: { temperament: 2, depth: 8, conviction: 6 },
     preferredPosition: 'late',
     suggestedProvider: 'chatgpt',
-    providerAffinity: ['chatgpt', 'claude'],
+    providerAffinity: ['chatgpt', 'claude', 'deepseek', 'gemini', 'copilot'],
   },
 ];
 

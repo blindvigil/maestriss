@@ -97,14 +97,28 @@ function flavourOverridesFor(
 
 const fullRecordMidChainCallings = new Set(['magistrate', 'alchemist', 'royal-scribe']);
 
+// Ordered provider fallback chain for a seat, derived from the Calling's
+// canonical providerAffinity ranking: the assigned provider stays first in
+// the effective chain, followed by the ranking minus that provider, capped
+// so the whole chain never exceeds five choices. This keeps fallback order
+// role-sensitive without duplicating rankings across Doctrine definitions;
+// per-seat customization remains available via CouncilStage.providerFallbacks.
+function derivedProviderFallbacks(callingId: string, provider: string): string[] | undefined {
+  const affinity = getCouncilCalling(callingId)?.providerAffinity ?? [];
+  const fallbacks = affinity.filter((candidate) => candidate !== provider).slice(0, 4);
+  return fallbacks.length > 0 ? fallbacks : undefined;
+}
+
 function seatStage(seat: FormationSeat, index: number, formationSize: number): CouncilStage {
   requireCalling(seat.calling);
   const isFirst = index === 0;
   const isFinal = index === formationSize - 1;
+  const fallbacks = derivedProviderFallbacks(seat.calling, seat.provider);
 
   return {
     id: `stage-${index + 1}-${seat.calling}`,
     provider: seat.provider,
+    ...(fallbacks ? { providerFallbacks: fallbacks } : {}),
     calling: seat.calling,
     inputPolicy: isFirst
       ? 'original-only'
@@ -470,18 +484,24 @@ function buildCrownCouncil(options: CouncilDoctrineBuildOptions = {}): CouncilCo
 
   requireCalling('magistrate');
 
-  const stages = Array.from({ length: size }, (_, index): CouncilStage => ({
-    id: `stage-${index + 1}-magistrate`,
-    provider: councilProviders[index % councilProviders.length].id,
-    calling: 'magistrate',
-    inputPolicy: 'independent-round',
-    // Approved choreography override: every Magistrate deliberates at Memory
-    // 0, making seat-level isolation explicit on top of the already-isolated
-    // independent round.
-    cognitiveOverrides: { memory: 0 },
-    round: 'deliberation',
-    failurePolicy: 'skip-and-record',
-  }));
+  const stages = Array.from({ length: size }, (_, index): CouncilStage => {
+    const provider = councilProviders[index % councilProviders.length].id;
+    const fallbacks = derivedProviderFallbacks('magistrate', provider);
+
+    return {
+      id: `stage-${index + 1}-magistrate`,
+      provider,
+      ...(fallbacks ? { providerFallbacks: fallbacks } : {}),
+      calling: 'magistrate',
+      inputPolicy: 'independent-round',
+      // Approved choreography override: every Magistrate deliberates at
+      // Memory 0, making seat-level isolation explicit on top of the
+      // already-isolated independent round.
+      cognitiveOverrides: { memory: 0 },
+      round: 'deliberation',
+      failurePolicy: 'skip-and-record',
+    };
+  });
 
   return {
     schemaVersion: councilSchemaVersion,
