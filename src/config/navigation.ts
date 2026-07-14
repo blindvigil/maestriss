@@ -1,5 +1,6 @@
 import {
   Activity,
+  BookOpen,
   Bot,
   FileDown,
   GitBranch,
@@ -22,6 +23,7 @@ export const navigationItems: NavigationItem[] = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'participants', label: 'Participants', icon: Bot },
   { key: 'profiles', label: 'Profiles', icon: SlidersHorizontal },
+  { key: 'roles', label: 'Role Grimoire', icon: BookOpen },
   { key: 'prompts', label: 'Prompt Designer', icon: MessageSquareText },
   { key: 'workflow', label: 'Workflow', icon: GitBranch },
   { key: 'drivers', label: 'Drivers', icon: Activity },

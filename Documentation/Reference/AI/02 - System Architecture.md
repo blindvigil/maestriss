@@ -168,6 +168,8 @@ Maestriss defines a shared council orchestration contract in `shared/council/`: 
 
 Council execution follows the runner-first direction: sequential orchestration over the existing ask lifecycle, deterministic tests through injected boundaries, and Studio consuming the same configuration documents later. Runner council execution, persisted council run records, Studio's vocabulary migration (including the `reka-chat` to `reka` participant id and the Copilot URL), and the graphical Council Composer are planned future slices, not current behavior.
 
+Structural role metadata (ids, titles, descriptions, defaults, affinity) is owned by `shared/council/roles.ts`; the provider-facing role flavour text is owned separately by `shared/council/roleFlavourText.ts`, keyed by stable role id, and the prompt-composition pipeline resolves role framing from that single canonical source. Studio's Role Grimoire page edits flavour text against those canonical defaults: edits persist as versioned local-browser overrides only, never modify the canonical source file, and do not affect Runner execution, which uses canonical text until a future slice carries customized flavour text inside Council Configurations.
+
 The earlier dormant graph-based workflow scaffolding (`WorkflowDefinition`, `WorkflowNode`, `WorkflowEdge`, and the sample workflow JSON) was retired in favor of this contract after a repository-wide reference check confirmed nothing consumed it.
 
 ```text

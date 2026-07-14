@@ -149,6 +149,7 @@ This glossary defines project terms at the documentation-system level. Detailed 
 | Conversation | Current user instructions or assistant discussion. It is not durable project memory. | `Reference/Human/Start_Here.md` and AI companion |
 | Council Configuration | Versioned shared configuration document (fantasy name: Council Scroll) defining a multi-participant council: stages, providers, roles, rules, variables, budgets, and policies. | `Reference/Human/02 - System Architecture.md` and AI companion |
 | Council role | Reusable behavioral lens for a council stage, pairing a fantasy presentation title with a practical provider-facing framing. | `Reference/Human/02 - System Architecture.md` and AI companion |
+| Role flavour text | Provider-facing instructional text that gives a council role its perspective; canonical source is `shared/council/roleFlavourText.ts`, edited in Studio's Role Grimoire as versioned local-browser overrides. | `Reference/Human/02 - System Architecture.md` and AI companion |
 | Driver | Provider-specific automation implementation for a participant. | `Reference/Human/03 - Driver Lifecycle Specification.md` and AI companion |
 | Handoff | A dated milestone state document used for continuity. | `Documentation/Handoffs/` |
 | Human edition | The human-oriented copy of the permanent Reference library, optimized for comprehension and narrative flow. | `Reference/Human/Start_Here.md` |

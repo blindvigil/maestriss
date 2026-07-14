@@ -1,0 +1,68 @@
+.role-grimoire-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.role-grimoire-list__item {
+  align-items: center;
+  background: rgba(16, 23, 33, 0.78);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--muted-strong);
+  cursor: pointer;
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 0.7rem 0.8rem;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.role-grimoire-list__item:hover {
+  border-color: var(--accent);
+}
+
+.role-grimoire-list__item[data-selected='true'] {
+  background: linear-gradient(135deg, rgba(216, 180, 120, 0.14), rgba(16, 23, 33, 0.82) 60%);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.role-grimoire-list__icon {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--accent);
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.role-grimoire-list__titles {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.role-grimoire-list__titles strong {
+  color: inherit;
+  font-size: 0.95rem;
+}
+
+.role-grimoire-list__titles span {
+  color: var(--muted-strong);
+  font-size: 0.78rem;
+}
+
+.role-grimoire-list__badge {
+  background: rgba(216, 180, 120, 0.16);
+  border: 1px solid rgba(216, 180, 120, 0.45);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  padding: 0.16rem 0.5rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+}

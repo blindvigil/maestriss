@@ -5,6 +5,7 @@
 // runner-runtime dependencies.
 
 export * from './providers.js';
+export * from './roleFlavourText.js';
 export * from './roles.js';
 export * from './schema.js';
 export * from './presets.js';

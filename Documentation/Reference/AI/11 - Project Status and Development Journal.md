@@ -152,6 +152,16 @@ Entries should be added chronologically, newest at the top.
 
 ### 2026-07-13
 
+**Area:** Council Role Flavour Text and Role Grimoire
+
+**Summary:** Separated council role flavour text (the provider-facing behavioral prompt content) from structural role metadata. `shared/council/roleFlavourText.ts` is now the single canonical source, keyed by stable role id, consumed by the Runner prompt-composition pipeline and by a new Studio "Role Grimoire" page that lists every role (fantasy title with the practical title always visible), edits its flavour text, previews the exact provider-facing instruction at full and light intensity through the same shared rendering function composition uses, and saves edits as versioned local-browser overrides with revert-to-canonical.
+
+**Outcome:** Composed prompts are byte-identical to before the refactor (the locked prompt snapshot passed unchanged). The council suite grew to 158 assertions, adding role/flavour bijection, override immutability, revert semantics, and versioned persistence parsing; runner and Studio builds pass, with Studio consuming `shared/council/` for the first time. Local overrides do not affect Runner execution yet — the Runner uses canonical text only until Council Scroll embedding.
+
+**Lessons Learned:** Keeping the override envelope pure and storage-agnostic in shared code lets browser persistence be tested deterministically from the runner suite; only trivial localStorage I/O lives in Studio. Migrating prompt text between modules is safest under an exact-prompt snapshot assertion that must not change.
+
+### 2026-07-13
+
 **Area:** Council Architecture (Slice 1)
 
 **Summary:** Implemented the shared council orchestration contract in `shared/council/`: the canonical provider registry (the runner's execution-verified identities become the single roster source), a six-role library with practical provider-facing framings, three deterministic preset factories (Council of X, Trial by Fire, The Editorial Court), the versioned Council Configuration schema (`schemaVersion: 1`) with a deterministic validator, council rules, behavioral variables, input/output/failure-policy vocabularies, prompt budgets, and the deterministic prompt-composition pipeline. The runner's participant roster now re-exports the shared registry with no behavioral change, and the dormant `WorkflowDefinition` graph types plus the sample workflow JSON were retired after a repository-wide reference check confirmed they had no consumer.

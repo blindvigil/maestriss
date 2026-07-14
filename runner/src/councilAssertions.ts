@@ -1,7 +1,17 @@
 import {
   capContribution,
+  clearRoleFlavourOverride,
   composeStagePrompt,
   contributionTruncationNotice,
+  createEmptyRoleFlavourOverrides,
+  getCanonicalRoleFlavourText,
+  parseRoleFlavourOverrides,
+  renderRoleFraming,
+  resolveRoleFlavourText,
+  roleFlavourOverridesSchemaVersion,
+  roleFlavourTexts,
+  serializeRoleFlavourOverrides,
+  setRoleFlavourOverride,
   councilOfXDefaultSize,
   councilOfXMaxSize,
   councilOfXMinSize,
@@ -155,12 +165,17 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   );
 
   for (const role of councilRoles) {
+    const flavour = getCanonicalRoleFlavourText(role.id);
+
     assert(
       role.fantasyTitle.trim().length > 0 &&
       role.practicalTitle.trim().length > 0 &&
-      role.description.trim().length > 0 &&
-      role.inputFraming.trim().length > 0,
-      `role ${role.id} has fantasy title, practical title, description, and input framing`,
+      role.description.trim().length > 0,
+      `role ${role.id} has fantasy title, practical title, and description`,
+    );
+    assert(
+      typeof flavour === 'string' && flavour.trim().length > 0,
+      `role ${role.id} resolves canonical flavour text`,
     );
     assert(
       typeof role.defaultOutputPolicy === 'string' && role.defaultOutputPolicy.length > 0,
@@ -172,17 +187,30 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
       `role ${role.id} provider affinity references only known providers`,
     );
     assert(
-      !role.inputFraming.includes(role.fantasyTitle),
-      `role ${role.id} does not inject its fantasy title into provider-facing framing`,
+      !(flavour ?? '').includes(role.fantasyTitle),
+      `role ${role.id} does not inject its fantasy title into provider-facing flavour text`,
     );
   }
+
+  // Flavour library integrity: exact bijection with the role library, so
+  // the editor enumeration and the composition pipeline can never diverge,
+  // and adding roles requires no special cases anywhere.
+  const flavourIds = Object.keys(roleFlavourTexts).sort();
+  const roleIds = councilRoles.map((role) => role.id).sort();
+  assert(
+    JSON.stringify(flavourIds) === JSON.stringify(roleIds),
+    'canonical flavour-text ids map one-to-one onto role library ids',
+    `flavour=${flavourIds.join(',')} roles=${roleIds.join(',')}`,
+  );
+  assert(getCanonicalRoleFlavourText('nonexistent') === undefined, 'unknown role id resolves no flavour text');
 
   // Refusal safety: catch accidental security/deception-flavored wording of
   // the kind that triggered the live baton refusal. Deliberately narrow.
   const bannedVocabulary =
     /\btokens?\b|authenticat|credential|password|exploit|\battack|deceiv|deception|sabotage|malware|jailbreak|impersonat|security verification/i;
   const providerFacingTexts = [
-    ...councilRoles.flatMap((role) => [role.inputFraming, role.practicalTitle, role.description]),
+    ...Object.values(roleFlavourTexts),
+    ...councilRoles.flatMap((role) => [role.practicalTitle, role.description]),
     ...providerFacingInstructionCatalog,
   ];
 
@@ -738,6 +766,107 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   assert(
     composed.effectiveVariables.dissent === 'adversarial' && composed.outputPolicy === 'critique',
     'snapshot metadata reports effective variables and output policy',
+  );
+}
+
+// =========================================================================
+// Role flavour text: canonical source, framing, and override envelope
+// =========================================================================
+{
+  const inquisitor = getCouncilRole('inquisitor')!;
+
+  // Composition consumes the canonical flavour source verbatim.
+  const composed = composeStagePrompt({
+    configuration: baseConfiguration(),
+    stage: {
+      id: 'stage-x',
+      provider: 'claude',
+      role: 'inquisitor',
+      inputPolicy: 'original-only',
+      failurePolicy: 'halt',
+    },
+    request: 'Is the sky blue?',
+    priorContributions: [],
+  });
+  assert(
+    composed.prompt.includes(roleFlavourTexts.inquisitor),
+    'full-intensity composition injects the canonical flavour text verbatim',
+  );
+
+  assert(
+    renderRoleFraming(inquisitor, 'full') === roleFlavourTexts.inquisitor,
+    'renderRoleFraming resolves canonical text at full intensity',
+  );
+  assert(
+    renderRoleFraming(inquisitor, 'light') === 'Approach this from the perspective of a Skeptic / Critical Reviewer.',
+    'renderRoleFraming keeps the deterministic light-intensity one-liner',
+  );
+
+  // Override envelope: immutable updates, one role never affects another.
+  const empty = createEmptyRoleFlavourOverrides();
+  const withOne = setRoleFlavourOverride(empty, 'inquisitor', 'Custom skeptic framing.');
+  const withTwo = setRoleFlavourOverride(withOne, 'rival', 'Custom strategist framing.');
+
+  assert(
+    Object.keys(empty.overrides).length === 0 &&
+    Object.keys(withOne.overrides).length === 1 &&
+    Object.keys(withTwo.overrides).length === 2,
+    'setting overrides is immutable and cumulative',
+  );
+  assert(
+    withTwo.overrides.inquisitor === 'Custom skeptic framing.' &&
+    withTwo.overrides.rival === 'Custom strategist framing.',
+    'editing one role does not mutate another role',
+  );
+  assert(
+    resolveRoleFlavourText('inquisitor', withTwo) === 'Custom skeptic framing.' &&
+    resolveRoleFlavourText('magistrate', withTwo) === roleFlavourTexts.magistrate,
+    'resolution prefers overrides and falls back to canonical text',
+  );
+  assert(
+    renderRoleFraming(inquisitor, 'full', withTwo) === 'Custom skeptic framing.',
+    'renderRoleFraming honors an override at full intensity',
+  );
+
+  // Reset/revert semantics.
+  const reverted = clearRoleFlavourOverride(withTwo, 'inquisitor');
+  assert(
+    reverted.overrides.inquisitor === undefined &&
+    reverted.overrides.rival === 'Custom strategist framing.' &&
+    withTwo.overrides.inquisitor === 'Custom skeptic framing.',
+    'clearing an override reverts one role without touching others or the source object',
+  );
+  assert(
+    setRoleFlavourOverride(withOne, 'inquisitor', roleFlavourTexts.inquisitor).overrides.inquisitor === undefined,
+    'setting text back to the canonical default removes the override',
+  );
+  assert(
+    setRoleFlavourOverride(withOne, 'inquisitor', '   ').overrides.inquisitor === undefined,
+    'setting blank text removes the override',
+  );
+
+  // Persistence envelope: versioned serialize/parse round trip.
+  const roundTrip = parseRoleFlavourOverrides(serializeRoleFlavourOverrides(withTwo));
+  assert(
+    JSON.stringify(roundTrip) === JSON.stringify(withTwo),
+    'overrides survive a serialize/parse round trip',
+  );
+  assert(
+    parseRoleFlavourOverrides(null).schemaVersion === roleFlavourOverridesSchemaVersion &&
+    Object.keys(parseRoleFlavourOverrides(null).overrides).length === 0,
+    'missing persisted overrides parse to an empty envelope',
+  );
+  assert(
+    Object.keys(parseRoleFlavourOverrides('not json').overrides).length === 0,
+    'corrupt persisted overrides parse to an empty envelope',
+  );
+  assert(
+    Object.keys(parseRoleFlavourOverrides('{"schemaVersion":99,"overrides":{"inquisitor":"x"}}').overrides).length === 0,
+    'unknown persisted schema versions are discarded rather than misread',
+  );
+  assert(
+    Object.keys(parseRoleFlavourOverrides('{"schemaVersion":1,"overrides":{"inquisitor":42,"rival":"ok","empty":"  "}}').overrides).join(',') === 'rival',
+    'parsing drops non-string and blank override entries',
   );
 }
 
