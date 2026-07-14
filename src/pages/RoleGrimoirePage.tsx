@@ -1,4 +1,4 @@
-import { BookOpen, ScrollText } from 'lucide-react';
+import { BookOpen, ClipboardCopy, ScrollText } from 'lucide-react';
 import { useState } from 'react';
 import {
   clearRoleFlavourOverride,
@@ -6,6 +6,7 @@ import {
   getCanonicalRoleFlavourText,
   resolveRoleFlavourText,
   setRoleFlavourOverride,
+  toCouncilRoleFlavourOverrides,
 } from '../../shared/council/index.js';
 import { RoleFlavourEditor } from '../components/roles/RoleFlavourEditor';
 import { RoleFramingPreview } from '../components/roles/RoleFramingPreview';
@@ -50,6 +51,23 @@ export function RoleGrimoirePage() {
     setDraftText(canonicalText);
   };
 
+  const [copied, setCopied] = useState(false);
+  const councilOverrides = toCouncilRoleFlavourOverrides(overrides);
+
+  const handleCopyCouncilOverrides = () => {
+    if (!councilOverrides) {
+      return;
+    }
+
+    navigator.clipboard
+      .writeText(JSON.stringify({ roleFlavourOverrides: councilOverrides }, null, 2))
+      .then(() => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1600);
+      })
+      .catch(() => undefined);
+  };
+
   return (
     <section className="role-grimoire-page" aria-labelledby="role-grimoire-title">
       <div className="role-grimoire-page__hero">
@@ -77,8 +95,17 @@ export function RoleGrimoirePage() {
           <span>{customizedRoleIds.size} customized locally</span>
         </div>
         <div>
-          <span>Runner uses canonical text until Scroll embedding</span>
+          <span>Council Scrolls carry customizations via roleFlavourOverrides</span>
         </div>
+        <button
+          className="role-grimoire-page__copy"
+          disabled={!councilOverrides}
+          onClick={handleCopyCouncilOverrides}
+          type="button"
+        >
+          <ClipboardCopy size={16} aria-hidden="true" />
+          <span>{copied ? 'Copied!' : 'Copy council overrides JSON'}</span>
+        </button>
       </div>
 
       <div className="role-grimoire-page__workspace">

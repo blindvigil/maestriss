@@ -145,11 +145,15 @@ export function clearRoleFlavourOverride(
   return { schemaVersion: roleFlavourOverridesSchemaVersion, overrides: next };
 }
 
-export function resolveRoleFlavourText(
+// Council-shaped overrides: the compact record carried by a Council
+// Configuration (`roleFlavourOverrides`), holding only explicitly
+// customized roles. This is the portable execution contract; the versioned
+// envelope above is only the Studio editing convenience around it.
+export function resolveCouncilRoleFlavourText(
   roleId: string,
-  overrides?: RoleFlavourOverrides,
+  councilOverrides?: Record<string, string>,
 ): string | undefined {
-  const override = overrides?.overrides[roleId];
+  const override = councilOverrides?.[roleId];
 
   if (typeof override === 'string' && override.trim().length > 0) {
     return override;
@@ -158,20 +162,46 @@ export function resolveRoleFlavourText(
   return getCanonicalRoleFlavourText(roleId);
 }
 
+export function resolveRoleFlavourText(
+  roleId: string,
+  overrides?: RoleFlavourOverrides,
+): string | undefined {
+  return resolveCouncilRoleFlavourText(roleId, overrides?.overrides);
+}
+
+// Projects the Studio editing envelope into the compact council-record
+// shape. Returns undefined when nothing is customized so Council
+// Configurations never carry an empty (or canonical-duplicating) block.
+export function toCouncilRoleFlavourOverrides(
+  overrides: RoleFlavourOverrides,
+): Record<string, string> | undefined {
+  const entries = Object.entries(overrides.overrides)
+    .filter(([roleId, text]) =>
+      typeof text === 'string' &&
+      text.trim().length > 0 &&
+      text !== getCanonicalRoleFlavourText(roleId));
+
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  return Object.fromEntries(entries);
+}
+
 // Renders the role-framing prompt section. Full intensity injects the
-// resolved flavour text; light intensity stays the deterministic one-line
-// perspective derived from the practical title (unchanged behavior from the
-// original composition pipeline).
+// resolved flavour text (council override first, canonical otherwise);
+// light intensity stays the deterministic one-line perspective derived
+// from the practical title regardless of overrides.
 export function renderRoleFraming(
   role: RoleDefinition,
   intensity: CouncilRoleIntensity,
-  overrides?: RoleFlavourOverrides,
+  councilOverrides?: Record<string, string>,
 ): string {
   if (intensity === 'light') {
     return `Approach this from the perspective of a ${role.practicalTitle}.`;
   }
 
-  const flavour = resolveRoleFlavourText(role.id, overrides);
+  const flavour = resolveCouncilRoleFlavourText(role.id, councilOverrides);
 
   if (!flavour) {
     throw new Error(`No canonical flavour text exists for role "${role.id}".`);

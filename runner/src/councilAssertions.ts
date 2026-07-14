@@ -7,11 +7,13 @@ import {
   getCanonicalRoleFlavourText,
   parseRoleFlavourOverrides,
   renderRoleFraming,
+  resolveCouncilRoleFlavourText,
   resolveRoleFlavourText,
   roleFlavourOverridesSchemaVersion,
   roleFlavourTexts,
   serializeRoleFlavourOverrides,
   setRoleFlavourOverride,
+  toCouncilRoleFlavourOverrides,
   councilOfXDefaultSize,
   councilOfXMaxSize,
   councilOfXMinSize,
@@ -824,7 +826,7 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     'resolution prefers overrides and falls back to canonical text',
   );
   assert(
-    renderRoleFraming(inquisitor, 'full', withTwo) === 'Custom skeptic framing.',
+    renderRoleFraming(inquisitor, 'full', withTwo.overrides) === 'Custom skeptic framing.',
     'renderRoleFraming honors an override at full intensity',
   );
 
@@ -867,6 +869,127 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   assert(
     Object.keys(parseRoleFlavourOverrides('{"schemaVersion":1,"overrides":{"inquisitor":42,"rival":"ok","empty":"  "}}').overrides).join(',') === 'rival',
     'parsing drops non-string and blank override entries',
+  );
+}
+
+// =========================================================================
+// Council-level role flavour overrides: schema, composition, presets,
+// and the Studio-envelope-to-council-record converter
+// =========================================================================
+{
+  const customText = 'Question every claim in this material and rank the three weakest points first.';
+
+  // Schema validation.
+  const withOverrides = baseConfiguration({ roleFlavourOverrides: { inquisitor: customText } });
+  assert(
+    validateCouncilConfiguration(withOverrides).valid,
+    'configuration with council-level flavour overrides passes validation',
+  );
+
+  const unknownRole = validateCouncilConfiguration(
+    baseConfiguration({ roleFlavourOverrides: { saboteur: 'x' } }),
+  );
+  assert(
+    !unknownRole.valid && unknownRole.issues.some((issue) => issue.path === 'roleFlavourOverrides.saboteur'),
+    'override for an unknown role id is rejected',
+  );
+  assert(
+    !validateCouncilConfiguration(
+      baseConfiguration({ roleFlavourOverrides: { inquisitor: '   ' } }),
+    ).valid,
+    'blank override flavour text is rejected',
+  );
+  assert(
+    !validateCouncilConfiguration(
+      baseConfiguration({ roleFlavourOverrides: { inquisitor: 42 } as never }),
+    ).valid,
+    'non-string override flavour text is rejected',
+  );
+
+  // Composition: council override wins for its role only; canonical
+  // elsewhere; light intensity is unaffected.
+  const stage = (roleIntensity?: 'light' | 'full'): CouncilStage => ({
+    id: 'stage-x',
+    provider: 'claude',
+    role: 'inquisitor',
+    inputPolicy: 'original-only',
+    ...(roleIntensity ? { variableOverrides: { roleIntensity } } : {}),
+    failurePolicy: 'halt',
+  });
+
+  const overridden = composeStagePrompt({
+    configuration: withOverrides,
+    stage: stage(),
+    request: 'Is the sky blue?',
+    priorContributions: [],
+  });
+  assert(
+    overridden.prompt.includes(customText) && !overridden.prompt.includes(roleFlavourTexts.inquisitor),
+    'composition injects the council override instead of canonical text for the customized role',
+  );
+
+  const otherRole = composeStagePrompt({
+    configuration: withOverrides,
+    stage: { ...stage(), role: 'magistrate', provider: 'chatgpt' },
+    request: 'Is the sky blue?',
+    priorContributions: [],
+  });
+  assert(
+    otherRole.prompt.includes(roleFlavourTexts.magistrate),
+    'roles without a council override keep canonical flavour text',
+  );
+
+  const light = composeStagePrompt({
+    configuration: withOverrides,
+    stage: stage('light'),
+    request: 'Is the sky blue?',
+    priorContributions: [],
+  });
+  assert(
+    light.prompt.includes('Approach this from the perspective of a Skeptic / Critical Reviewer.') &&
+    !light.prompt.includes(customText),
+    'light role intensity remains the fixed one-liner regardless of overrides',
+  );
+
+  // Presets embed overrides only when provided, and stay valid.
+  const presetWith = getCouncilPreset('trial-by-fire')!.build({
+    roleFlavourOverrides: { inquisitor: customText },
+  });
+  assert(
+    presetWith.roleFlavourOverrides?.inquisitor === customText &&
+    validateCouncilConfiguration(presetWith).valid,
+    'presets embed provided flavour overrides and remain schema-valid',
+  );
+  assert(
+    !('roleFlavourOverrides' in getCouncilPreset('trial-by-fire')!.build()),
+    'presets omit the overrides block entirely when nothing is customized',
+  );
+  assert(
+    !('roleFlavourOverrides' in getCouncilPreset('editorial-court')!.build({ roleFlavourOverrides: {} })),
+    'an empty overrides record is not embedded into preset output',
+  );
+
+  // Studio envelope -> compact council record.
+  const envelope = setRoleFlavourOverride(
+    setRoleFlavourOverride(createEmptyRoleFlavourOverrides(), 'inquisitor', customText),
+    'rival',
+    'Offer one competing plan and one hybrid plan.',
+  );
+  const councilRecord = toCouncilRoleFlavourOverrides(envelope);
+  assert(
+    councilRecord !== undefined &&
+    Object.keys(councilRecord).sort().join(',') === 'inquisitor,rival' &&
+    councilRecord.inquisitor === customText,
+    'the Studio envelope converts to a compact council record of customized roles only',
+  );
+  assert(
+    toCouncilRoleFlavourOverrides(createEmptyRoleFlavourOverrides()) === undefined,
+    'an empty envelope converts to undefined so scrolls never carry empty blocks',
+  );
+  assert(
+    resolveCouncilRoleFlavourText('inquisitor', councilRecord) === customText &&
+    resolveCouncilRoleFlavourText('magistrate', councilRecord) === roleFlavourTexts.magistrate,
+    'council-record resolution prefers overrides and falls back to canonical text',
   );
 }
 

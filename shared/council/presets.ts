@@ -18,6 +18,10 @@ export type CouncilPresetBuildOptions = {
   id?: string;
   name?: string;
   size?: number;
+  // Compact council-level flavour overrides (customized roles only), e.g.
+  // produced from Studio Role Grimoire edits via
+  // toCouncilRoleFlavourOverrides. Omitted or empty means canonical text.
+  roleFlavourOverrides?: Record<string, string>;
 };
 
 export type CouncilPreset = {
@@ -51,6 +55,16 @@ function pickProvider(role: RoleDefinition, usedProviders: Set<string>): string 
   const chosen = unused ?? affinity[0] ?? 'chatgpt';
   usedProviders.add(chosen);
   return chosen;
+}
+
+// Only embed overrides when something is actually customized, so preset
+// output never carries an empty (or canonical-duplicating) block.
+function flavourOverridesFor(
+  options: CouncilPresetBuildOptions,
+): Pick<CouncilConfiguration, 'roleFlavourOverrides'> {
+  return options.roleFlavourOverrides && Object.keys(options.roleFlavourOverrides).length > 0
+    ? { roleFlavourOverrides: { ...options.roleFlavourOverrides } }
+    : {};
 }
 
 function buildStage(
@@ -115,6 +129,7 @@ function buildCouncilOfX(options: CouncilPresetBuildOptions = {}): CouncilConfig
     },
     variables: { ...defaultCouncilVariables },
     budgets: { ...defaultCouncilBudgets },
+    ...flavourOverridesFor(options),
     stages,
   };
 }
@@ -144,6 +159,7 @@ function buildTrialByFire(options: CouncilPresetBuildOptions = {}): CouncilConfi
       dissent: 'adversarial',
     },
     budgets: { ...defaultCouncilBudgets },
+    ...flavourOverridesFor(options),
     stages,
   };
 }
@@ -172,6 +188,7 @@ function buildEditorialCourt(options: CouncilPresetBuildOptions = {}): CouncilCo
     },
     variables: { ...defaultCouncilVariables },
     budgets: { ...defaultCouncilBudgets },
+    ...flavourOverridesFor(options),
     stages,
   };
 }

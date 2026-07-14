@@ -152,6 +152,16 @@ Entries should be added chronologically, newest at the top.
 
 ### 2026-07-13
 
+**Area:** Council Flavour-Override Integration
+
+**Summary:** Integrated editable role flavour text into the Council configuration contract. `CouncilConfiguration` gains an optional compact `roleFlavourOverrides` record (customized roles only, validated against the role library), effective role framing resolves council override first and canonical text otherwise, preset factories accept overrides as a build option, and the Role Grimoire projects its browser-local edits into that portable shape via a shared converter plus a copy-as-JSON control. Light role intensity remains the fixed one-liner regardless of overrides.
+
+**Outcome:** Council suite grew to 171 assertions (override validation, resolution precedence, preset embedding/compactness, envelope-to-record conversion); runner and Studio builds pass and prompts without overrides remain byte-identical. Execution never reads browser-local state — customizations take effect only through a configuration's `roleFlavourOverrides`.
+
+**Lessons Learned:** Keeping the portable execution shape (a plain record) distinct from the editing envelope (versioned localStorage document), with one shared resolution core underneath, gives portability without duplicating canonical text into every configuration.
+
+### 2026-07-13
+
 **Area:** Council Role Flavour Text and Role Grimoire
 
 **Summary:** Separated council role flavour text (the provider-facing behavioral prompt content) from structural role metadata. `shared/council/roleFlavourText.ts` is now the single canonical source, keyed by stable role id, consumed by the Runner prompt-composition pipeline and by a new Studio "Role Grimoire" page that lists every role (fantasy title with the practical title always visible), edits its flavour text, previews the exact provider-facing instruction at full and light intensity through the same shared rendering function composition uses, and saves edits as versioned local-browser overrides with revert-to-canonical.

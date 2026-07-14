@@ -84,6 +84,13 @@ export type CouncilConfiguration = {
   rules: CouncilRules;
   variables: CouncilVariables;
   budgets: CouncilBudgets;
+  // Council-specific role flavour overrides: a compact record holding only
+  // explicitly customized roles, keyed by role id. Roles absent from this
+  // record use the canonical flavour text, so canonical defaults are never
+  // duplicated into configurations. Override text is user-authored content:
+  // it is validated structurally (known role, non-empty), but its wording is
+  // the author's responsibility, like customRuleText.
+  roleFlavourOverrides?: Record<string, string>;
   stages: CouncilStage[];
 };
 
@@ -247,6 +254,28 @@ export function validateCouncilConfiguration(value: unknown): CouncilValidationR
         path: 'budgets',
         message: 'perContributionChars must not exceed totalPromptChars.',
       });
+    }
+  }
+
+  if (value.roleFlavourOverrides !== undefined) {
+    if (!isRecord(value.roleFlavourOverrides)) {
+      issues.push({ path: 'roleFlavourOverrides', message: 'roleFlavourOverrides must be an object when provided.' });
+    } else {
+      for (const [roleId, text] of Object.entries(value.roleFlavourOverrides)) {
+        if (!getCouncilRole(roleId)) {
+          issues.push({
+            path: `roleFlavourOverrides.${roleId}`,
+            message: `Unknown role ${JSON.stringify(roleId)}; overrides must reference role library ids.`,
+          });
+        }
+
+        if (!isNonEmptyString(text)) {
+          issues.push({
+            path: `roleFlavourOverrides.${roleId}`,
+            message: 'Override flavour text must be a non-empty string.',
+          });
+        }
+      }
     }
   }
 

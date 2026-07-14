@@ -224,10 +224,15 @@ export function composeStagePrompt(input: ComposeStagePromptInput): ComposedStag
   // 2. Council rules.
   const rulesSection = renderCouncilRules(configuration.rules);
 
-  // 3. Role framing, scaled by role intensity, resolved from the canonical
-  // flavour-text library (roleFlavourText.ts) — the same source the Studio
-  // Role Grimoire editor loads as its defaults.
-  const roleSection = renderRoleFraming(role, effectiveVariables.roleIntensity);
+  // 3. Role framing, scaled by role intensity. Resolution order: the
+  // configuration's own roleFlavourOverrides first, then the canonical
+  // flavour-text library — never hidden editor state, so a saved Council
+  // Configuration reproduces its customized behavior anywhere.
+  const roleSection = renderRoleFraming(
+    role,
+    effectiveVariables.roleIntensity,
+    configuration.roleFlavourOverrides,
+  );
 
   // 4. Behavioral variable instructions.
   const variableSection = [

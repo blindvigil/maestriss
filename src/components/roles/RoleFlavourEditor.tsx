@@ -65,9 +65,10 @@ export function RoleFlavourEditor({
       </div>
 
       <p className="role-flavour-editor__note">
-        Edits are saved as local overrides in this browser only. Canonical defaults live in{' '}
-        <code>shared/council/roleFlavourText.ts</code>, and the Runner uses canonical text until
-        Council Scroll embedding lands.
+        Edits are saved as local overrides in this browser. Canonical defaults live in{' '}
+        <code>shared/council/roleFlavourText.ts</code>. Execution never reads browser state:
+        customizations take effect only when embedded into a Council Configuration as{' '}
+        <code>roleFlavourOverrides</code> (use Copy council overrides JSON above).
       </p>
     </section>
   );
