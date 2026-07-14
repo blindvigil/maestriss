@@ -1,35 +1,36 @@
 import {
   capContribution,
-  clearRoleFlavourOverride,
+  callingFlavourOverridesSchemaVersion,
+  callingFlavourTexts,
+  clearCallingFlavourOverride,
   composeStagePrompt,
   contributionTruncationNotice,
-  createEmptyRoleFlavourOverrides,
-  getCanonicalRoleFlavourText,
-  parseRoleFlavourOverrides,
-  renderRoleFraming,
-  resolveCouncilRoleFlavourText,
-  resolveRoleFlavourText,
-  roleFlavourOverridesSchemaVersion,
-  roleFlavourTexts,
-  serializeRoleFlavourOverrides,
-  setRoleFlavourOverride,
-  toCouncilRoleFlavourOverrides,
-  councilOfXDefaultSize,
-  councilOfXMaxSize,
-  councilOfXMinSize,
-  councilPresets,
+  createEmptyCallingFlavourOverrides,
+  crownCouncilDefaultSize,
+  crownCouncilMaxSize,
+  crownCouncilMinSize,
+  getCanonicalCallingFlavourText,
+  parseCallingFlavourOverrides,
+  renderCallingFraming,
+  resolveCallingFlavourText,
+  resolveCouncilCallingFlavourText,
+  serializeCallingFlavourOverrides,
+  setCallingFlavourOverride,
+  toCouncilCallingFlavourOverrides,
+  councilCallings,
+  councilDoctrines,
   councilProviders,
-  councilRoles,
   councilSchemaVersion,
   defaultCouncilBudgets,
   defaultCouncilRules,
   defaultCouncilVariables,
-  getCouncilPreset,
+  getCouncilCalling,
+  getCouncilDoctrine,
   getCouncilProvider,
-  getCouncilRole,
   omissionMarker,
   providerFacingInstructionCatalog,
   renderCouncilRules,
+  resolveCognitiveStats,
   resolveEffectiveVariables,
   resolveOutputPolicy,
   validateCouncilConfiguration,
@@ -97,14 +98,14 @@ function baseConfiguration(overrides: Partial<CouncilConfiguration> = {}): Counc
       {
         id: 'stage-1',
         provider: 'perplexity',
-        role: 'lantern-bearer',
+        calling: 'lantern-bearer',
         inputPolicy: 'original-only',
         failurePolicy: 'skip-and-record',
       },
       {
         id: 'stage-2',
         provider: 'claude',
-        role: 'inquisitor',
+        calling: 'inquisitor',
         inputPolicy: 'previous-plus-original',
         failurePolicy: 'halt',
       },
@@ -114,7 +115,7 @@ function baseConfiguration(overrides: Partial<CouncilConfiguration> = {}): Counc
 }
 
 function contribution(stageId: string, roleId: string, providerId: string, text: string): CouncilContribution {
-  return { stageId, role: roleId, provider: providerId, text };
+  return { stageId, calling: roleId, provider: providerId, text };
 }
 
 // =========================================================================
@@ -160,50 +161,109 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
 // Role library
 // =========================================================================
 {
-  const canonicalRoleIds = [
+  const canonicalCallingIds = [
     'lantern-bearer',
     'inquisitor',
     'rival',
     'wild-mage',
-    'royal-scribe',
     'magistrate',
-    'empath',
+    'royal-scribe',
     'saboteur',
-    'cartographer',
-    'archivist',
+    'empath',
     'alchemist',
-    'scout',
-    'quartermaster',
+    'cartographer',
     'oracle',
-    'master-of-questions',
-    'smith',
-    'councillor',
+    'sage',
+    'pathfinder',
+    'archivist',
+    'quartermaster',
+    'architect',
   ];
 
-  assert(councilRoles.length === 17, 'role library contains exactly seventeen roles');
+  assert(councilCallings.length === 16, 'Calling library contains exactly sixteen Callings');
   assert(
-    getCouncilRole('councillor')?.practicalTitle === 'General Deliberator' &&
-    getCouncilRole('councillor')?.providerAffinity === undefined &&
-    getCouncilRole('councillor')?.preferredPosition === undefined,
-    'Councillor exists as an equal-seat generalist with no affinity or position bias',
+    JSON.stringify(councilCallings.map((calling) => calling.id)) === JSON.stringify(canonicalCallingIds),
+    'Calling library matches the canonical sixteen-Calling inventory in order',
+    councilCallings.map((calling) => calling.id).join(','),
   );
   assert(
-    JSON.stringify(councilRoles.map((role) => role.id)) === JSON.stringify(canonicalRoleIds),
-    'role library matches the canonical sixteen-role inventory in order',
-    councilRoles.map((role) => role.id).join(','),
+    Boolean(getCouncilCalling('sage')) &&
+    Boolean(getCouncilCalling('pathfinder')) &&
+    Boolean(getCouncilCalling('architect')),
+    'Sage, Pathfinder, and Architect exist as canonical Callings',
   );
   assert(
-    ['lantern-bearer', 'inquisitor', 'rival', 'wild-mage', 'magistrate', 'royal-scribe']
-      .every((id) => canonicalRoleIds.includes(id) && Boolean(getCouncilRole(id))),
-    'the original six role ids remain unchanged',
+    getCouncilCalling('master-of-questions') === undefined &&
+    getCouncilCalling('scout') === undefined &&
+    getCouncilCalling('smith') === undefined &&
+    getCouncilCalling('councillor') === undefined,
+    'Master of Questions, Scout, Smith, and Councillor are not canonical Callings',
   );
   assert(
-    new Set(councilRoles.map((role) => role.id)).size === councilRoles.length,
-    'role ids are unique',
+    councilCallings.every((calling) =>
+      calling.fantasyTitle !== 'Councillor' && calling.practicalTitle !== 'General Deliberator'),
+    'no Councillor or General Deliberator Calling exists (equal deliberation is a Doctrine mechanic)',
+  );
+  assert(
+    getCouncilCalling('sage')?.fantasyTitle === 'Sage' &&
+    getCouncilCalling('pathfinder')?.fantasyTitle === 'Pathfinder' &&
+    getCouncilCalling('architect')?.fantasyTitle === 'Architect',
+    'renamed Callings carry their canonical display names',
   );
 
-  for (const role of councilRoles) {
-    const flavour = getCanonicalRoleFlavourText(role.id);
+  // Suggested AI: the single default/best-fit provider per Calling — a soft
+  // recommendation, independent of both providerAffinity ordering and the
+  // actual provider a seat assigns.
+  const expectedSuggestions: Record<string, string | undefined> = {
+    'lantern-bearer': 'perplexity',
+    inquisitor: 'claude',
+    rival: 'gemini',
+    'wild-mage': 'grok',
+    magistrate: 'claude',
+    'royal-scribe': 'chatgpt',
+    saboteur: 'claude',
+    empath: 'claude',
+    alchemist: 'chatgpt',
+    cartographer: 'gemini',
+    oracle: 'gemini',
+    sage: 'claude',
+    pathfinder: 'perplexity',
+    archivist: 'claude',
+    quartermaster: 'chatgpt',
+    architect: 'chatgpt',
+  };
+
+  assert(
+    councilCallings.every((calling) => calling.suggestedProvider === expectedSuggestions[calling.id]),
+    'every Calling carries its approved Suggested AI',
+    councilCallings.map((calling) => `${calling.id}=${calling.suggestedProvider ?? '(none)'}`).join(','),
+  );
+  assert(
+    councilCallings.every((calling) =>
+      calling.suggestedProvider === undefined || Boolean(getCouncilProvider(calling.suggestedProvider))),
+    'every defined Suggested AI resolves to the canonical provider registry',
+  );
+  assert(
+    getCouncilCalling('cartographer')?.suggestedProvider !== getCouncilCalling('cartographer')?.providerAffinity?.[0] &&
+    getCouncilCalling('pathfinder')?.suggestedProvider !== getCouncilCalling('pathfinder')?.providerAffinity?.[0],
+    'Suggested AI is independent of affinity ordering (Cartographer and Pathfinder deliberately differ)',
+  );
+
+  const summitBuilt = getCouncilDoctrine('realm-summit')!.build();
+  const summitRivalStage = summitBuilt.stages.find((stage) => stage.calling === 'rival')!;
+  assert(
+    summitRivalStage.provider === 'chatgpt' &&
+    getCouncilCalling('rival')!.suggestedProvider === 'gemini' &&
+    validateCouncilConfiguration(summitBuilt).valid,
+    'a Doctrine may assign a provider different from the Calling suggestion without invalidating the configuration',
+  );
+  assert(
+    new Set(councilCallings.map((calling) => calling.id)).size === councilCallings.length,
+    'Calling ids are unique',
+  );
+
+  for (const role of councilCallings) {
+    const flavour = getCanonicalCallingFlavourText(role.id);
 
     assert(
       role.fantasyTitle.trim().length > 0 &&
@@ -233,22 +293,22 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   // Flavour library integrity: exact bijection with the role library, so
   // the editor enumeration and the composition pipeline can never diverge,
   // and adding roles requires no special cases anywhere.
-  const flavourIds = Object.keys(roleFlavourTexts).sort();
-  const roleIds = councilRoles.map((role) => role.id).sort();
+  const flavourIds = Object.keys(callingFlavourTexts).sort();
+  const roleIds = councilCallings.map((role) => role.id).sort();
   assert(
     JSON.stringify(flavourIds) === JSON.stringify(roleIds),
     'canonical flavour-text ids map one-to-one onto role library ids',
     `flavour=${flavourIds.join(',')} roles=${roleIds.join(',')}`,
   );
-  assert(getCanonicalRoleFlavourText('nonexistent') === undefined, 'unknown role id resolves no flavour text');
+  assert(getCanonicalCallingFlavourText('nonexistent') === undefined, 'unknown role id resolves no flavour text');
 
   // Refusal safety: catch accidental security/deception-flavored wording of
   // the kind that triggered the live baton refusal. Deliberately narrow.
   const bannedVocabulary =
     /\btokens?\b|authenticat|credential|password|exploit|\battack|deceiv|deception|sabotage|malware|jailbreak|impersonat|security verification/i;
   const providerFacingTexts = [
-    ...Object.values(roleFlavourTexts),
-    ...councilRoles.flatMap((role) => [role.practicalTitle, role.description]),
+    ...Object.values(callingFlavourTexts),
+    ...councilCallings.flatMap((role) => [role.practicalTitle, role.description]),
     ...providerFacingInstructionCatalog,
   ];
 
@@ -264,41 +324,57 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
 // Preset invariants
 // =========================================================================
 {
-  assert(councilPresets.length === 16, 'preset library contains exactly sixteen presets');
+  assert(councilDoctrines.length === 16, 'Doctrine library contains exactly sixteen Doctrines');
 
-  const expectedPresetOrder = [
-    'concord',
-    'idea-forge',
+  const expectedDoctrineOrder = [
+    'realm-summit',
+    'dream-lab',
     'crucible',
-    'editorial-court',
-    'council-of-x',
+    'imperial-court',
+    'crown-council',
     'arcane-expedition',
     'scholars-conclave',
-    'academy',
+    'grand-academy',
     'decision-chamber',
     'trial-by-fire',
     'war-room',
     'workshop',
     'oracles-table',
-    'creative-studio',
+    'creation-chamber',
     'socratic-circle',
-    'campaign',
+    'grand-campaign',
   ];
   assert(
-    JSON.stringify(councilPresets.map((preset) => preset.id)) === JSON.stringify(expectedPresetOrder),
-    'preset library matches the canonical inventory in order',
-    councilPresets.map((preset) => preset.id).join(','),
-  );
-  assert(
-    councilPresets.every((preset) => !preset.fantasyTitle.startsWith('The ')),
-    'no preset title begins with a leading "The"',
-  );
-  assert(
-    councilRoles.every((role) => !role.fantasyTitle.startsWith('The ')),
-    'no canonical fantasy role title begins with a leading "The"',
+    JSON.stringify(councilDoctrines.map((doctrine) => doctrine.id)) === JSON.stringify(expectedDoctrineOrder),
+    'Doctrine library matches the canonical inventory in order',
+    councilDoctrines.map((doctrine) => doctrine.id).join(','),
   );
 
-  for (const preset of councilPresets) {
+  const expectedDoctrineNames = [
+    'Realm Summit', 'Dream Lab', 'Crucible', 'Imperial Court', 'Crown Council', 'Arcane Expedition',
+    "Scholar's Conclave", 'Grand Academy', 'Decision Chamber', 'Trial by Fire', 'War Room', 'Workshop',
+    "Oracle's Table", 'Creation Chamber', 'Socratic Circle', 'Grand Campaign',
+  ];
+  assert(
+    JSON.stringify(councilDoctrines.map((doctrine) => doctrine.fantasyTitle)) === JSON.stringify(expectedDoctrineNames),
+    'Doctrine display names match the canonical sixteen (Realm Summit, Dream Lab, Imperial Court, Crown Council, Grand Academy, Creation Chamber, Grand Campaign included)',
+  );
+
+  const supersededNames = ['Concord', 'Idea Forge', 'Editorial Court', 'Council of X', 'Academy', 'Creative Studio', 'Campaign'];
+  assert(
+    councilDoctrines.every((doctrine) => !supersededNames.includes(doctrine.fantasyTitle)),
+    'superseded Doctrine names are not canonical display names',
+  );
+  assert(
+    councilDoctrines.every((doctrine) => !doctrine.fantasyTitle.startsWith('The ')),
+    'no Doctrine title begins with a leading "The"',
+  );
+  assert(
+    councilCallings.every((calling) => !calling.fantasyTitle.startsWith('The ')),
+    'no canonical Calling display name begins with a leading "The"',
+  );
+
+  for (const preset of councilDoctrines) {
     const configuration = preset.build();
     const validation = validateCouncilConfiguration(configuration);
 
@@ -308,7 +384,7 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
       validation.issues.map((issue) => `${issue.path}: ${issue.message}`).join('; '),
     );
     assert(
-      configuration.presetId === preset.id,
+      configuration.doctrineId === preset.id,
       `preset ${preset.id} records its preset origin`,
     );
     assert(
@@ -321,84 +397,99 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     );
   }
 
-  const councilOfX = getCouncilPreset('council-of-x')!;
+  // Crown Council: equal deliberation and voting are Doctrine mechanics,
+  // not a Calling. Every seat holds the same Calling (Magistrate), all seats
+  // share one independent deliberation round, and providers rotate in
+  // canonical registry order. Vote casting/tallying remains future work.
+  const crownCouncil = getCouncilDoctrine('crown-council')!;
   assert(
-    councilOfX.build().stages.length === councilOfXDefaultSize && councilOfX.defaultSize === councilOfXDefaultSize,
-    'Council of X defaults to 4 stages',
+    crownCouncil.build().stages.length === crownCouncilDefaultSize && crownCouncil.defaultSize === crownCouncilDefaultSize,
+    'Crown Council defaults to 4 seats',
   );
 
-  for (const size of [councilOfXMinSize, 3, 7, councilOfXMaxSize]) {
-    const configuration = councilOfX.build({ size });
-    assert(configuration.stages.length === size, `Council of ${size} seats exactly ${size} Councillors`);
+  for (const size of [crownCouncilMinSize, 3, 7, crownCouncilMaxSize]) {
+    const configuration = crownCouncil.build({ size });
+    assert(configuration.stages.length === size, `Crown Council of ${size} seats exactly ${size} peers`);
     assert(
-      configuration.stages.every((stage) => stage.role === 'councillor'),
-      `Council of ${size} gives every seat equal Councillor role identity`,
+      configuration.stages.every((stage) => stage.calling === 'magistrate'),
+      `Crown Council of ${size} gives every seat identical Calling (equal-peer mechanics, no Councillor Calling)`,
     );
     assert(
-      !configuration.stages.some((stage) => stage.role === 'royal-scribe'),
-      `Council of ${size} has no synthesis or specialized role consuming a voting seat`,
+      !configuration.stages.some((stage) => stage.calling === 'royal-scribe'),
+      `Crown Council of ${size} has no synthesis Calling consuming a voting seat`,
     );
     assert(
       configuration.stages.every((stage) =>
         stage.inputPolicy === 'independent-round' && stage.round === 'deliberation'),
-      `Council of ${size} seats deliberate independently in one shared round`,
+      `Crown Council of ${size} seats deliberate independently in one shared round`,
     );
     assert(
       new Set(configuration.stages.slice(0, Math.min(size, 9)).map((stage) => stage.provider)).size ===
       Math.min(size, 9),
-      `Council of ${size} distributes distinct providers across seats (registry rotation)`,
+      `Crown Council of ${size} distributes distinct providers across seats (registry rotation)`,
     );
     assert(
       validateCouncilConfiguration(configuration).valid,
-      `Council of ${size} passes schema validation`,
+      `Crown Council of ${size} passes schema validation`,
     );
   }
 
   assert(
-    councilOfX.build({ size: councilOfXMaxSize }).stages[9].provider ===
-    councilOfX.build({ size: councilOfXMaxSize }).stages[0].provider,
-    'Council of X seats beyond the registry wrap the provider rotation (duplicates allowed)',
+    crownCouncil.build({ size: crownCouncilMaxSize }).stages[9].provider ===
+    crownCouncil.build({ size: crownCouncilMaxSize }).stages[0].provider,
+    'Crown Council seats beyond the registry wrap the provider rotation (duplicates allowed)',
+  );
+
+  // Deliberate persisted-data compatibility: legacy Calling ids in stored
+  // Studio overrides migrate on parse; removed Councillor overrides drop.
+  const migrated = parseCallingFlavourOverrides(
+    '{"schemaVersion":1,"overrides":{"scout":"Custom scout text.","smith":"Custom smith text.","master-of-questions":"Custom questions text.","councillor":"Gone.","inquisitor":"Kept."}}',
   );
   assert(
-    renderRoleFraming(getCouncilRole('councillor')!, 'full') === roleFlavourTexts.councillor &&
-    resolveCouncilRoleFlavourText('councillor', { councillor: 'Custom seat framing.' }) === 'Custom seat framing.',
-    'Councillor flavour text resolves canonically and honors overrides',
+    migrated.overrides.pathfinder === 'Custom scout text.' &&
+    migrated.overrides.architect === 'Custom smith text.' &&
+    migrated.overrides.sage === 'Custom questions text.' &&
+    migrated.overrides.inquisitor === 'Kept.' &&
+    !('councillor' in migrated.overrides) &&
+    !('scout' in migrated.overrides),
+    'persisted overrides under legacy Calling ids migrate to canonical ids and Councillor entries drop',
   );
 
-  assertThrows(() => councilOfX.build({ size: 1 }), 'Council of X rejects size below minimum');
-  assertThrows(() => councilOfX.build({ size: 13 }), 'Council of X rejects size above maximum');
-  assertThrows(() => councilOfX.build({ size: 2.5 }), 'Council of X rejects non-integer size');
+  assertThrows(() => crownCouncil.build({ size: 1 }), 'Crown Council rejects size below minimum');
+  assertThrows(() => crownCouncil.build({ size: 13 }), 'Crown Council rejects size above maximum');
+  assertThrows(() => crownCouncil.build({ size: 2.5 }), 'Crown Council rejects non-integer size');
 
-  // Exact ordered party compositions (slot -> role -> provider) for every
-  // fixed-size preset, per the approved 2026-07-13 v1 defaults.
-  const expectedParties: Record<string, Array<[string, string]>> = {
-    concord: [
+  // Exact ordered default Formations (seat -> Calling -> provider) for every
+  // fixed-size Doctrine, per the approved v1 defaults (Dream Lab seat 5 is
+  // Pathfinder, per the revised adjacent-opportunities purpose).
+  const expectedFormations: Record<string, Array<[string, string]>> = {
+    'realm-summit': [
       ['empath', 'claude'], ['cartographer', 'gemini'], ['rival', 'chatgpt'], ['inquisitor', 'claude'],
       ['alchemist', 'gemini'], ['magistrate', 'claude'], ['royal-scribe', 'chatgpt'],
     ],
-    'idea-forge': [
-      ['master-of-questions', 'claude'], ['cartographer', 'gemini'], ['wild-mage', 'grok'], ['wild-mage', 'chatgpt'],
-      ['rival', 'gemini'], ['alchemist', 'claude'], ['royal-scribe', 'chatgpt'],
+    'dream-lab': [
+      ['sage', 'claude'], ['cartographer', 'gemini'], ['wild-mage', 'grok'], ['wild-mage', 'chatgpt'],
+      ['pathfinder', 'gemini'], ['alchemist', 'claude'], ['royal-scribe', 'chatgpt'],
     ],
     crucible: [
       ['cartographer', 'chatgpt'], ['lantern-bearer', 'perplexity'], ['rival', 'gemini'], ['inquisitor', 'claude'],
       ['saboteur', 'grok'], ['lantern-bearer', 'google'], ['magistrate', 'claude'], ['royal-scribe', 'chatgpt'],
     ],
-    'editorial-court': [
+    'imperial-court': [
       ['archivist', 'claude'], ['lantern-bearer', 'perplexity'], ['cartographer', 'gemini'], ['inquisitor', 'claude'],
-      ['empath', 'chatgpt'], ['smith', 'claude'], ['royal-scribe', 'chatgpt'],
+      ['empath', 'chatgpt'], ['architect', 'claude'], ['royal-scribe', 'chatgpt'],
     ],
     'arcane-expedition': [
-      ['master-of-questions', 'claude'], ['scout', 'google'], ['scout', 'perplexity'], ['archivist', 'claude'],
+      ['sage', 'claude'], ['pathfinder', 'google'], ['pathfinder', 'perplexity'], ['archivist', 'claude'],
       ['lantern-bearer', 'perplexity'], ['cartographer', 'gemini'], ['oracle', 'chatgpt'], ['royal-scribe', 'claude'],
     ],
     'scholars-conclave': [
-      ['master-of-questions', 'claude'], ['scout', 'google'], ['lantern-bearer', 'perplexity'], ['archivist', 'claude'],
+      ['sage', 'claude'], ['pathfinder', 'google'], ['lantern-bearer', 'perplexity'], ['archivist', 'claude'],
       ['cartographer', 'gemini'], ['inquisitor', 'claude'], ['magistrate', 'chatgpt'], ['royal-scribe', 'claude'],
     ],
-    academy: [
-      ['master-of-questions', 'claude'], ['cartographer', 'gemini'], ['empath', 'chatgpt'], ['archivist', 'claude'],
-      ['wild-mage', 'gemini'], ['smith', 'claude'], ['royal-scribe', 'chatgpt'],
+    'grand-academy': [
+      ['sage', 'claude'], ['cartographer', 'gemini'], ['empath', 'chatgpt'], ['archivist', 'claude'],
+      ['wild-mage', 'gemini'], ['architect', 'claude'], ['royal-scribe', 'chatgpt'],
     ],
     'decision-chamber': [
       ['cartographer', 'gemini'], ['lantern-bearer', 'perplexity'], ['rival', 'chatgpt'], ['inquisitor', 'claude'],
@@ -409,82 +500,92 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
       ['saboteur', 'claude'], ['magistrate', 'claude'], ['royal-scribe', 'chatgpt'],
     ],
     'war-room': [
-      ['cartographer', 'gemini'], ['scout', 'perplexity'], ['oracle', 'chatgpt'], ['rival', 'gemini'],
+      ['cartographer', 'gemini'], ['pathfinder', 'perplexity'], ['oracle', 'chatgpt'], ['rival', 'gemini'],
       ['saboteur', 'claude'], ['quartermaster', 'chatgpt'], ['magistrate', 'claude'], ['royal-scribe', 'chatgpt'],
     ],
     workshop: [
-      ['master-of-questions', 'claude'], ['cartographer', 'chatgpt'], ['scout', 'perplexity'], ['wild-mage', 'grok'],
-      ['alchemist', 'gemini'], ['smith', 'claude'], ['royal-scribe', 'chatgpt'],
+      ['sage', 'claude'], ['cartographer', 'chatgpt'], ['pathfinder', 'perplexity'], ['wild-mage', 'grok'],
+      ['alchemist', 'gemini'], ['architect', 'claude'], ['royal-scribe', 'chatgpt'],
     ],
     'oracles-table': [
-      ['cartographer', 'gemini'], ['scout', 'perplexity'], ['lantern-bearer', 'google'], ['oracle', 'chatgpt'],
+      ['cartographer', 'gemini'], ['pathfinder', 'perplexity'], ['lantern-bearer', 'google'], ['oracle', 'chatgpt'],
       ['oracle', 'gemini'], ['inquisitor', 'claude'], ['magistrate', 'claude'], ['royal-scribe', 'chatgpt'],
     ],
-    'creative-studio': [
-      ['master-of-questions', 'claude'], ['wild-mage', 'grok'], ['wild-mage', 'chatgpt'], ['rival', 'gemini'],
-      ['empath', 'claude'], ['alchemist', 'chatgpt'], ['smith', 'claude'],
+    'creation-chamber': [
+      ['sage', 'claude'], ['wild-mage', 'grok'], ['wild-mage', 'chatgpt'], ['rival', 'gemini'],
+      ['empath', 'claude'], ['alchemist', 'chatgpt'], ['architect', 'claude'],
     ],
     'socratic-circle': [
-      ['master-of-questions', 'claude'], ['master-of-questions', 'chatgpt'], ['cartographer', 'gemini'],
+      ['sage', 'claude'], ['sage', 'chatgpt'], ['cartographer', 'gemini'],
       ['inquisitor', 'claude'], ['empath', 'chatgpt'], ['oracle', 'gemini'], ['royal-scribe', 'claude'],
     ],
-    campaign: [
-      ['cartographer', 'gemini'], ['master-of-questions', 'claude'], ['scout', 'perplexity'], ['quartermaster', 'chatgpt'],
-      ['saboteur', 'claude'], ['smith', 'chatgpt'], ['magistrate', 'claude'], ['royal-scribe', 'chatgpt'],
+    'grand-campaign': [
+      ['cartographer', 'gemini'], ['sage', 'claude'], ['pathfinder', 'perplexity'], ['quartermaster', 'chatgpt'],
+      ['saboteur', 'claude'], ['architect', 'chatgpt'], ['magistrate', 'claude'], ['royal-scribe', 'chatgpt'],
     ],
   };
 
-  for (const [presetId, expectedParty] of Object.entries(expectedParties)) {
-    const preset = getCouncilPreset(presetId)!;
-    const built = preset.build();
-    const actualParty = built.stages.map((stage) => [stage.role, stage.provider]);
+  for (const [doctrineId, expectedFormation] of Object.entries(expectedFormations)) {
+    const doctrine = getCouncilDoctrine(doctrineId)!;
+    const built = doctrine.build();
+    const actualFormation = built.stages.map((stage) => [stage.calling, stage.provider]);
 
     assert(
-      JSON.stringify(actualParty) === JSON.stringify(expectedParty),
-      `${presetId} builds its exact ordered role/provider party`,
-      JSON.stringify(actualParty),
+      JSON.stringify(actualFormation) === JSON.stringify(expectedFormation),
+      `${doctrineId} builds its exact ordered Calling/provider Formation`,
+      JSON.stringify(actualFormation),
     );
     assert(
-      preset.defaultSize === expectedParty.length && built.stages.length === preset.defaultSize,
-      `${presetId} default party size is ${expectedParty.length}`,
+      doctrine.defaultSize === expectedFormation.length && built.stages.length === doctrine.defaultSize,
+      `${doctrineId} default Formation size is ${expectedFormation.length}`,
     );
     assert(
       built.stages[0].inputPolicy === 'original-only' &&
       built.stages[built.stages.length - 1].inputPolicy === 'full-record' &&
       built.stages[built.stages.length - 1].failurePolicy === 'halt',
-      `${presetId} opens from the original request and ends with a halting full-record slot`,
+      `${doctrineId} opens from the original request and ends with a halting full-record seat`,
+    );
+    assert(
+      expectedFormation.every(([callingId, providerId]) =>
+        Boolean(getCouncilCalling(callingId)) && Boolean(getCouncilProvider(providerId))),
+      `${doctrineId} Formation seats resolve to known Callings and providers`,
     );
   }
 
-  // Duplicate roles and duplicate providers are intentional and preserved.
-  const ideaForge = getCouncilPreset('idea-forge')!.build();
+  // Duplicate Callings and duplicate providers are intentional and preserved.
+  const dreamLab = getCouncilDoctrine('dream-lab')!.build();
   assert(
-    ideaForge.stages.filter((stage) => stage.role === 'wild-mage').length === 2,
-    'duplicate roles are preserved (Idea Forge fields two Wild Mages)',
+    dreamLab.stages.filter((stage) => stage.calling === 'wild-mage').length === 2,
+    'duplicate Callings are preserved (Dream Lab fields two Wild Mages)',
   );
-  const campaignBuilt = getCouncilPreset('campaign')!.build();
+  const grandCampaign = getCouncilDoctrine('grand-campaign')!.build();
   assert(
-    campaignBuilt.stages.filter((stage) => stage.provider === 'claude').length === 3 &&
-    campaignBuilt.stages.filter((stage) => stage.provider === 'chatgpt').length === 3,
-    'duplicate providers are preserved (Campaign seats Claude and ChatGPT three times each)',
+    grandCampaign.stages.filter((stage) => stage.provider === 'claude').length === 3 &&
+    grandCampaign.stages.filter((stage) => stage.provider === 'chatgpt').length === 3,
+    'duplicate providers are preserved (Grand Campaign seats Claude and ChatGPT three times each)',
   );
-  const socratic = getCouncilPreset('socratic-circle')!.build();
+  const socratic = getCouncilDoctrine('socratic-circle')!.build();
   assert(
-    socratic.stages[0].role === 'master-of-questions' && socratic.stages[1].role === 'master-of-questions',
-    'consecutive duplicate roles are preserved (Socratic Circle opens with two questioning passes)',
-  );
-
-  const trial = getCouncilPreset('trial-by-fire')!.build();
-  assert(
-    trial.variables.dissent === 'adversarial' && trial.rules.preserveDissentInSynthesis,
-    'Trial by Fire remains adversarial and preserves dissent',
+    socratic.stages[0].calling === 'sage' && socratic.stages[1].calling === 'sage',
+    'consecutive duplicate Callings are preserved (Socratic Circle opens with two questioning passes)',
   );
 
-  const editorial = getCouncilPreset('editorial-court')!.build();
+  // The legacy three-level dissent variable is gone: adversarial character
+  // is now carried by the ten-level cognitive Dissent stat resolved from
+  // Callings and seats (asserted in the cognitive-stats suite).
+  const trial = getCouncilDoctrine('trial-by-fire')!.build();
   assert(
-    editorial.stages[editorial.stages.length - 1].role === 'royal-scribe' &&
-    editorial.stages[editorial.stages.length - 1].inputPolicy === 'full-record',
-    'Editorial Court still ends with a full-record Royal Scribe synthesis',
+    !('dissent' in trial.variables) &&
+    trial.rules.preserveDissentInSynthesis &&
+    resolveCognitiveStats(trial.stages[1].provider, trial.stages[1].calling, trial.stages[1].cognitiveOverrides).dissent === 9,
+    'Trial by Fire remains adversarial through cognitive Dissent (no legacy dissent variable) and preserves dissent',
+  );
+
+  const imperial = getCouncilDoctrine('imperial-court')!.build();
+  assert(
+    imperial.stages[imperial.stages.length - 1].calling === 'royal-scribe' &&
+    imperial.stages[imperial.stages.length - 1].inputPolicy === 'full-record',
+    'Imperial Court ends with a full-record Royal Scribe synthesis',
   );
 }
 
@@ -517,7 +618,7 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   rejects((config) => { config.stages = []; }, 'zero stages is rejected', 'stages');
   rejects((config) => { config.stages[1].id = 'stage-1'; }, 'duplicate stage ids are rejected', 'stages[1].id');
   rejects((config) => { config.stages[0].provider = 'openai'; }, 'unknown provider is rejected', 'stages[0].provider');
-  rejects((config) => { config.stages[0].role = 'trickster'; }, 'unknown role is rejected', 'stages[0].role');
+  rejects((config) => { config.stages[0].calling = 'trickster'; }, 'unknown role is rejected', 'stages[0].calling');
   rejects((config) => { config.stages[0].inputPolicy = 'last-n'; }, 'last-n without N is rejected', 'stages[0].inputPolicyN');
   rejects((config) => {
     config.stages[0].inputPolicy = 'last-n';
@@ -532,10 +633,16 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     config.budgets.perContributionChars = 9000;
     config.budgets.totalPromptChars = 8000;
   }, 'per-contribution budget above total budget is rejected', 'budgets');
-  rejects((config) => { (config.variables as { dissent: string }).dissent = 'furious'; }, 'invalid variable value is rejected', 'variables.dissent');
+  rejects((config) => { (config.variables as { roleIntensity: string }).roleIntensity = 'blazing'; }, 'invalid variable value is rejected', 'variables.roleIntensity');
   rejects((config) => {
-    config.stages[0].variableOverrides = { responseLength: 'novel' as never };
+    config.stages[0].variableOverrides = { roleIntensity: 'novel' as never };
   }, 'invalid stage variable override is rejected', 'stages[0].variableOverrides');
+  rejects((config) => {
+    config.stages[0].cognitiveOverrides = { dissent: 13 as never };
+  }, 'out-of-range cognitive stat level is rejected', 'stages[0].cognitiveOverrides.dissent');
+  rejects((config) => {
+    config.stages[0].cognitiveOverrides = { temperature: 7 } as never;
+  }, 'unknown cognitive stat key is rejected (closed object)', 'stages[0].cognitiveOverrides.temperature');
   rejects((config) => { (config.rules as { forbidRepetition: unknown }).forbidRepetition = 'yes'; }, 'non-boolean rule flag is rejected', 'rules.forbidRepetition');
   rejects((config) => { (config.stages[0] as { round?: unknown }).round = 4; }, 'non-string round is rejected', 'stages[0].round');
 
@@ -558,18 +665,24 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   const inquisitorStage = config.stages[1];
 
   assert(
-    resolveEffectiveVariables(config, lanternStage).dissent === 'balanced',
+    resolveEffectiveVariables(config, lanternStage).roleIntensity === 'full' &&
+    resolveEffectiveVariables(config, lanternStage).inputMode === 'cumulative',
     'global variables apply when no role or stage override exists',
   );
   assert(
-    resolveEffectiveVariables(config, inquisitorStage).dissent === 'adversarial',
-    'role default variables override configuration globals',
+    JSON.stringify(Object.keys(defaultCouncilVariables)) === JSON.stringify(['roleIntensity', 'inputMode']),
+    'council variables carry exactly Calling intensity and input mode (verbosity and dissent moved to cognitive stats)',
+    Object.keys(defaultCouncilVariables).join(','),
+  );
+  assert(
+    councilCallings.every((calling) => calling.defaultVariables === undefined),
+    'no Calling carries legacy variable defaults (dissent character lives in cognitiveDefaults)',
   );
 
-  const overridden: CouncilStage = { ...inquisitorStage, variableOverrides: { dissent: 'collaborative', responseLength: 'brief' } };
+  const overridden: CouncilStage = { ...inquisitorStage, variableOverrides: { roleIntensity: 'light', inputMode: 'independent' } };
   const effective = resolveEffectiveVariables(config, overridden);
   assert(
-    effective.dissent === 'collaborative' && effective.responseLength === 'brief',
+    effective.roleIntensity === 'light' && effective.inputMode === 'independent',
     'stage overrides take precedence over role defaults and globals',
   );
 
@@ -620,7 +733,7 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   const stageWith = (policy: CouncilStage['inputPolicy'], n?: number): CouncilStage => ({
     id: 'stage-x',
     provider: 'claude',
-    role: 'inquisitor',
+    calling: 'inquisitor',
     inputPolicy: policy,
     ...(n !== undefined ? { inputPolicyN: n } : {}),
     failurePolicy: 'halt',
@@ -687,7 +800,7 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   const stage: CouncilStage = {
     id: 'stage-x',
     provider: 'chatgpt',
-    role: 'royal-scribe',
+    calling: 'royal-scribe',
     inputPolicy: 'full-record',
     failurePolicy: 'halt',
   };
@@ -721,9 +834,10 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   );
   assert(composed.prompt.length <= config.budgets.totalPromptChars, 'composed prompt respects the total budget');
 
-  // Tighter budget: force omission of the oldest contributions.
+  // Tighter budget: force omission of the oldest contributions. (Total
+  // sized for the fixed sections including this seat's cognitive guidance.)
   const tightConfig = baseConfiguration();
-  tightConfig.budgets = { perContributionChars: 200, totalPromptChars: 1600 };
+  tightConfig.budgets = { perContributionChars: 200, totalPromptChars: 1800 };
   const tight = composeStagePrompt({
     configuration: tightConfig,
     stage,
@@ -770,7 +884,7 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   const stage: CouncilStage = {
     id: 'stage-x',
     provider: 'chatgpt',
-    role: 'royal-scribe',
+    calling: 'royal-scribe',
     inputPolicy: 'full-record',
     failurePolicy: 'halt',
   };
@@ -841,9 +955,9 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   const stage: CouncilStage = {
     id: 'stage-x',
     provider: 'claude',
-    role: 'inquisitor',
+    calling: 'inquisitor',
     inputPolicy: 'previous-plus-original',
-    variableOverrides: { responseLength: 'brief', roleIntensity: 'light' },
+    variableOverrides: { roleIntensity: 'light' },
     failurePolicy: 'halt',
   };
   const priors = [contribution('stage-a', 'lantern-bearer', 'perplexity', 'The claim is supported.')];
@@ -856,8 +970,9 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
 
   const composed = composeOnce();
   assert(
-    composed.prompt.includes('Keep your response brief: a short paragraph or a compact list.'),
-    'response-length instruction reflects the stage override',
+    !composed.prompt.includes('Use a moderate response length') &&
+    !composed.prompt.includes('Balance building on the prior material with honest challenge'),
+    'superseded responseLength and three-level dissent wording never appears in composed prompts',
   );
   assert(
     composed.prompt.includes('Approach this from the perspective of a Skeptic / Critical Reviewer.') &&
@@ -885,7 +1000,7 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   const frozenStage = deepFreeze<CouncilStage>({
     id: 'stage-x',
     provider: 'claude',
-    role: 'inquisitor',
+    calling: 'inquisitor',
     inputPolicy: 'full-record',
     failurePolicy: 'halt',
   });
@@ -915,7 +1030,7 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   const stage: CouncilStage = {
     id: 'stage-2',
     provider: 'claude',
-    role: 'inquisitor',
+    calling: 'inquisitor',
     inputPolicy: 'previous-plus-original',
     failurePolicy: 'halt',
   };
@@ -927,13 +1042,22 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     priorContributions: [contribution('stage-1', 'lantern-bearer', 'perplexity', 'The claim is supported.')],
   });
 
+  // Resolved cognitive stats for this seat: Claude provider defaults
+  // (t4 v7 c4 d5 depth9 m7) under Inquisitor Calling defaults (dissent 9,
+  // depth 8) with no seat override -> t4 v7 c4 d9 depth8 m7, so all five
+  // prose stats are non-neutral and render in canonical order.
   const expected = [
     'You are one participant in a structured multi-participant review council, acting as its Skeptic / Critical Reviewer.',
     '',
     'Approach this from the perspective of a Skeptic / Critical Reviewer.',
     '',
-    'Use a moderate response length: cover the essentials without padding.',
-    'Actively challenge the prior material; prioritize finding weaknesses over agreement.',
+    'Cognitive guidance:',
+    '- Remain somewhat more precise than imaginative. Consider modest alternative interpretations without drifting far from the evidence.',
+    '- Give a detailed contribution with supporting explanation and relevant implications.',
+    '- Remain somewhat flexible and open to revision while preserving conclusions that still appear well supported.',
+    '- Relentlessly search for substantive disagreement, weak assumptions, counterarguments, and failure points. Prioritize rigorous challenge over harmony.',
+    '- Perform a deep analysis of assumptions, edge cases, downstream effects, and serious alternative interpretations.',
+    '',
     'Treat this as one step in a running discussion and build on what came before.',
     '',
     'Produce a critique: an organized assessment of strengths, weaknesses, and specific problems.',
@@ -955,8 +1079,16 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     `got:\n${composed.prompt}`,
   );
   assert(
-    composed.effectiveVariables.dissent === 'adversarial' && composed.outputPolicy === 'critique',
-    'snapshot metadata reports effective variables and output policy',
+    composed.resolvedCognitiveStats.dissent === 9 &&
+    composed.resolvedCognitiveStats.memory === 7 &&
+    composed.effectiveVariables.roleIntensity === 'light' &&
+    composed.outputPolicy === 'critique',
+    'snapshot metadata reports resolved cognitive stats, effective variables, and output policy',
+  );
+  assert(
+    composed.eligibleContributionIds.join(',') === 'stage-1' &&
+    composed.memorySelectedContributionIds.join(',') === 'stage-1',
+    'snapshot metadata reports eligibility and Memory selection diagnostics',
   );
 }
 
@@ -964,7 +1096,7 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
 // Role flavour text: canonical source, framing, and override envelope
 // =========================================================================
 {
-  const inquisitor = getCouncilRole('inquisitor')!;
+  const inquisitor = getCouncilCalling('inquisitor')!;
 
   // Composition consumes the canonical flavour source verbatim.
   const composed = composeStagePrompt({
@@ -972,7 +1104,7 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     stage: {
       id: 'stage-x',
       provider: 'claude',
-      role: 'inquisitor',
+      calling: 'inquisitor',
       inputPolicy: 'original-only',
       failurePolicy: 'halt',
     },
@@ -980,23 +1112,23 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     priorContributions: [],
   });
   assert(
-    composed.prompt.includes(roleFlavourTexts.inquisitor),
+    composed.prompt.includes(callingFlavourTexts.inquisitor),
     'full-intensity composition injects the canonical flavour text verbatim',
   );
 
   assert(
-    renderRoleFraming(inquisitor, 'full') === roleFlavourTexts.inquisitor,
-    'renderRoleFraming resolves canonical text at full intensity',
+    renderCallingFraming(inquisitor, 'full') === callingFlavourTexts.inquisitor,
+    'renderCallingFraming resolves canonical text at full intensity',
   );
   assert(
-    renderRoleFraming(inquisitor, 'light') === 'Approach this from the perspective of a Skeptic / Critical Reviewer.',
-    'renderRoleFraming keeps the deterministic light-intensity one-liner',
+    renderCallingFraming(inquisitor, 'light') === 'Approach this from the perspective of a Skeptic / Critical Reviewer.',
+    'renderCallingFraming keeps the deterministic light-intensity one-liner',
   );
 
   // Override envelope: immutable updates, one role never affects another.
-  const empty = createEmptyRoleFlavourOverrides();
-  const withOne = setRoleFlavourOverride(empty, 'inquisitor', 'Custom skeptic framing.');
-  const withTwo = setRoleFlavourOverride(withOne, 'rival', 'Custom strategist framing.');
+  const empty = createEmptyCallingFlavourOverrides();
+  const withOne = setCallingFlavourOverride(empty, 'inquisitor', 'Custom skeptic framing.');
+  const withTwo = setCallingFlavourOverride(withOne, 'rival', 'Custom strategist framing.');
 
   assert(
     Object.keys(empty.overrides).length === 0 &&
@@ -1010,17 +1142,17 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     'editing one role does not mutate another role',
   );
   assert(
-    resolveRoleFlavourText('inquisitor', withTwo) === 'Custom skeptic framing.' &&
-    resolveRoleFlavourText('magistrate', withTwo) === roleFlavourTexts.magistrate,
+    resolveCallingFlavourText('inquisitor', withTwo) === 'Custom skeptic framing.' &&
+    resolveCallingFlavourText('magistrate', withTwo) === callingFlavourTexts.magistrate,
     'resolution prefers overrides and falls back to canonical text',
   );
   assert(
-    renderRoleFraming(inquisitor, 'full', withTwo.overrides) === 'Custom skeptic framing.',
-    'renderRoleFraming honors an override at full intensity',
+    renderCallingFraming(inquisitor, 'full', withTwo.overrides) === 'Custom skeptic framing.',
+    'renderCallingFraming honors an override at full intensity',
   );
 
   // Reset/revert semantics.
-  const reverted = clearRoleFlavourOverride(withTwo, 'inquisitor');
+  const reverted = clearCallingFlavourOverride(withTwo, 'inquisitor');
   assert(
     reverted.overrides.inquisitor === undefined &&
     reverted.overrides.rival === 'Custom strategist framing.' &&
@@ -1028,35 +1160,35 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     'clearing an override reverts one role without touching others or the source object',
   );
   assert(
-    setRoleFlavourOverride(withOne, 'inquisitor', roleFlavourTexts.inquisitor).overrides.inquisitor === undefined,
+    setCallingFlavourOverride(withOne, 'inquisitor', callingFlavourTexts.inquisitor).overrides.inquisitor === undefined,
     'setting text back to the canonical default removes the override',
   );
   assert(
-    setRoleFlavourOverride(withOne, 'inquisitor', '   ').overrides.inquisitor === undefined,
+    setCallingFlavourOverride(withOne, 'inquisitor', '   ').overrides.inquisitor === undefined,
     'setting blank text removes the override',
   );
 
   // Persistence envelope: versioned serialize/parse round trip.
-  const roundTrip = parseRoleFlavourOverrides(serializeRoleFlavourOverrides(withTwo));
+  const roundTrip = parseCallingFlavourOverrides(serializeCallingFlavourOverrides(withTwo));
   assert(
     JSON.stringify(roundTrip) === JSON.stringify(withTwo),
     'overrides survive a serialize/parse round trip',
   );
   assert(
-    parseRoleFlavourOverrides(null).schemaVersion === roleFlavourOverridesSchemaVersion &&
-    Object.keys(parseRoleFlavourOverrides(null).overrides).length === 0,
+    parseCallingFlavourOverrides(null).schemaVersion === callingFlavourOverridesSchemaVersion &&
+    Object.keys(parseCallingFlavourOverrides(null).overrides).length === 0,
     'missing persisted overrides parse to an empty envelope',
   );
   assert(
-    Object.keys(parseRoleFlavourOverrides('not json').overrides).length === 0,
+    Object.keys(parseCallingFlavourOverrides('not json').overrides).length === 0,
     'corrupt persisted overrides parse to an empty envelope',
   );
   assert(
-    Object.keys(parseRoleFlavourOverrides('{"schemaVersion":99,"overrides":{"inquisitor":"x"}}').overrides).length === 0,
+    Object.keys(parseCallingFlavourOverrides('{"schemaVersion":99,"overrides":{"inquisitor":"x"}}').overrides).length === 0,
     'unknown persisted schema versions are discarded rather than misread',
   );
   assert(
-    Object.keys(parseRoleFlavourOverrides('{"schemaVersion":1,"overrides":{"inquisitor":42,"rival":"ok","empty":"  "}}').overrides).join(',') === 'rival',
+    Object.keys(parseCallingFlavourOverrides('{"schemaVersion":1,"overrides":{"inquisitor":42,"rival":"ok","empty":"  "}}').overrides).join(',') === 'rival',
     'parsing drops non-string and blank override entries',
   );
 }
@@ -1069,28 +1201,28 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   const customText = 'Question every claim in this material and rank the three weakest points first.';
 
   // Schema validation.
-  const withOverrides = baseConfiguration({ roleFlavourOverrides: { inquisitor: customText } });
+  const withOverrides = baseConfiguration({ callingFlavourOverrides: { inquisitor: customText } });
   assert(
     validateCouncilConfiguration(withOverrides).valid,
     'configuration with council-level flavour overrides passes validation',
   );
 
   const unknownRole = validateCouncilConfiguration(
-    baseConfiguration({ roleFlavourOverrides: { trickster: 'x' } }),
+    baseConfiguration({ callingFlavourOverrides: { trickster: 'x' } }),
   );
   assert(
-    !unknownRole.valid && unknownRole.issues.some((issue) => issue.path === 'roleFlavourOverrides.trickster'),
+    !unknownRole.valid && unknownRole.issues.some((issue) => issue.path === 'callingFlavourOverrides.trickster'),
     'override for an unknown role id is rejected',
   );
   assert(
     !validateCouncilConfiguration(
-      baseConfiguration({ roleFlavourOverrides: { inquisitor: '   ' } }),
+      baseConfiguration({ callingFlavourOverrides: { inquisitor: '   ' } }),
     ).valid,
     'blank override flavour text is rejected',
   );
   assert(
     !validateCouncilConfiguration(
-      baseConfiguration({ roleFlavourOverrides: { inquisitor: 42 } as never }),
+      baseConfiguration({ callingFlavourOverrides: { inquisitor: 42 } as never }),
     ).valid,
     'non-string override flavour text is rejected',
   );
@@ -1100,7 +1232,7 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   const stage = (roleIntensity?: 'light' | 'full'): CouncilStage => ({
     id: 'stage-x',
     provider: 'claude',
-    role: 'inquisitor',
+    calling: 'inquisitor',
     inputPolicy: 'original-only',
     ...(roleIntensity ? { variableOverrides: { roleIntensity } } : {}),
     failurePolicy: 'halt',
@@ -1113,18 +1245,18 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     priorContributions: [],
   });
   assert(
-    overridden.prompt.includes(customText) && !overridden.prompt.includes(roleFlavourTexts.inquisitor),
+    overridden.prompt.includes(customText) && !overridden.prompt.includes(callingFlavourTexts.inquisitor),
     'composition injects the council override instead of canonical text for the customized role',
   );
 
   const otherRole = composeStagePrompt({
     configuration: withOverrides,
-    stage: { ...stage(), role: 'magistrate', provider: 'chatgpt' },
+    stage: { ...stage(), calling: 'magistrate', provider: 'chatgpt' },
     request: 'Is the sky blue?',
     priorContributions: [],
   });
   assert(
-    otherRole.prompt.includes(roleFlavourTexts.magistrate),
+    otherRole.prompt.includes(callingFlavourTexts.magistrate),
     'roles without a council override keep canonical flavour text',
   );
 
@@ -1141,30 +1273,30 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   );
 
   // Presets embed overrides only when provided, and stay valid.
-  const presetWith = getCouncilPreset('trial-by-fire')!.build({
-    roleFlavourOverrides: { inquisitor: customText },
+  const presetWith = getCouncilDoctrine('trial-by-fire')!.build({
+    callingFlavourOverrides: { inquisitor: customText },
   });
   assert(
-    presetWith.roleFlavourOverrides?.inquisitor === customText &&
+    presetWith.callingFlavourOverrides?.inquisitor === customText &&
     validateCouncilConfiguration(presetWith).valid,
     'presets embed provided flavour overrides and remain schema-valid',
   );
   assert(
-    !('roleFlavourOverrides' in getCouncilPreset('trial-by-fire')!.build()),
+    !('callingFlavourOverrides' in getCouncilDoctrine('trial-by-fire')!.build()),
     'presets omit the overrides block entirely when nothing is customized',
   );
   assert(
-    !('roleFlavourOverrides' in getCouncilPreset('editorial-court')!.build({ roleFlavourOverrides: {} })),
-    'an empty overrides record is not embedded into preset output',
+    !('callingFlavourOverrides' in getCouncilDoctrine('imperial-court')!.build({ callingFlavourOverrides: {} })),
+    'an empty overrides record is not embedded into Doctrine output',
   );
 
   // Studio envelope -> compact council record.
-  const envelope = setRoleFlavourOverride(
-    setRoleFlavourOverride(createEmptyRoleFlavourOverrides(), 'inquisitor', customText),
+  const envelope = setCallingFlavourOverride(
+    setCallingFlavourOverride(createEmptyCallingFlavourOverrides(), 'inquisitor', customText),
     'rival',
     'Offer one competing plan and one hybrid plan.',
   );
-  const councilRecord = toCouncilRoleFlavourOverrides(envelope);
+  const councilRecord = toCouncilCallingFlavourOverrides(envelope);
   assert(
     councilRecord !== undefined &&
     Object.keys(councilRecord).sort().join(',') === 'inquisitor,rival' &&
@@ -1172,12 +1304,12 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     'the Studio envelope converts to a compact council record of customized roles only',
   );
   assert(
-    toCouncilRoleFlavourOverrides(createEmptyRoleFlavourOverrides()) === undefined,
+    toCouncilCallingFlavourOverrides(createEmptyCallingFlavourOverrides()) === undefined,
     'an empty envelope converts to undefined so scrolls never carry empty blocks',
   );
   assert(
-    resolveCouncilRoleFlavourText('inquisitor', councilRecord) === customText &&
-    resolveCouncilRoleFlavourText('magistrate', councilRecord) === roleFlavourTexts.magistrate,
+    resolveCouncilCallingFlavourText('inquisitor', councilRecord) === customText &&
+    resolveCouncilCallingFlavourText('magistrate', councilRecord) === callingFlavourTexts.magistrate,
     'council-record resolution prefers overrides and falls back to canonical text',
   );
 
@@ -1188,7 +1320,7 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     stage: {
       id: 'stage-x',
       provider: 'chatgpt',
-      role: 'smith',
+      calling: 'architect',
       inputPolicy: 'original-only',
       failurePolicy: 'halt',
     },
@@ -1196,19 +1328,19 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     priorContributions: [],
   });
   assert(
-    smithComposed.prompt.includes(roleFlavourTexts.smith) &&
+    smithComposed.prompt.includes(callingFlavourTexts.architect) &&
     smithComposed.prompt.includes('acting as its Implementation Planner / Builder') &&
     smithComposed.outputPolicy === 'recommendation',
-    'a newly added role composes with its canonical flavour text and role defaults',
+    'a renamed Calling (Architect) composes with its canonical flavour text and Calling defaults',
   );
 
   const oracleOverride = 'Sketch three futures for this plan and name the early warning signs of each.';
   const oracleComposed = composeStagePrompt({
-    configuration: baseConfiguration({ roleFlavourOverrides: { oracle: oracleOverride } }),
+    configuration: baseConfiguration({ callingFlavourOverrides: { oracle: oracleOverride } }),
     stage: {
       id: 'stage-x',
       provider: 'gemini',
-      role: 'oracle',
+      calling: 'oracle',
       inputPolicy: 'original-only',
       failurePolicy: 'halt',
     },
@@ -1217,7 +1349,7 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   });
   assert(
     oracleComposed.prompt.includes(oracleOverride) &&
-    !oracleComposed.prompt.includes(roleFlavourTexts.oracle),
+    !oracleComposed.prompt.includes(callingFlavourTexts.oracle),
     'a council-level flavour override works for a newly added role',
   );
 }
@@ -1226,8 +1358,8 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
 // Role lookup sanity
 // =========================================================================
 {
-  assert(getCouncilRole('royal-scribe')?.fantasyTitle === 'Royal Scribe', 'role lookup resolves by id');
-  assert(getCouncilRole('nonexistent') === undefined, 'unknown role lookup returns undefined');
+  assert(getCouncilCalling('royal-scribe')?.fantasyTitle === 'Royal Scribe', 'role lookup resolves by id');
+  assert(getCouncilCalling('nonexistent') === undefined, 'unknown role lookup returns undefined');
 }
 
 if (failureCount > 0) {

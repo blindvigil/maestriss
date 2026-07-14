@@ -5,24 +5,47 @@
 //
 //   1. Task/context header
 //   2. Council rules
-//   3. Role framing (scaled by role intensity)
-//   4. Behavioral variable instructions
-//   5. Output instruction
-//   6. Original user request (input-policy dependent)
-//   7. Prior council material (input-policy selected, budget shaped)
+//   3. Calling framing / flavour text (scaled by Calling intensity)
+//   4. Cognitive guidance (sparse: non-neutral resolved stats only)
+//   5. Behavioral variable instructions (input mode)
+//   6. Output instruction
+//   7. Original user request (input-policy dependent)
+//   8. Prior council material (input-policy eligible, Memory exposed,
+//      budget shaped)
 //
-// Effective-value precedence, resolved before rendering:
+// Two separate prompt layers stay independent by construction: Calling
+// flavour text (what kind of thinker am I?) is canonical, independently
+// editable content, while cognitive guidance (how should I behave in this
+// seat?) is deterministically generated from the resolved cognitive stats
+// and never concatenated into flavour-text storage.
+//
+// Effective-variable precedence, resolved before rendering:
 //   stage override > role default > configuration global.
-// Preset choices are baked into the configuration when a preset builds it,
-// so configuration globals already embody preset intent.
+// Cognitive-stat precedence is separate and canonical:
+//   seat override > Calling default > provider default > neutral.
+//
+// Prior-material pipeline: the input policy selects the ELIGIBLE
+// contributions (and owns original-request inclusion); the resolved Memory
+// stat then narrows how much of that eligible material is exposed (never
+// expanding it); prompt budgets finally shape what survives. Neutral Memory
+// (5) preserves input-policy behavior exactly.
 //
 // Prior AI output is untrusted source material: it is injected only inside
 // labeled delimiters behind a standing instruction that it carries no
 // instruction authority.
 
 import { getCouncilProvider } from './providers.js';
-import { renderRoleFraming } from './roleFlavourText.js';
-import { getCouncilRole } from './roles.js';
+import { renderCallingFraming } from './callingFlavourText.js';
+import { getCouncilCalling } from './callings.js';
+import {
+  memoryExposureByLevel,
+  resolveCognitiveStats,
+  type CognitiveStats,
+} from './cognitiveStats.js';
+import {
+  cognitiveGuidanceInstructionTexts,
+  renderCognitiveGuidance,
+} from './cognitiveGuidance.js';
 import type {
   CouncilConfiguration,
   CouncilOutputPolicy,
@@ -34,7 +57,7 @@ import type {
 export type CouncilContribution = {
   stageId: string;
   provider: string;
-  role: string;
+  calling: string;
   text: string;
 };
 
@@ -49,7 +72,17 @@ export type ComposeStagePromptInput = {
 export type ComposedStagePrompt = {
   prompt: string;
   effectiveVariables: CouncilVariables;
+  // All six resolved cognitive stats for this seat (seat > Calling >
+  // provider > neutral), exposed for diagnostics and future run records.
+  resolvedCognitiveStats: CognitiveStats;
   outputPolicy: CouncilOutputPolicy;
+  // Memory diagnostics: what the input policy made eligible, and what the
+  // resolved Memory level actually exposed from it.
+  eligibleContributionIds: string[];
+  memorySelectedContributionIds: string[];
+  // The per-contribution character cap actually applied (Memory levels 1-2
+  // tighten it below budgets.perContributionChars). Diagnostic only.
+  effectivePerContributionChars: number;
   includedContributionIds: string[];
   truncatedContributionIds: string[];
   omittedContributionIds: string[];
@@ -70,18 +103,9 @@ const councilRuleSentences: Record<Exclude<keyof CouncilRules, 'customRuleText'>
   distinguishConsensusFromMinority: 'Make clear which conclusions are broadly shared and which are minority views.',
 };
 
-const responseLengthInstructions: Record<CouncilVariables['responseLength'], string> = {
-  brief: 'Keep your response brief: a short paragraph or a compact list.',
-  standard: 'Use a moderate response length: cover the essentials without padding.',
-  extended: 'A longer, more detailed response is welcome where the substance justifies it.',
-};
-
-const dissentInstructions: Record<CouncilVariables['dissent'], string> = {
-  collaborative: 'Favor building on the prior material constructively where it holds up.',
-  balanced: 'Balance building on the prior material with honest challenge where it is weak.',
-  adversarial: 'Actively challenge the prior material; prioritize finding weaknesses over agreement.',
-};
-
+// Verbosity and dissent wording is owned by the cognitive-guidance catalog
+// (Voice and Dissent levels); the superseded responseLength and three-level
+// dissent instruction tables were removed with the cognitive-stat migration.
 const inputModeInstructions: Record<CouncilVariables['inputMode'], string> = {
   cumulative: 'Treat this as one step in a running discussion and build on what came before.',
   independent: 'Form your own independent response to the original request; do not anchor on other participants.',
@@ -105,8 +129,7 @@ const untrustedMaterialInstruction =
 // sentence the composition pipeline can emit.
 export const providerFacingInstructionCatalog: string[] = [
   ...Object.values(councilRuleSentences),
-  ...Object.values(responseLengthInstructions),
-  ...Object.values(dissentInstructions),
+  ...cognitiveGuidanceInstructionTexts,
   ...Object.values(inputModeInstructions),
   ...Object.values(outputPolicyInstructions),
   untrustedMaterialInstruction,
@@ -116,11 +139,11 @@ export function resolveEffectiveVariables(
   configuration: CouncilConfiguration,
   stage: CouncilStage,
 ): CouncilVariables {
-  const role = getCouncilRole(stage.role);
+  const calling = getCouncilCalling(stage.calling);
 
   return {
     ...configuration.variables,
-    ...(role?.defaultVariables ?? {}),
+    ...(calling?.defaultVariables ?? {}),
     ...(stage.variableOverrides ?? {}),
   };
 }
@@ -130,8 +153,8 @@ export function resolveOutputPolicy(stage: CouncilStage): CouncilOutputPolicy {
     return stage.outputPolicy;
   }
 
-  const role = getCouncilRole(stage.role);
-  return role?.defaultOutputPolicy ?? 'free-response';
+  const calling = getCouncilCalling(stage.calling);
+  return calling?.defaultOutputPolicy ?? 'free-response';
 }
 
 export function renderCouncilRules(rules: CouncilRules): string {
@@ -193,13 +216,13 @@ export function capContribution(text: string, maxChars: number) {
 }
 
 function contributionBlock(contribution: CouncilContribution, text: string): string {
-  const role = getCouncilRole(contribution.role);
+  const calling = getCouncilCalling(contribution.calling);
   const provider = getCouncilProvider(contribution.provider);
-  const roleLabel = role?.practicalTitle ?? contribution.role;
+  const callingLabel = calling?.practicalTitle ?? contribution.calling;
   const providerLabel = provider?.displayName ?? contribution.provider;
 
   return [
-    `--- CONTRIBUTION FROM ${roleLabel} (${providerLabel}) ---`,
+    `--- CONTRIBUTION FROM ${callingLabel} (${providerLabel}) ---`,
     text,
     '--- END CONTRIBUTION ---',
   ].join('\n');
@@ -207,54 +230,71 @@ function contributionBlock(contribution: CouncilContribution, text: string): str
 
 export function composeStagePrompt(input: ComposeStagePromptInput): ComposedStagePrompt {
   const { configuration, stage, request, priorContributions } = input;
-  const role = getCouncilRole(stage.role);
+  const calling = getCouncilCalling(stage.calling);
 
-  if (!role) {
-    throw new Error(`Cannot compose prompt for unknown role "${stage.role}". Validate the configuration first.`);
+  if (!calling) {
+    throw new Error(`Cannot compose prompt for unknown calling "${stage.calling}". Validate the configuration first.`);
   }
 
   const effectiveVariables = resolveEffectiveVariables(configuration, stage);
+  const resolvedCognitiveStats = resolveCognitiveStats(stage.provider, stage.calling, stage.cognitiveOverrides);
   const outputPolicy = resolveOutputPolicy(stage);
+
+  // Input policy first (eligibility and original-request inclusion), then
+  // Memory exposure (narrowing only — neutral Memory changes nothing).
   const selection = selectContributions(stage, priorContributions);
+  const memoryExposure = memoryExposureByLevel[resolvedCognitiveStats.memory];
+  const memorySelectedContributions = memoryExposure.maxContributions !== undefined
+    ? memoryExposure.maxContributions === 0
+      ? []
+      : selection.contributions.slice(-memoryExposure.maxContributions)
+    : selection.contributions;
+  // Tightened per-contribution cap at low Memory levels. The truncation
+  // notice may exceed a microscopic fractional cap; the total-budget
+  // keep-loop below still guarantees totalPromptChars is never exceeded.
+  const effectivePerContributionChars = memoryExposure.capFraction !== undefined
+    ? Math.max(1, Math.floor(configuration.budgets.perContributionChars * memoryExposure.capFraction))
+    : configuration.budgets.perContributionChars;
 
   // 1. Header.
   const header =
-    `You are one participant in a structured multi-participant review council, acting as its ${role.practicalTitle}.`;
+    `You are one participant in a structured multi-participant review council, acting as its ${calling.practicalTitle}.`;
 
   // 2. Council rules.
   const rulesSection = renderCouncilRules(configuration.rules);
 
-  // 3. Role framing, scaled by role intensity. Resolution order: the
-  // configuration's own roleFlavourOverrides first, then the canonical
+  // 3. Calling framing, scaled by role intensity. Resolution order: the
+  // configuration's own callingFlavourOverrides first, then the canonical
   // flavour-text library — never hidden editor state, so a saved Council
   // Configuration reproduces its customized behavior anywhere.
-  const roleSection = renderRoleFraming(
-    role,
+  const roleSection = renderCallingFraming(
+    calling,
     effectiveVariables.roleIntensity,
-    configuration.roleFlavourOverrides,
+    configuration.callingFlavourOverrides,
   );
 
-  // 4. Behavioral variable instructions.
-  const variableSection = [
-    responseLengthInstructions[effectiveVariables.responseLength],
-    dissentInstructions[effectiveVariables.dissent],
-    inputModeInstructions[effectiveVariables.inputMode],
-  ].join('\n');
+  // 4. Cognitive guidance: sparse, deterministic, non-neutral resolved
+  // prose stats only. Memory never emits prose; its effect is mechanical.
+  const guidanceSection = renderCognitiveGuidance(resolvedCognitiveStats);
 
-  // 5. Output instruction.
+  // 5. Behavioral variable instructions.
+  const variableSection = inputModeInstructions[effectiveVariables.inputMode];
+
+  // 6. Output instruction.
   const outputSection = outputPolicyInstructions[outputPolicy];
 
-  // 6. Original request.
+  // 7. Original request.
   const requestSection = selection.includeOriginalRequest
     ? ['--- ORIGINAL USER REQUEST ---', request, '--- END ORIGINAL USER REQUEST ---'].join('\n')
     : '';
 
-  const fixedSections = [header, rulesSection, roleSection, variableSection, outputSection, requestSection]
+  const fixedSections = [header, rulesSection, roleSection, guidanceSection, variableSection, outputSection, requestSection]
     .filter(Boolean);
 
-  // 7. Prior material under the per-contribution and total budgets.
-  const cappedContributions = selection.contributions.map((contribution) => {
-    const capped = capContribution(contribution.text, configuration.budgets.perContributionChars);
+  // 8. Prior material: Memory-exposed contributions under the (possibly
+  // Memory-tightened) per-contribution cap and the total budget.
+  const cappedContributions = memorySelectedContributions.map((contribution) => {
+    const capped = capContribution(contribution.text, effectivePerContributionChars);
     return { contribution, text: capped.text, truncated: capped.truncated };
   });
 
@@ -325,7 +365,11 @@ export function composeStagePrompt(input: ComposeStagePromptInput): ComposedStag
   return {
     prompt,
     effectiveVariables,
+    resolvedCognitiveStats,
     outputPolicy,
+    eligibleContributionIds: selection.contributions.map((contribution) => contribution.stageId),
+    memorySelectedContributionIds: memorySelectedContributions.map((contribution) => contribution.stageId),
+    effectivePerContributionChars,
     includedContributionIds: kept.map((entry) => entry.contribution.stageId),
     truncatedContributionIds: cappedContributions
       .filter((entry) => entry.truncated)

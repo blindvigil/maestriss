@@ -1,9 +1,9 @@
-.role-grimoire-list {
+.calling-grimoire-list {
   display: grid;
   gap: 0.55rem;
 }
 
-.role-grimoire-list__item {
+.calling-grimoire-list__item {
   align-items: center;
   background: rgba(16, 23, 33, 0.78);
   border: 1px solid var(--border);
@@ -18,17 +18,17 @@
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.role-grimoire-list__item:hover {
+.calling-grimoire-list__item:hover {
   border-color: var(--accent);
 }
 
-.role-grimoire-list__item[data-selected='true'] {
+.calling-grimoire-list__item[data-selected='true'] {
   background: linear-gradient(135deg, rgba(216, 180, 120, 0.14), rgba(16, 23, 33, 0.82) 60%);
   border-color: var(--accent);
   color: var(--text);
 }
 
-.role-grimoire-list__icon {
+.calling-grimoire-list__icon {
   align-items: center;
   border: 1px solid var(--border);
   border-radius: 50%;
@@ -39,23 +39,23 @@
   width: 34px;
 }
 
-.role-grimoire-list__titles {
+.calling-grimoire-list__titles {
   display: grid;
   gap: 0.15rem;
   min-width: 0;
 }
 
-.role-grimoire-list__titles strong {
+.calling-grimoire-list__titles strong {
   color: inherit;
   font-size: 0.95rem;
 }
 
-.role-grimoire-list__titles span {
+.calling-grimoire-list__titles span {
   color: var(--muted-strong);
   font-size: 0.78rem;
 }
 
-.role-grimoire-list__badge {
+.calling-grimoire-list__badge {
   background: rgba(216, 180, 120, 0.16);
   border: 1px solid rgba(216, 180, 120, 0.45);
   border-radius: 999px;

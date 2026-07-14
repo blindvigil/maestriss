@@ -186,6 +186,7 @@ Select the smallest sufficient task path.
 | Runner server/API | `02`, `03`, `08`, `14` | `runner/src/server.ts`, `runner/src/index.ts`, `runner/src/participants.ts` |
 | Studio | `02`, `10`, `12` | `src/`, `src/context/`, `src/pages/`, `src/exporters/` |
 | Automa export | `02`, `10`, strategy notes | `src/exporters/automa/`, `src/reference/` |
+| Council (shared contract, Doctrines, Callings, execution) | `02`, `09`, `14` | `shared/council/`, `runner/src/councilExecution.ts`, `runner/src/councilAssertions.ts`, `runner/src/councilExecutionAssertions.ts` |
 | Testing/diagnostics | `06`, `09`, `14` | `package.json`, `runner/package.json`, assertions, diagnostics |
 | Documentation | `Documentation/README.md`, `Knowledge_System_Guide.md`, `Start_Here.md` | affected Human/AI document pair |
 | AI onboarding architecture | `Web_AI_Prompt.md`, `Web_AI_Bootstrap.md`, `VSC_AI_Prompt.md`, `VSC_AI_Bootstrap.md`, `AI_Onboarding_Architecture_Design_Context.md` | README files, Knowledge System guide |
@@ -213,6 +214,8 @@ Root:
 npm run build
 npm run dev
 npm run preview
+npm run verify:version
+npm run test:version-verifier
 ```
 
 Runner:
@@ -221,7 +224,13 @@ Runner:
 npm run build
 npm run start
 npm run dev
+npm run test:baton
+npm run test:council
+npm run test:council-execution
+npm run test:cognitive-stats
+npm run test:council-cli
 npm run test:chatgpt-filter
+npm run test:perplexity-filter
 npm run test:reka-filter
 npm run test:deepseek-filter
 npm run test:grok-filter
@@ -283,6 +292,7 @@ Provider filter tests:
 ```text
 cd runner
 npm run test:chatgpt-filter
+npm run test:perplexity-filter
 npm run test:reka-filter
 npm run test:deepseek-filter
 npm run test:grok-filter
@@ -292,7 +302,24 @@ npm run test:gemini-filter
 npm run test:google-filter
 ```
 
-Live smoke tests require real provider access and must not be reported as passed unless actually run.
+Deterministic orchestration suites (no browser, provider, or network access):
+
+```text
+cd runner
+npm run test:baton
+npm run test:council
+npm run test:council-execution
+npm run test:cognitive-stats
+npm run test:council-cli
+```
+
+Version discipline (root):
+
+```text
+npm run verify:version
+```
+
+Live smoke tests, the live baton test, and live `council run` executions require real provider access and must not be reported as passed unless actually run.
 
 ## Engineer Report
 

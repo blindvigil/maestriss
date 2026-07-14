@@ -17,6 +17,12 @@ import {
   runBatonTest,
   type BatonStageResult,
 } from './batonTest.js';
+import { runCouncil } from './councilExecution.js';
+import { createCouncilRunReporter } from './councilCliFormat.js';
+import {
+  councilDoctrines,
+  getCouncilDoctrine,
+} from '../../shared/council/index.js';
 import { participants } from './participants.js';
 import type { ParticipantRunResponse } from './types.js';
 
@@ -539,6 +545,165 @@ async function runBatonTestClient(args: string[]) {
   }
 }
 
+const councilRunUsage =
+  'Usage: npm run dev -- council run --doctrine <doctrine-id> (--prompt "text" | --prompt-file path) [--size N] [--verbose]';
+
+type CouncilRunCliArgs = {
+  doctrineId: string;
+  request: string;
+  size?: number;
+};
+
+function parseCouncilRunArgs(args: string[]): CouncilRunCliArgs {
+  let doctrineId: string | undefined;
+  let promptText: string | undefined;
+  let promptFile: string | undefined;
+  let size: number | undefined;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    const value = args[index + 1];
+
+    if (arg === '--doctrine') {
+      if (!value || value.startsWith('--')) {
+        throw new Error(`Missing doctrine id. ${councilRunUsage}`);
+      }
+      doctrineId = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--prompt') {
+      if (value === undefined) {
+        throw new Error(`Missing prompt text. ${councilRunUsage}`);
+      }
+      promptText = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--prompt-file') {
+      if (!value || value.startsWith('--')) {
+        throw new Error(`Missing prompt file path. ${councilRunUsage}`);
+      }
+      promptFile = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--size') {
+      const parsed = Number(value);
+      if (!value || !Number.isInteger(parsed) || parsed < 1) {
+        throw new Error(`--size requires a positive integer. ${councilRunUsage}`);
+      }
+      size = parsed;
+      index += 1;
+      continue;
+    }
+
+    throw new Error(`Unknown council run argument "${arg}". ${councilRunUsage}`);
+  }
+
+  if (!doctrineId) {
+    throw new Error(`Missing --doctrine. ${councilRunUsage}`);
+  }
+
+  if ((promptText === undefined) === (promptFile === undefined)) {
+    throw new Error(`Provide exactly one of --prompt or --prompt-file. ${councilRunUsage}`);
+  }
+
+  const request = promptFile !== undefined
+    ? readFileSync(path.resolve(promptFile), 'utf8').trim()
+    : (promptText ?? '').trim();
+
+  if (!request) {
+    throw new Error(
+      promptFile !== undefined
+        ? `Prompt file "${promptFile}" contains no text.`
+        : 'Prompt must be a non-empty string.',
+    );
+  }
+
+  return { doctrineId, request, ...(size !== undefined ? { size } : {}) };
+}
+
+async function runCouncilRunClient(args: string[], verbose: boolean) {
+  const cli = parseCouncilRunArgs(args);
+  const doctrine = getCouncilDoctrine(cli.doctrineId);
+
+  if (!doctrine) {
+    const validIds = councilDoctrines.map((candidate) => candidate.id).join(', ');
+    throw new Error(`Unknown doctrine "${cli.doctrineId}". Valid doctrine ids: ${validIds}`);
+  }
+
+  const configuration = doctrine.build(cli.size !== undefined ? { size: cli.size } : undefined);
+  const reporter = createCouncilRunReporter({
+    doctrine,
+    configuration,
+    requestChars: cli.request.length,
+    verbose,
+    print: (line) => console.log(line),
+  });
+
+  reporter.start();
+
+  const statusResult = await getJson<{ providers: ProviderStatus[] }>('/providers/status');
+
+  if (!statusResult) {
+    return;
+  }
+
+  const readinessSnapshot = new Map(
+    statusResult.providers.map((provider) => [provider.participant, provider]),
+  );
+
+  const ask = async (providerId: string, prompt: string): Promise<ParticipantRunResponse> => {
+    const result = await postJson<AskResponse>('/ask', {
+      participant: providerId,
+      prompt,
+    });
+
+    if (!result) {
+      throw new Error('Runner service is not reachable.');
+    }
+
+    return result.normalizedResponse ?? {
+      participant: providerId,
+      question: prompt,
+      answer: result.response ?? '',
+      citations: [],
+      elapsedSeconds: 0,
+      rawText: result.response ?? '',
+      cleanedText: result.response ?? '',
+    };
+  };
+
+  // Elapsed-time heartbeat while an ask is in flight. The reporter prints
+  // nothing when no ask is active, so the interval is safe to keep running
+  // between seats; it is cleared when the run ends.
+  const heartbeat = setInterval(() => reporter.heartbeatTick(), 10_000);
+
+  try {
+    const result = await runCouncil({
+      configuration,
+      request: cli.request,
+      ask,
+      getReadiness: async (providerId) => readinessSnapshot.get(providerId),
+      onSeatStart: reporter.onSeatStart,
+      onSeatAttempt: reporter.onSeatAttempt,
+      onSeatResult: reporter.onSeatResult,
+    });
+
+    reporter.finish(result);
+
+    if (result.finalResult === 'FAIL') {
+      process.exitCode = 1;
+    }
+  } finally {
+    clearInterval(heartbeat);
+  }
+}
+
 async function runCheckProvidersClient(verbose: boolean) {
   const result = await getJson<{ providers: ProviderStatus[] }>('/providers/status');
 
@@ -612,6 +777,7 @@ function printUsage() {
   console.log('  npm run dev -- chain google chatgpt "optional prompt"');
   console.log('  npm run dev -- run-random "original prompt here" [--verbose]');
   console.log('  npm run dev -- baton-test [--seed MAESTRISS] [--skip-unavailable]');
+  console.log('  npm run dev -- council run --doctrine dream-lab (--prompt "text" | --prompt-file path) [--size N] [--verbose]');
   console.log('  npm run dev -- inspect claude');
   console.log('  npm run dev -- version');
 }
@@ -682,6 +848,15 @@ async function main() {
 
   if (command === 'baton-test') {
     await runBatonTestClient([target, ...args].filter((part): part is string => Boolean(part)));
+    return;
+  }
+
+  if (command === 'council') {
+    if (target !== 'run') {
+      throw new Error(`Unknown council subcommand ${JSON.stringify(target)}. ${councilRunUsage}`);
+    }
+
+    await runCouncilRunClient(args, verbose);
     return;
   }
 

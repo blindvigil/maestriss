@@ -331,6 +331,30 @@ npm run dev -- baton-test --skip-unavailable
 
 The default form fails on any unavailable provider or wrong answer. The `--skip-unavailable` form skips participants whose readiness is not `ready` at run start and reports `PARTIAL` instead of `PASS`.
 
+## Live Council Execution
+
+The live test workflow uses two terminals with distinct diagnostic purposes.
+
+**Terminal 1 — Runner service (provider lifecycle diagnostics).** The Runner service always emits its full low-level ask lifecycle: request ids, page resolution, readiness, composer discovery, paste verification, submission strategy and evidence, completion detection, candidate selection, extraction, and completion/failure. No extra flag is required (a `--verbose` flag is accepted and currently changes nothing):
+
+```text
+cd runner
+npm run dev -- serve
+```
+
+**Terminal 2 — Council CLI (orchestration and prompt-composition diagnostics).** The Council CLI renders the high-level operator view: Doctrine header and Formation, per-seat progress blocks (Calling, provider, input-policy explanation, all six resolved cognitive stats with level and descriptor, context carried forward with Memory-excluded / budget-omitted / truncated contributions distinguished, prompt length, flavour source, failure policy), a 10-second elapsed heartbeat while an ask is in flight, explicit retry/skip/halt decisions, a running progress summary after every seat, and a final summary (result, seat counts, elapsed, final contribution). `--verbose` additionally prints per-seat composition diagnostics (contribution ids at every pipeline stage, prompt budget usage, per-contribution cap, resolved cognitive instruction lines) and the exact provider-facing prompt:
+
+```text
+cd runner
+npm run dev -- council run --doctrine dream-lab --prompt "Brainstorm robust completion detection strategies for AI web chat interfaces."
+npm run dev -- council run --doctrine dream-lab --prompt-file .\test-prompts\response-detection.txt
+npm run dev -- council run --doctrine crown-council --size 6 --prompt "Assess this plan." --verbose
+```
+
+Exactly one of `--prompt` or `--prompt-file` is required (`--prompt-file` reads UTF-8 text); `--size` applies only to Crown Council; unknown Doctrine ids fail with the list of valid ids. The sample prompt file `runner/test-prompts/response-detection.txt` (the response-detection brainstorm brief) ships in the repository. Output is rendered from structured execution records (`runner/src/councilCliFormat.ts`), the same records a future Studio UI will consume; the actual extracted response of every seat remains fully visible in normal mode.
+
+Seats execute sequentially in Formation order over the existing ask lifecycle. Failure policies behave as configured: `halt` ends the run (FAIL) preserving all real prior contributions, `retry-once` re-sends the same exact prompt one time and halts if the retry also fails, and `skip-and-record` records the failure and continues without forwarding anything from the failed seat. Provider readiness is checked from one snapshot at run start; an unavailable provider consumes no ask. The final result is `PASS` (every seat succeeded), `PARTIAL` (reached the end with skipped or failed seats), or `FAIL` (halted); the reported final contribution is simply the last successful seat output — no synthesis stage is invented, and a Crown Council run explicitly notes that vote aggregation is not yet implemented. Run state is in-memory only; nothing is persisted yet. Ctrl+C stops the CLI without fabricating Council state, and a stuck in-flight ask can be cleared with `npm run dev -- cancel-all`.
+
 ## Regression Testing
 
 Regression tests preserve known behavior and discovered bug fixes.
@@ -357,12 +381,17 @@ cd runner
 npm run test:baton
 ```
 
-Run the deterministic council contract suite after changing the shared council vocabulary, schema, roles, presets, or prompt composition; it requires no browser, provider, or network access:
+Run the deterministic council contract suite after changing the shared council vocabulary, schema, Callings, Doctrines, or prompt composition, and the council execution suite after changing the execution engine or `council run` CLI; neither requires a browser, provider, or network access:
 
 ```text
 cd runner
 npm run test:council
+npm run test:council-execution
+npm run test:cognitive-stats
+npm run test:council-cli
 ```
+
+A related deterministic diagnostic, `npm run audit:doctrine-memory`, prints every canonical Doctrine seat's input policy, resolved Memory level (with the layer that set it), input-policy-eligible contribution ids, Memory-exposed ids, and a coherence assessment — the primary tool for reviewing Formation choreography against Memory intent before tuning. It changes no behavior and requires no browser, Runner service, or network.
 
 Run build verification after TypeScript changes:
 

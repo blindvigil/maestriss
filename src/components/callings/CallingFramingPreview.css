@@ -1,4 +1,4 @@
-.role-framing-preview {
+.calling-framing-preview {
   background: rgba(16, 23, 33, 0.78);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -7,13 +7,13 @@
   padding: 1.1rem;
 }
 
-.role-framing-preview h4 {
+.calling-framing-preview h4 {
   color: var(--text);
   font-size: 1rem;
   margin: 0;
 }
 
-.role-framing-preview__caption {
+.calling-framing-preview__caption {
   color: var(--accent);
   font-size: 0.74rem;
   letter-spacing: 0.05em;
@@ -21,7 +21,7 @@
   text-transform: uppercase;
 }
 
-.role-framing-preview pre {
+.calling-framing-preview pre {
   background: rgba(10, 15, 22, 0.85);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -35,7 +35,7 @@
   word-break: break-word;
 }
 
-.role-framing-preview__hint {
+.calling-framing-preview__hint {
   color: var(--muted-strong);
   font-size: 0.78rem;
   line-height: 1.55;

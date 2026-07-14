@@ -9,7 +9,7 @@ import { ParticipantsPage } from './pages/ParticipantsPage';
 import { PlaceholderPage } from './pages/PlaceholderPage';
 import { PromptDesignerPage } from './pages/PromptDesignerPage';
 import { ProfilesPage } from './pages/ProfilesPage';
-import { RoleGrimoirePage } from './pages/RoleGrimoirePage';
+import { CallingGrimoirePage } from './pages/CallingGrimoirePage';
 import { SessionsPage } from './pages/SessionsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { WorkflowPage } from './pages/WorkflowPage';
@@ -19,7 +19,7 @@ const pageTitles: Record<NavigationKey, string> = {
   dashboard: 'Dashboard',
   participants: 'Participants',
   profiles: 'Profiles',
-  roles: 'Role Grimoire',
+  callings: 'Calling Grimoire',
   prompts: 'Prompt Designer',
   workflow: 'Workflow',
   drivers: 'Drivers',
@@ -47,8 +47,8 @@ export function App() {
       return <ProfilesPage />;
     }
 
-    if (activePage === 'roles') {
-      return <RoleGrimoirePage />;
+    if (activePage === 'callings') {
+      return <CallingGrimoirePage />;
     }
 
     if (activePage === 'prompts') {

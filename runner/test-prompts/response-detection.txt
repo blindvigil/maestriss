@@ -1,0 +1,48 @@
+We are building Maestriss, a TypeScript and Playwright system that submits prompts through the normal web interfaces of multiple AI providers and captures each provider's completed response.
+
+We have repeatedly encountered a frustrating class of reliability failures:
+
+The AI visibly finishes and displays the correct response, but our code fails to recognize or extract it.
+
+Recent real failures have included:
+
+- selecting a page, transcript, or conversation parent instead of the actual assistant response;
+- rejecting a correct answer because responsive or narrow layouts moved valid content into geometry previously assumed to belong to a sidebar;
+- treating ordinary chat-history or drawer ancestors as navigation even when a valid assistant-response element exists inside them;
+- extracting the submitted prompt together with the answer;
+- confusing stale earlier responses with the response to the latest prompt;
+- short smoke tests passing while longer prompts alter layout or candidate-selection behaviour enough to fail;
+- relying too heavily on absolute screen coordinates and width thresholds;
+- provider-specific response structures changing over time;
+- inconsistent completion signals such as stop controls, responding indicators, composer state, and stable text;
+- broad fallback selectors accidentally winning over smaller semantic answer containers;
+- spending a long polling timeout repeatedly rejecting a correct response that is already visibly complete.
+
+The current architecture uses provider-specific Playwright drivers and intentionally allows provider-local detection logic. We do not have provider APIs and must operate against live browser user interfaces.
+
+Please help us generate strong, varied ideas for making response completion detection and extraction as robust as realistically possible.
+
+Explore architectural approaches rather than merely proposing another selector or coordinate threshold.
+
+Consider ideas involving:
+
+- semantic DOM anchors and assistant-message structure;
+- locating the latest user prompt and structurally identifying the response associated with it;
+- pre-submit and post-submit DOM snapshots or DOM deltas;
+- message lineage and conversation ordering;
+- MutationObserver-based observation;
+- candidate tiering and structural ranking;
+- response-container identity rather than text heuristics;
+- multiple independent forms of completion evidence;
+- separating response discovery, completion detection, cleaning, and validation;
+- adaptive provider-specific diagnostics;
+- storing live DOM fixtures from failures and turning them into deterministic regressions;
+- detecting repeated rejection of the same visible candidate and escalating diagnostics early;
+- reducing dependence on viewport geometry;
+- safe fallback strategies when semantic provider anchors disappear;
+- distinguishing prompt echoes, transcript parents, navigation chrome, and genuine assistant output;
+- any unconventional approaches we may not have considered.
+
+We are not asking for implementation code yet.
+
+Generate diverse ideas, including some unconventional ones. Compare tradeoffs. Look for architectural patterns that could materially improve resilience across changing AI web interfaces while preserving provider-specific specialization and strong diagnostics.

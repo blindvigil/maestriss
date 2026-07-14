@@ -9,19 +9,22 @@
 //   persistence is implemented; they are not defined in this slice.
 
 import { getCouncilProvider } from './providers.js';
-import { getCouncilRole } from './roles.js';
+import { getCouncilCalling } from './callings.js';
+import { cognitiveStatKeys, isCognitiveStatLevel, type CognitiveStatOverrides } from './cognitiveStats.js';
 
 export const councilSchemaVersion = 1;
 
-export type CouncilResponseLength = 'brief' | 'standard' | 'extended';
+// Verbosity and dissent are owned by the ten-level cognitive stats (Voice
+// and Dissent in cognitiveStats.ts); the superseded responseLength and
+// three-level dissent variables were removed before any Council Scroll
+// persistence shipped. roleIntensity (Calling intensity: full flavour text
+// versus the light one-liner) and inputMode (orchestration semantics) remain
+// deliberately separate from the cognitive stat model.
 export type CouncilRoleIntensity = 'light' | 'full';
-export type CouncilDissent = 'collaborative' | 'balanced' | 'adversarial';
 export type CouncilInputMode = 'cumulative' | 'independent';
 
 export type CouncilVariables = {
-  responseLength: CouncilResponseLength;
   roleIntensity: CouncilRoleIntensity;
-  dissent: CouncilDissent;
   inputMode: CouncilInputMode;
 };
 
@@ -61,14 +64,20 @@ export type CouncilOutputPolicy =
 
 export type CouncilFailurePolicy = 'halt' | 'retry-once' | 'skip-and-record';
 
+// A stage is one ordered seat in the Council's Formation: it assigns a
+// Calling and a provider (AI) to that seat.
 export type CouncilStage = {
   id: string;
   provider: string;
-  role: string;
+  calling: string;
   inputPolicy: CouncilInputPolicy;
   inputPolicyN?: number;
   outputPolicy?: CouncilOutputPolicy;
   variableOverrides?: CouncilVariableOverrides;
+  // Per-seat cognitive stat overrides: the highest-precedence layer of
+  // cognitive resolution (seat > Calling > provider > neutral). These are
+  // Maestriss behavioral levels, never provider inference parameters.
+  cognitiveOverrides?: CognitiveStatOverrides;
   failurePolicy: CouncilFailurePolicy;
   // Round membership is representable now; true round execution is a later
   // slice. Stages sharing a round value form an independent panel round.
@@ -80,24 +89,25 @@ export type CouncilConfiguration = {
   id: string;
   name: string;
   description?: string;
-  presetId?: string;
+  // Provenance: the built-in Doctrine this configuration was derived from,
+  // when any.
+  doctrineId?: string;
   rules: CouncilRules;
   variables: CouncilVariables;
   budgets: CouncilBudgets;
-  // Council-specific role flavour overrides: a compact record holding only
-  // explicitly customized roles, keyed by role id. Roles absent from this
-  // record use the canonical flavour text, so canonical defaults are never
-  // duplicated into configurations. Override text is user-authored content:
-  // it is validated structurally (known role, non-empty), but its wording is
-  // the author's responsibility, like customRuleText.
-  roleFlavourOverrides?: Record<string, string>;
+  // Council-specific Calling flavour overrides: a compact record holding
+  // only explicitly customized Callings, keyed by calling id. Callings
+  // absent from this record use the canonical flavour text, so canonical
+  // defaults are never duplicated into configurations. Override text is
+  // user-authored content: it is validated structurally (known Calling,
+  // non-empty), but its wording is the author's responsibility, like
+  // customRuleText.
+  callingFlavourOverrides?: Record<string, string>;
   stages: CouncilStage[];
 };
 
 export const defaultCouncilVariables: CouncilVariables = {
-  responseLength: 'standard',
   roleIntensity: 'full',
-  dissent: 'balanced',
   inputMode: 'cumulative',
 };
 
@@ -119,9 +129,7 @@ const minPerContributionChars = 100;
 const minTotalPromptChars = 500;
 const maxTotalPromptChars = 100000;
 
-const responseLengths: CouncilResponseLength[] = ['brief', 'standard', 'extended'];
 const roleIntensities: CouncilRoleIntensity[] = ['light', 'full'];
-const dissentLevels: CouncilDissent[] = ['collaborative', 'balanced', 'adversarial'];
 const inputModes: CouncilInputMode[] = ['cumulative', 'independent'];
 const inputPolicies: CouncilInputPolicy[] = [
   'original-only',
@@ -169,17 +177,37 @@ function validateVariableOverrides(
   path: string,
   issues: CouncilValidationIssue[],
 ) {
-  if ('responseLength' in value && !isOneOf(value.responseLength, responseLengths)) {
-    issues.push({ path: `${path}.responseLength`, message: `Expected one of: ${responseLengths.join(', ')}.` });
-  }
   if ('roleIntensity' in value && !isOneOf(value.roleIntensity, roleIntensities)) {
     issues.push({ path: `${path}.roleIntensity`, message: `Expected one of: ${roleIntensities.join(', ')}.` });
   }
-  if ('dissent' in value && !isOneOf(value.dissent, dissentLevels)) {
-    issues.push({ path: `${path}.dissent`, message: `Expected one of: ${dissentLevels.join(', ')}.` });
-  }
   if ('inputMode' in value && !isOneOf(value.inputMode, inputModes)) {
     issues.push({ path: `${path}.inputMode`, message: `Expected one of: ${inputModes.join(', ')}.` });
+  }
+}
+
+// Closed-object validation: cognitive overrides accept only the six
+// canonical stat keys, and every value must be one of the ten exact integer
+// levels 0-9 (fractions, negatives, 10+, NaN, and strings are all rejected).
+function validateCognitiveOverrides(
+  value: Record<string, unknown>,
+  path: string,
+  issues: CouncilValidationIssue[],
+) {
+  for (const [key, level] of Object.entries(value)) {
+    if (!(cognitiveStatKeys as readonly string[]).includes(key)) {
+      issues.push({
+        path: `${path}.${key}`,
+        message: `Unknown cognitive stat ${JSON.stringify(key)}; expected one of: ${cognitiveStatKeys.join(', ')}.`,
+      });
+      continue;
+    }
+
+    if (!isCognitiveStatLevel(level)) {
+      issues.push({
+        path: `${path}.${key}`,
+        message: 'Cognitive stat level must be an integer between 0 and 9.',
+      });
+    }
   }
 }
 
@@ -223,7 +251,7 @@ export function validateCouncilConfiguration(value: unknown): CouncilValidationR
   if (!isRecord(value.variables)) {
     issues.push({ path: 'variables', message: 'variables must be an object.' });
   } else {
-    for (const key of ['responseLength', 'roleIntensity', 'dissent', 'inputMode']) {
+    for (const key of ['roleIntensity', 'inputMode']) {
       if (!(key in value.variables)) {
         issues.push({ path: `variables.${key}`, message: 'Global variable is required.' });
       }
@@ -257,21 +285,21 @@ export function validateCouncilConfiguration(value: unknown): CouncilValidationR
     }
   }
 
-  if (value.roleFlavourOverrides !== undefined) {
-    if (!isRecord(value.roleFlavourOverrides)) {
-      issues.push({ path: 'roleFlavourOverrides', message: 'roleFlavourOverrides must be an object when provided.' });
+  if (value.callingFlavourOverrides !== undefined) {
+    if (!isRecord(value.callingFlavourOverrides)) {
+      issues.push({ path: 'callingFlavourOverrides', message: 'callingFlavourOverrides must be an object when provided.' });
     } else {
-      for (const [roleId, text] of Object.entries(value.roleFlavourOverrides)) {
-        if (!getCouncilRole(roleId)) {
+      for (const [callingId, text] of Object.entries(value.callingFlavourOverrides)) {
+        if (!getCouncilCalling(callingId)) {
           issues.push({
-            path: `roleFlavourOverrides.${roleId}`,
-            message: `Unknown role ${JSON.stringify(roleId)}; overrides must reference role library ids.`,
+            path: `callingFlavourOverrides.${callingId}`,
+            message: `Unknown calling ${JSON.stringify(callingId)}; overrides must reference Calling library ids.`,
           });
         }
 
         if (!isNonEmptyString(text)) {
           issues.push({
-            path: `roleFlavourOverrides.${roleId}`,
+            path: `callingFlavourOverrides.${callingId}`,
             message: 'Override flavour text must be a non-empty string.',
           });
         }
@@ -307,10 +335,10 @@ export function validateCouncilConfiguration(value: unknown): CouncilValidationR
         });
       }
 
-      if (!isNonEmptyString(stage.role) || !getCouncilRole(stage.role)) {
+      if (!isNonEmptyString(stage.calling) || !getCouncilCalling(stage.calling)) {
         issues.push({
-          path: `${path}.role`,
-          message: `Unknown role ${JSON.stringify(stage.role)}; must be a role library id.`,
+          path: `${path}.calling`,
+          message: `Unknown calling ${JSON.stringify(stage.calling)}; must be a Calling library id.`,
         });
       }
 
@@ -333,6 +361,14 @@ export function validateCouncilConfiguration(value: unknown): CouncilValidationR
           issues.push({ path: `${path}.variableOverrides`, message: 'variableOverrides must be an object.' });
         } else {
           validateVariableOverrides(stage.variableOverrides, `${path}.variableOverrides`, issues);
+        }
+      }
+
+      if (stage.cognitiveOverrides !== undefined) {
+        if (!isRecord(stage.cognitiveOverrides)) {
+          issues.push({ path: `${path}.cognitiveOverrides`, message: 'cognitiveOverrides must be an object.' });
+        } else {
+          validateCognitiveOverrides(stage.cognitiveOverrides, `${path}.cognitiveOverrides`, issues);
         }
       }
 

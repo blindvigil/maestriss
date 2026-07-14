@@ -2,7 +2,7 @@ export type NavigationKey =
   | 'dashboard'
   | 'participants'
   | 'profiles'
-  | 'roles'
+  | 'callings'
   | 'prompts'
   | 'workflow'
   | 'drivers'
