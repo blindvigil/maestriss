@@ -1,420 +1,213 @@
-# Maestriss High-Level Project AI Bootstrap
+# Maestriss Commander-in-Chief Bootstrap (Web AI)
+
+```text
+Generated artifact: yes
+Generation date: 2026-07-15
+Source branch: master
+Source commit: 8ddadf7 (clean worktree)
+Authoritative status: Non-authoritative boot procedure
+Do not edit manually: Regenerate from authoritative inputs when they change
+```
 
 ## Purpose
 
-This document is the deterministic boot procedure for the high-level Maestriss project AI.
+Deterministic boot procedure for the Maestriss **Commander-in-Chief** (high-level project intelligence, chief architect, prioritization and delegation authority).
 
-Use this bootstrap when the AI is expected to act as technical director, chief architect, product strategist, project historian, engineering reviewer, prioritization authority, or cross-system coordinator.
+Use `VSC_AI_Bootstrap.md` instead when operating as a repository-attached implementation engineer.
 
-Use `VSC_AI_Bootstrap.md` instead when the AI is operating as a repository-attached implementation engineer.
+This document is procedural. It is **not** authoritative for project facts.
 
-This document is procedural. It is not independently authoritative for project facts.
+## Design: Progressive Disclosure
 
-## Canonical Shot-Caller Flow
+Read enough to become **Commander Ready**, then stop and wait for the task. Do **not** read the whole library during bootstrap.
+
+Maestriss has 16 numbered Reference documents. **You are not required to read all 16 to be Commander Ready.** The Knowledge System Guide's responsibility matrix tells you what each one owns; load the rest only when a task needs it. In particular, do not load exhaustive provider-driver and browser-automation history (`03`, `04`, `05`, `06`, `07`, `08`) unless the task is driver, detection, or browser work.
 
 ```text
 Web_AI_Prompt.md
-  -> Web_AI_Bootstrap.md
-  -> authority and governance files
-  -> all numbered AI Reference documents
-  -> most recent applicable handoff
-  -> relevant review context
-  -> whole-project synthesis
-  -> current-state reconciliation
-  -> shot-caller readiness report
-  -> user question classification
-  -> task-specific deepening
-  -> selective source verification or engineering delegation
-  -> decision / review / roadmap / delegation
+  -> Web_AI_Bootstrap.md          (this file)
+  -> Tier 1: authority             (4 files)
+  -> Tier 2: Commander core        (3 docs + newest handoff)
+  -> Commander Ready report
+  -> WAIT for the user's task
+  -> Tier 3: task-specific deepening, on demand only
+  -> selective source verification or delegation
+  -> decision / review / prioritization / delegation brief
 ```
 
-Task-specific reading begins only after the whole-project model is established.
+## Stage 0: Canonical Access Declared
 
-## Bootstrap Manifest
+GitHub is the sole canonical bootstrap evidence source: `https://github.com/blindvigil/maestriss`
 
-The high-level project AI must reconcile this manifest before claiming shot-caller readiness.
+Permitted access: direct repository access, a GitHub connector to it, or a local checkout verified to originate from it. Nothing else — not Google Drive, not pasted summaries, not conversation history, not prior uploads.
+
+State which access mode you have. If a required file is unreachable, name the exact repository path and **fail closed** at the permitted readiness level. Do not improvise project state.
+
+## Tier 1: Authority (read in full)
 
 ```text
-Document count:
-  Numbered AI Reference documents required: 16
-  Authority and governance files required: 5
-  Current-state handoff required: 1 most recent applicable handoff
-  Review context required: relevant dated review index, with full review reading when task-relevant
-
-Authority and governance files:
-  Documentation/Reference/AI/Web_AI_Prompt.md
-  Documentation/Reference/AI/Web_AI_Bootstrap.md
-  Documentation/README.md
-  Documentation/Knowledge_System_Guide.md
-  Documentation/Reference/AI/Start_Here.md
-
-Numbered AI Reference documents:
-  Documentation/Reference/AI/01 - Design Philosophies and Tenets.md
-  Documentation/Reference/AI/02 - System Architecture.md
-  Documentation/Reference/AI/03 - Driver Lifecycle Specification.md
-  Documentation/Reference/AI/04 - Browser and Tab Management.md
-  Documentation/Reference/AI/05 - Response Detection and Filtering Philosophy.md
-  Documentation/Reference/AI/06 - Testing and Regression Philosophy.md
-  Documentation/Reference/AI/07 - Participant Driver Reference.md
-  Documentation/Reference/AI/08 - Browser Automation Architecture.md
-  Documentation/Reference/AI/09 - Testing, Validation, and Diagnostics.md
-  Documentation/Reference/AI/10 - Future Roadmap and Vision.md
-  Documentation/Reference/AI/11 - Project Status and Development Journal.md
-  Documentation/Reference/AI/12 - Development Workflow and Engineering Standards.md
-  Documentation/Reference/AI/13 - Prompt Engineering and AI Collaboration.md
-  Documentation/Reference/AI/14 - Operational Runbook.md
-  Documentation/Reference/AI/15 - Engineering Notes and Design Commentary.md
-  Documentation/Reference/AI/16 - AI Session Bootstrap.md
+Documentation/Reference/AI/Web_AI_Prompt.md
+Documentation/Reference/AI/Web_AI_Bootstrap.md      (this file)
+Documentation/Reference/AI/Start_Here.md
+Documentation/Knowledge_System_Guide.md
 ```
 
-Document `16 - AI Session Bootstrap.md` is a redirect, but it still counts as a required numbered document because the high-level AI must know that older bootstrap links are compatibility redirects and do not own current onboarding logic.
+`Documentation/README.md` is a short front door; skim it only if the above leave the documentation model unclear.
 
-## Reading Tiers
+Establishes: project identity, source-of-truth hierarchy, documentation categories, canonical terminology ownership, the Commander vs implementation-engineer split, access-integrity rules.
 
-### Tier 1: Identity And Authority
+→ Readiness: `Knowledge System Loaded`
 
-Required:
+## Tier 2: Commander Core (read in full)
 
-- `Web_AI_Prompt.md`
-- `Web_AI_Bootstrap.md`
-- `Documentation/README.md`
-- `Knowledge_System_Guide.md`
-- `Start_Here.md`
+```text
+Documentation/Reference/AI/01 - Design Philosophies and Tenets.md
+Documentation/Reference/AI/02 - System Architecture.md
+Documentation/Reference/AI/11 - Project Status and Development Journal.md
+newest applicable handoff in Documentation/Handoffs/
+```
 
-Purpose:
+- `01` — the invariants and values you must defend when challenging a design.
+- `02` — the system model: Studio / Native Runner / Automa exporter, and the Council contract (Doctrine, Formation, Seat, Calling, Mind, cognitive stats, composition, fallback, run-scoped availability, execution transport).
+- `11` — **current documented status, current priorities, and the development journal (newest first).** This is where current state lives.
+- newest handoff — current state at a date, including the current highest-priority issue and the next decision.
 
-- establish project identity;
-- establish source-of-truth hierarchy;
-- establish documentation categories;
-- establish role distinction between high-level project AI and VS Code engineering AI;
-- establish access-integrity rules.
+Select the newest handoff by date, status, and task relevance — not by filename order. Prefer dated milestone handoffs over prompt-generation artifacts.
 
-### Tier 2: Strategic Core
+→ Readiness: `Commander Ready`
 
-Required:
+## Orientation Snapshot (generated; verify against Tier 2)
 
-- `01 - Design Philosophies and Tenets.md`
-- `02 - System Architecture.md`
-- `10 - Future Roadmap and Vision.md`
-- `11 - Project Status and Development Journal.md`
-- `12 - Development Workflow and Engineering Standards.md`
-- `13 - Prompt Engineering and AI Collaboration.md`
-- `15 - Engineering Notes and Design Commentary.md`
-- the most recent applicable handoff.
+Generated at `8ddadf7` to accelerate bootstrap. **Not authoritative.** `02` owns architecture and terminology; `11` and the newest handoff own current state. If this block disagrees with them, they win and this file is stale — say so.
 
-Purpose:
+### Canonical vocabulary
 
-- understand why Maestriss exists;
-- understand the major system surfaces;
-- separate current implementation, architecture, planned work, future vision, and historical context;
-- understand project maturity, current priorities, technical debt, and strategic direction;
-- understand AI collaboration and delegation principles.
+| Term | Meaning |
+| --- | --- |
+| Doctrine | A goal-specific Council composition and choreography preset. 16 built-in. |
+| Council | The assembled multi-seat deliberative system (a configured Council Configuration). |
+| Formation | The ordered Seat choreography of a Council. |
+| Seat | Stable positional identity in a Formation. |
+| Calling | The cognitive duty / functional role bound to a Seat. 16 canonical. |
+| Mind | A configured AI identity associated with a Seat. |
+| Preferred Mind | The Seat's configured first-choice Mind. **Not necessarily the executor.** |
+| Execution Target | The run-time provider family, model, and transport actually executing a Seat. |
+| Transport | How the composed prompt reaches a Mind: `browser` or `api`. |
 
-### Tier 3: Subsystem Orientation
+A Seat owns or resolves: stable identity, Calling, Preferred Mind, provider fallback preferences, cognitive configuration/overrides, Memory behavior, and `maxResponseChars`.
 
-Required:
+The six cognitive dimensions are **Temperament, Voice, Conviction, Dissent, Depth, Memory** — deterministic 10-level instruction catalogues; neutral levels may emit no instruction; Memory is primarily mechanical context-selection rather than behavioural prose.
 
-- `03 - Driver Lifecycle Specification.md`
-- `04 - Browser and Tab Management.md`
-- `05 - Response Detection and Filtering Philosophy.md`
-- `06 - Testing and Regression Philosophy.md`
-- `07 - Participant Driver Reference.md`
-- `08 - Browser Automation Architecture.md`
-- `09 - Testing, Validation, and Diagnostics.md`
-- `14 - Operational Runbook.md`
-- `16 - AI Session Bootstrap.md`.
+### Architecture facts a Commander must hold
 
-Purpose:
+- **Configured Preferred Mind ≠ Execution Target.** Provider fallback is deterministic and availability-scoped; fallback must not change the Seat's Calling, cognitive identity, or composed prompt.
+- **Run-scoped provider availability memory** exists: a Mind established unavailable is remembered for the rest of that run and not re-attempted by later Seats. Never persisted across runs.
+- Calling provider-affinity rankings are ordered fallback preferences; invariant: the first affinity equals the Calling's Suggested Mind.
+- **Composition owns WHAT a Mind receives; transport owns HOW it gets there.** The composed Seat prompt is transport-independent. A transport must never build its own behavioural prompt.
 
-- understand the major operational subsystems well enough to avoid strategically harmful decisions;
-- understand which work belongs in shared infrastructure versus provider-specific drivers;
-- understand diagnostics and regression as architecture;
-- understand operational constraints and provider maturity differences.
+### Current major milestone
 
-### Tier 4: Audit And Historical Context
+Maestriss has crossed from browser-only Council execution into **direct API Council execution**. The OpenAI Responses API transport (official OpenAI Node SDK, model `gpt-4o-mini`) is implemented, with an API execution identity distinct from the canonical browser ChatGPT Mind. A run-level CLI override forces all Seats through the API; the CLI distinguishes configured Preferred Mind, run override, actual Execution Mind, provider family, model, and transport.
 
-Required:
+**First live all-OpenAI Dream Lab Council: 7 Seats, 7 passed, 0 skipped, 0 failed, ~63s, no browser Runner service required.**
 
-- enumerate current files in `Documentation/Handoffs/`;
-- read the most recent applicable handoff in full;
-- enumerate current files in `Documentation/Reviews/`;
-- read review summaries or full reviews when they affect current strategic judgment.
+Browser transport remains first-class. API execution is an additional transport, never permission to remove provider-specific browser drivers.
 
-Purpose:
+### Current highest-priority defect
 
-- preserve milestone continuity;
-- avoid treating old audits as current truth without reconciliation;
-- identify unresolved review findings and historical risks.
+`maxResponseChars` is **advisory**, not an enforced invariant. It resolves per Seat, renders deterministic prompt guidance, and is measured/warned in the CLI — but oversized responses are still admitted to Council memory in full. In the live run `gpt-4o-mini` repeatedly exceeded the 1,024-character target (~2,059–2,417 chars), consuming the 12,000-char prompt budget: the Royal Scribe was configured **Memory 9 / full eligible record** yet received only 3 of 6 eligible contributions.
 
-### Tier 5: Selective Source Verification
+**The next decision: how should `maxResponseChars` become a hard end-to-end Council invariant rather than advisory guidance?** A three-layer direction (prompt guidance / transport-native output budget / Council admission boundary) is **proposed only — not approved, not implemented**. See the newest handoff. Inspect code and prepare the implementation brief; do not document the proposal as built.
 
-Required only when a strategic claim depends on current implementation.
+## Tier 3: Task-Specific Deepening (on demand only)
 
-The high-level project AI does not need to read the entire source tree during bootstrap. It must know which source areas implement each major subsystem and must inspect source selectively, or delegate inspection to the VS Code engineering AI, when current implementation matters.
+Load **after** the user supplies the task. Do not preload.
+
+| Task | Read |
+| --- | --- |
+| Council contract / Doctrines / Callings / cognitive stats | `02`, `shared/council/` |
+| Council execution, fallback, availability, transport | `02`, `09`, `14`, `runner/src/councilExecution.ts`, `councilAvailability.ts`, `openaiTransport.ts` |
+| Response boundary / maxResponseChars | `02`, `09`, `shared/council/promptComposition.ts`, `schema.ts`, newest handoff |
+| Driver / response detection / browser work | `03`, `05`, `07`, `09`, then `runner/src/drivers/` |
+| Browser, tabs, CDP, sessions | `04`, `08`, `14` |
+| Testing and diagnostics | `06`, `09`, `runner/package.json` |
+| Studio | `02`, `10`, `12`, `src/` |
+| Operations / runbook | `14` |
+| Roadmap / prioritization | `10`, `11`, newest handoff |
+| Engineering standards, versioning, commit policy | `12` |
+| AI collaboration / prompt discipline | `13` |
+| Design commentary and rationale | `15` |
+| Documentation architecture | `Knowledge_System_Guide.md`, `Start_Here.md` |
+
+`16 - AI Session Bootstrap.md` is a compatibility redirect only; it owns no onboarding logic.
+
+## Recent Commits (verified at generation)
+
+```text
+8ddadf7  feat: add OpenAI API Council execution transport
+755723d  test: add isolated OpenAI Responses API smoke test
+473f691  feat: run-scoped provider availability memory for Council runs
+b89eba5  feat: canonical per-seat response-length target
+640ce0d  fix: live-run response detection regressions
+e60bbc2  feat: deterministic provider fallback with per-seat Mind preference chains
+aa1a98c  feat: council system with cognitive stats, live doctrine execution, and operator observability
+d82438d  feat: canonical role library and sixteen goal-specific council presets
+```
 
 ## Access State Vocabulary
 
-Use these states for every required document:
-
 | State | Meaning |
 | --- | --- |
-| Discovered | The file is known to exist or is referenced. |
-| Opened | The file was accessed but not fully read. |
-| Partially Read | Only a portion or summary was inspected. |
-| Read In Full | The full file content was inspected. |
-| Strategically Synthesized | The file was read in full and incorporated into the project model. |
-| Verified Against Source | A claim from the file was checked against current implementation or reliable engineer evidence. |
+| Discovered | Known to exist or referenced. |
+| Opened | Accessed but not fully read. |
+| Partially Read | Only a portion or summary inspected. |
+| Read In Full | Full content inspected. |
+| Synthesized | Read in full and incorporated into the project model. |
+| Verified Against Source | Checked against current implementation or reliable engineer evidence. |
 
-`Discovered`, `Opened`, and `Partially Read` do not count as `Read In Full`.
-
-`Read In Full` does not automatically count as `Strategically Synthesized`.
+`Discovered`, `Opened`, and `Partially Read` never count as `Read In Full`.
 
 ## Readiness States
 
 | State | Meaning |
 | --- | --- |
-| Project Identified | The AI has established that the repository and task concern Maestriss. |
-| Knowledge System Loaded | Tier 1 was read in full and source-of-truth rules are understood. |
-| Strategic Core Loaded | Tier 2 was read in full and synthesized. |
-| Subsystem Map Loaded | Tier 3 was read in full and synthesized. |
-| Current State Reconciled | Current handoff, status journal, and relevant reviews were reconciled against the Reference library. |
-| Whole-Project Model Established | The AI can describe identity, system model, principles, current state, maturity, backlog, risks, history, governance, and delegation boundaries. |
-| Shot-Caller Ready | The AI has completed required reading, reconciled document counts, identified uncertainties, and can responsibly make high-level project decisions or delegate implementation work. |
+| Project Identified | Established that the repository and task concern Maestriss. |
+| Knowledge System Loaded | Tier 1 read in full; source-of-truth rules understood. |
+| Commander Ready | Tier 1 + Tier 2 read in full and synthesized; current state, current priority, and next decision known; uncertainties listed. |
+| Verified | Task-relevant implementation claims additionally verified against source or reliable engineer evidence. |
 
 Do not use `Engineering Ready` for this role.
 
-## Hard Failure Conditions
-
-The high-level project AI must not claim `Shot-Caller Ready` when:
+### Hard failure — do not claim `Commander Ready` when
 
 - project identity is unknown;
-- any Tier 1 file is inaccessible or only partially read;
-- any numbered AI Reference document is missing, inaccessible, or only partially read;
-- the required numbered document count does not reconcile to 16;
-- the most recent applicable handoff was not inspected;
-- current implementation, planned work, future vision, and historical context have not been separated;
-- major subsystem maturity is unknown;
-- an authority conflict affects strategic conclusions and remains unresolved;
-- access limitations prevent the requested strategic judgment from being made honestly.
-
-## Degraded Readiness
-
-Use partial readiness only when the AI can answer a limited question honestly without full shot-caller readiness.
-
-Example:
-
-- A user asks for a narrow summary of a supplied document.
-- A user asks for a critique of one pasted architecture note.
-- A user asks which files are needed to bootstrap fully.
-
-In partial readiness, the AI must state:
-
-- which required tiers remain incomplete;
-- which files were not read in full;
-- which strategic claims are not permitted;
-- what evidence is needed to become shot-caller ready.
-
-## Bootstrap Stages
-
-### Stage 0: Canonical Repository Access Declared
-
-GitHub is the sole canonical bootstrap evidence source for Maestriss.
-
-Required repository files may satisfy bootstrap evidence only when accessed through:
-
-- direct access to the canonical GitHub repository at `https://github.com/blindvigil/maestriss`;
-- GitHub connector access to the canonical GitHub repository;
-- a local checkout verified to originate from the canonical GitHub repository.
-
-No other source may satisfy required bootstrap evidence. Do not substitute Google Drive, OneDrive, Dropbox, generic document stores, search-engine results, prior uploads, user-pasted copies, or similarly named files from another project.
-
-State which permitted access mode is available and what can and cannot be inspected from the canonical GitHub repository.
-
-If any required file cannot be accessed from the canonical GitHub repository or a verified local checkout of it, report the exact repository path and stop at the permitted readiness level.
-
-### Stage 1: Identity And Authority
-
-Read Tier 1 in full.
-
-Outputs:
-
-- repository identity;
-- source-of-truth hierarchy;
-- role distinction;
-- documentation category model;
-- access limitations.
-
-Readiness after this stage:
-
-- `Knowledge System Loaded`.
-
-### Stage 2: Strategic Core
-
-Read Tier 2 in full.
-
-Outputs:
-
-- project purpose;
-- long-term ambition;
-- major surfaces;
-- current documented status;
-- roadmap;
-- engineering standards;
-- AI collaboration model;
-- design commentary themes.
-
-Readiness after this stage:
-
-- `Strategic Core Loaded`.
-
-### Stage 3: Subsystem Orientation
-
-Read Tier 3 in full.
-
-Outputs:
-
-- driver lifecycle model;
-- browser/session model;
-- response detection model;
-- testing/regression model;
-- participant maturity map;
-- browser automation model;
-- diagnostics model;
-- operational constraints;
-- redirect/onboarding compatibility model.
-
-Readiness after this stage:
-
-- `Subsystem Map Loaded`.
-
-### Stage 4: Current State And Review Reconciliation
-
-Read the most recent applicable handoff in full.
-
-Enumerate reviews and inspect relevant review summaries or full reviews when they affect strategic judgment.
-
-Reconcile:
-
-- `11 - Project Status and Development Journal.md`;
-- latest applicable handoff;
-- relevant review findings;
-- source-of-truth hierarchy.
-
-Readiness after this stage:
-
-- `Current State Reconciled`.
-
-### Stage 5: Whole-Project Synthesis
-
-Produce a structured model containing:
-
-- project identity;
-- system model;
-- architectural principles;
-- current state;
-- maturity map;
-- strategic backlog;
-- technical debt;
-- historical context;
-- governance model;
-- delegation model;
-- unknowns and verification needs.
-
-Readiness after this stage:
-
-- `Whole-Project Model Established`.
-
-### Stage 6: Shot-Caller Readiness Gate
-
-Verify:
-
-- Tier 1 count complete;
-- numbered AI Reference count is 16/16;
-- Tier 2 complete;
-- Tier 3 complete;
-- latest applicable handoff read;
-- relevant reviews considered;
-- access-state table prepared;
-- current/planned/future/historical distinctions made;
-- major subsystem maturity described;
-- unresolved authority conflicts listed.
-
-Only then may the AI report:
-
-```text
-Readiness: Shot-Caller Ready
-```
-
-### Stage 7: Task-Specific Deepening
-
-Only after `Shot-Caller Ready`, classify the user's current question and deepen as needed.
-
-Examples:
-
-- driver work: revisit `03`, `05`, `07`, `09`, then delegate source inspection to VS Code AI;
-- Studio strategy: revisit `02`, `10`, `12`, `13`, then inspect or delegate `src/`;
-- operations: revisit `04`, `08`, `14`, then inspect or delegate runner scripts;
-- documentation architecture: revisit `Knowledge_System_Guide.md`, `Start_Here.md`, `12`, `13`, `15`;
-- roadmap: revisit `10`, `11`, latest handoff, and relevant reviews.
-
-## Selective Source Verification
-
-The high-level project AI does not need to read the full source tree during bootstrap.
-
-It must inspect source directly, or delegate source verification to the VS Code engineering AI, when:
-
-- a strategic decision depends on current implemented behavior;
-- documentation and code may disagree;
-- maturity claims are being used to prioritize work;
-- a proposed shared abstraction may affect provider boundaries;
-- an implementation proposal might violate architecture;
-- a review finding may already be resolved by later code.
-
-## Engineering Delegation Brief
-
-When delegating to a VS Code engineering AI, use this format:
-
-```text
-Objective:
-Strategic rationale:
-Authoritative documents:
-Architecture constraints:
-Current-state assumptions:
-Source areas to inspect:
-Invariants not to violate:
-Requested verification:
-Expected report-back:
-Unresolved questions:
-```
-
-The delegation brief is not bureaucracy. It prevents local implementation work from optimizing one file while damaging the broader architecture.
-
-## Required Shot-Caller Bootstrap Report
-
-Before strategic work, report:
-
-- access mode;
-- repository identity and revision if available;
-- Tier 1 files read;
-- numbered AI Reference count and list;
-- Tier 2 files read and synthesized;
-- Tier 3 files read and synthesized;
-- current handoff selected and why;
-- reviews considered;
-- source files inspected, if any;
-- unavailable files;
-- access-state table;
-- project identity summary;
-- system model;
-- architectural principles;
-- current-state summary;
-- maturity map;
-- strategic backlog;
-- technical debt and risks;
-- historical context;
-- governance model;
-- delegation model;
-- unresolved conflicts;
+- any Tier 1 or Tier 2 file is inaccessible or only partially read;
+- the newest applicable handoff was not inspected;
+- current implementation, proposed design, planned work, and history have not been separated;
+- an authority conflict affecting conclusions remains unresolved;
+- access limits prevent answering honestly.
+
+Fail closed and name the missing repository path. Never substitute conversation history or pasted summaries.
+
+### Degraded readiness
+
+Permitted only for narrow questions answerable honestly without full readiness (e.g. "critique this pasted note", "what do I need to bootstrap?"). State which tiers are incomplete, what was not read in full, which claims are not permitted, and what evidence is needed.
+
+## Required Commander Bootstrap Report
+
+Keep it compact. Report:
+
+- access mode; repository identity and revision if available;
+- Tier 1 files read; Tier 2 files read; newest handoff selected and why;
+- unavailable files, if any;
+- **project identity and system model** (one short paragraph);
+- **canonical vocabulary** — Doctrine, Council, Formation, Seat, Calling, Mind, Preferred Mind, Execution Target;
+- **current major milestone**;
+- **current highest-priority issue and the next decision**;
+- **configured Preferred Mind vs actual Execution Target** distinction;
+- **Studio/UI vs Runner/execution** distinction;
+- **Commander vs implementation-engineer** distinction;
+- unresolved conflicts and uncertainties;
 - readiness state.
 
-If any required item is missing, do not claim `Shot-Caller Ready`.
+Then **stop and ask for the task.** Do not begin Tier 3 reading or strategic recommendations until the user supplies or confirms it.

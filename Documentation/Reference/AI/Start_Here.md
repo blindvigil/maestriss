@@ -40,7 +40,7 @@ Documentation/Reference/AI/VSC_AI_Prompt.md
 Documentation/Reference/AI/VSC_AI_Bootstrap.md
 ```
 
-Use `Web_AI_Prompt.md` and `Web_AI_Bootstrap.md` for high-level project AIs: whole-project comprehension, strategy, planning, architecture, prioritization, review, critique, and implementation handoff.
+Use `Web_AI_Prompt.md` and `Web_AI_Bootstrap.md` for the Commander-in-Chief (high-level project AI): whole-project comprehension, architecture, product strategy, prioritization, design review, project history, and delegation of implementation work. The Commander does not normally perform repository implementation itself.
 
 Use `VSC_AI_Prompt.md` and `VSC_AI_Bootstrap.md` for VS Code or repository-attached engineer AIs: local source inspection, implementation, verification, and reporting.
 
@@ -155,6 +155,8 @@ Documentation/
       16 - AI Session Bootstrap.md
   Handoffs/
     2026-07-10 - Native Runner Foundation Milestone.md
+    2026-07-14 - Council System and Live Doctrine Execution.md
+    2026-07-15 - OpenAI API Council Execution.md
   Reviews/
     Reconciliation Report - Docs vs Code (2026-07-10).md
 ```

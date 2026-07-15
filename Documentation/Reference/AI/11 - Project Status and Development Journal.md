@@ -100,15 +100,17 @@ The document should remain concise enough to read quickly, but detailed enough t
 
 This section is intended to be updated frequently.
 
-**Last Updated:** 2026-07-11
+**Last Updated:** 2026-07-15
 
-**Overall Maturity:** Active development. The core architecture, runner, browser automation model, participant drivers, response filtering strategy, diagnostics, and reference documentation are established. The project is not yet a finished product, but its foundational engineering direction is clear.
+**Overall Maturity:** Active development. The core architecture, runner, browser automation model, participant drivers, response filtering strategy, diagnostics, the Council orchestration system, and reference documentation are established. The project is not yet a finished product, but its foundational engineering direction is clear.
 
-**Current Architecture:** Maestriss uses a React/TypeScript/Vite Studio application and a native runner built around Playwright, Chrome DevTools Protocol, persistent browser profiles, participant tabs, provider-specific drivers, shared orchestration, diagnostics, and regression tests.
+**Current Architecture:** Maestriss uses a React/TypeScript/Vite Studio application and a native runner built around Playwright, Chrome DevTools Protocol, persistent browser profiles, participant tabs, provider-specific drivers, shared orchestration, diagnostics, and regression tests. On top of that sits the Council system (`shared/council/`): 16 canonical Callings, 16 built-in Doctrines, six cognitive stats, deterministic prompt composition, live Doctrine execution, deterministic availability-scoped provider fallback, and run-scoped provider availability memory.
 
-**Automation Status:** Browser automation is operational across the supported participant set. Drivers exist for ChatGPT, Claude, DeepSeek, Gemini, Google AI Mode, Grok, Copilot, Perplexity, and Reka Chat. Driver maturity varies by provider.
+**Automation Status:** Maestriss now has **two execution transports**. Browser automation is operational across the supported participant set (ChatGPT, Claude, DeepSeek, Gemini, Google AI Mode, Grok, Copilot, Perplexity, Reka Chat; driver maturity varies). The OpenAI Responses API is the first **direct API** transport (official OpenAI Node SDK, model `gpt-4o-mini`), selectable per run via the Council CLI `--mind openai-api` override. API execution is an additional transport, not a replacement: browser drivers remain first-class.
 
-**Testing Status:** Build verification is active. Provider-specific filter and regression tests exist for several drivers, with Perplexity still needing fuller dedicated filter assertion coverage. Live smoke tests are used to validate exact-answer asks against provider pages.
+**Current Priority:** `maxResponseChars` is advisory rather than an enforced Council invariant. The first live all-OpenAI Council run showed oversized contributions being admitted to Council memory in full and consuming the prompt budget, defeating configured Memory intent. See the 2026-07-15 entry below and the 2026-07-15 handoff. This is the next decision, ahead of further transport expansion.
+
+**Testing Status:** Build verification is active. Provider-specific filter and regression tests exist for several drivers, with Perplexity still needing fuller dedicated filter assertion coverage. Deterministic browser-free Council suites cover the contract, cognitive stats, execution engine, operator output, and the OpenAI transport. Live smoke tests validate exact-answer asks against provider pages; `npm run test:openai-api` is an isolated live API smoke test excluded from every deterministic suite.
 
 **Documentation Status:** The Documentation/Reference series is substantially developed. Documents 01 through 16 define design philosophy, system architecture, driver lifecycle, browser management, response detection, testing, participant drivers, browser automation, diagnostics, future vision, project status, engineering standards, AI collaboration, operations, engineering commentary, and redirect compatibility for older AI onboarding links. The AI onboarding artifacts are role-specific: `Web_AI_Prompt.md` and `Web_AI_Bootstrap.md` serve high-level project AI sessions, while `VSC_AI_Prompt.md` and `VSC_AI_Bootstrap.md` serve VS Code or repository-attached engineer AI sessions. These files are generated, non-authoritative guides for reasoning and boot procedure. New contributors should begin with `Start_Here.md` after selecting the appropriate role-specific onboarding pair. Milestone state transfers live in `Documentation/Handoffs/`; the current milestone is `2026-07-10 - Native Runner Foundation Milestone.md`.
 
@@ -149,6 +151,20 @@ This section is intended to be updated frequently.
 ## Recent Development Summary
 
 Entries should be added chronologically, newest at the top.
+
+### 2026-07-15
+
+**Area:** First Live All-OpenAI Council Run, and the Response-Boundary Defect It Exposed
+
+**Summary:** The first live all-OpenAI Dream Lab Council ran end to end: 7 Seats, 7 passed, 0 skipped, 0 failed, 7 successful contributions, approximately 63 seconds, every Seat executed through the OpenAI API (`gpt-4o-mini`), with no browser Runner service required. The transport architecture held: composition stayed transport-independent (each Seat's cognitive stats resolved from its configured Preferred Mind, not the executor), and configured Preferred Mind / run override / actual Execution Target were reported truthfully throughout.
+
+**Defect exposed (current highest priority):** `maxResponseChars` is advisory, not an enforced Council invariant. It correctly resolves per Seat, renders deterministic prompt guidance, and is measured and warned about in the CLI — but nothing bounds what enters Council memory. Against explicit 1,024-character guidance, `gpt-4o-mini` repeatedly returned roughly 2,399 / 2,417 / 2,137 / 2,059 / 2,126 characters. The CLI correctly reported `Target exceeded: YES` with the excess, yet each oversized contribution was admitted to Council memory in full and consumed the 12,000-character prompt budget. Seat 6 (Alchemist): 5 contributions eligible, 5 Memory-selected, only 2 included after budget. Seat 7 (Royal Scribe): 6 eligible, 6 Memory-selected, only 3 included — Seats 1, 2, and 3 omitted. The Royal Scribe was configured Memory 9 / full eligible record and did not receive the full eligible record. Memory intent was silently defeated by unbounded contribution size.
+
+**Proposed direction (NOT approved, NOT implemented):** a three-layer contract — (1) stronger prompt guidance than the current "approximately" phrasing; (2) a transport-native output budget derived conservatively and deterministically from `maxResponseChars` for API transports that support one (investigate OpenAI Responses `max_output_tokens`; no fixed character-to-token ratio is exact); (3) a Council admission boundary so no contribution admitted to Council memory silently exceeds its Seat's resolved `maxResponseChars`, preserving the complete raw response for diagnostics and preferring a deterministic sentence/paragraph boundary over arbitrary character cuts. Proposed invariant: no contribution admitted to Council memory exceeds its Seat's resolved `maxResponseChars`.
+
+**Quality observation (one run — do not overstate):** the run was operationally successful but intellectually repetitive. Later contributions converged on adaptive frameworks, semantic/ML anchors, feedback loops, cross-provider heuristic learning, and multi-modal evidence, and the Royal Scribe largely re-synthesized existing themes. Calling flavour plus cognitive stats may not create sufficient perspective diversity when every Seat runs the same small model. This motivates future investigation of model diversity, mixed API transports, model selection by Calling, anti-repetition/novelty pressure, Doctrine choreography, and stronger Dissent / Calling-specific output contracts — all subordinate to the response-boundary defect.
+
+**Lessons Learned:** advisory prompt guidance is not a boundary. A behavioral target that a provider can ignore becomes a silent architectural failure once downstream systems (Memory, prompt budget) depend on it. Observability caught the overrun honestly and immediately — the CLI reported it correctly — but observation is not enforcement. Live experimental evidence found in one run what deterministic suites could not: every suite passed, because the suites assert the advisory semantics that were actually implemented.
 
 ### 2026-07-14
 
@@ -689,13 +705,16 @@ Milestone handoffs are tracked separately in `Documentation/Handoffs/` (current:
 
 ## Current Priorities
 
-If an engineer had only one day to contribute, the highest-value work would be:
+The single next most valuable task is **1**. Do not expand transports further until it is decided.
 
-1. Run exact-answer smoke tests across all supported participants and update this journal with results.
-2. Add or expand provider-specific filter regressions for any driver with weak coverage.
-3. Normalize diagnostics for the least mature driver.
-4. Improve runner-to-Studio visibility for participant status and run history.
-5. Update this document with any new findings before ending the session.
+1. **Make `maxResponseChars` a hard end-to-end Council invariant** rather than advisory prompt guidance. The first live all-OpenAI Council run (2026-07-15) proved oversized contributions are admitted to Council memory in full and consume the prompt budget, defeating configured Memory intent (a Memory 9 / full-eligible-record Royal Scribe received only 3 of 6 eligible contributions). A three-layer direction is proposed but **not approved and not implemented**; inspect current code, weigh tradeoffs, and prepare an implementation brief. See the 2026-07-15 entry and handoff.
+2. Run exact-answer smoke tests across all supported participants and update this journal with results.
+3. Add or expand provider-specific filter regressions for any driver with weak coverage.
+4. Normalize diagnostics for the least mature driver.
+5. Improve runner-to-Studio visibility for participant status and run history.
+6. Update this document with any new findings before ending the session.
+
+Deferred until after item 1: mixed API/browser transport routing, model selection by Calling, additional provider API transports (for example Anthropic), and native inference-parameter mapping.
 
 ## Daily Development Log
 
