@@ -67,6 +67,27 @@ export function evaluateGrokOverlayCandidate(candidate: GrokOverlayCandidate): G
 
 const maxTerminalErrorTextLength = 240;
 
+// Account/plan gating chrome (live regression 2026-07-14: the standalone
+// upsell block "Sign up to continue seamlessly with Grok's full power" won
+// candidate selection and was recorded as a successful Council
+// contribution). These are provider-availability states, not responses:
+// they classify as a structured availability failure so the provider
+// fallback chain can advance. Deliberately narrow phrases; matching is
+// length-bounded so a long real answer that quotes one of them is never
+// affected.
+const accountOrPlanBlockPhrases = [
+  'sign up to continue',
+  'sign in to continue',
+  'log in to continue',
+  'create an account to continue',
+];
+
+export function matchesGrokAccountOrPlanBlock(normalizedText: string) {
+  return normalizedText.length > 0 &&
+    normalizedText.length <= maxTerminalErrorTextLength &&
+    accountOrPlanBlockPhrases.some((phrase) => normalizedText.includes(phrase));
+}
+
 export function evaluateGrokTerminalErrorText(
   text: string,
   promptNeedle = '',
@@ -89,6 +110,14 @@ export function evaluateGrokTerminalErrorText(
     if (needle && normalized.includes(needle)) {
       return { found: false };
     }
+  }
+
+  if (matchesGrokAccountOrPlanBlock(normalized)) {
+    return {
+      found: true,
+      reason: 'grok-account-or-plan-block',
+      message: text.slice(0, maxTerminalErrorTextLength),
+    };
   }
 
   if (
@@ -155,6 +184,16 @@ export function evaluateGrokCandidate(
     return {
       accepted: false,
       reason: 'outside-central-chat-width',
+    };
+  }
+
+  // A short standalone account/plan gate can never be a response, even if
+  // it wins geometry and length checks. Length-bounded: a long real answer
+  // quoting one of these phrases is not rejected.
+  if (matchesGrokAccountOrPlanBlock(normalized)) {
+    return {
+      accepted: false,
+      reason: 'grok-account-or-plan-block',
     };
   }
 

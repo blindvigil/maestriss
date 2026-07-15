@@ -45,6 +45,37 @@ const candidateCases: CandidateCase[] = [
     expected: 'accepted',
   },
   {
+    // Exact live regression (2026-07-14 Dream Lab run): the signed-out plan
+    // upsell block won candidate selection and was recorded as a successful
+    // Wild Mage contribution. It is an availability state, never a response.
+    input: {
+      text: 'Sign up to continue seamlessly with Grok’s full power',
+      x: 420,
+      y: 300,
+      width: 520,
+      height: 64,
+    },
+    expected: 'rejected',
+    expectedReason: 'grok-account-or-plan-block',
+  },
+  {
+    // A long real answer that merely quotes the gating phrase is unaffected
+    // (the account/plan match is length-bounded).
+    input: {
+      text:
+        'One robust pattern for detecting provider account gates: when a page shows a short standalone ' +
+        'block such as "sign up to continue" instead of an answer, classify it as provider unavailability ' +
+        'rather than a response. This keeps upsell chrome out of the transcript while allowing normal ' +
+        'answers to discuss such wording freely, because real responses carry substantially more content ' +
+        'around the quoted phrase than any gating banner ever does.',
+      x: 164,
+      y: 170,
+      width: 768,
+      height: 240,
+    },
+    expected: 'accepted',
+  },
+  {
     input: {
       text: 'Say exactly: Grok OK',
       x: 743,
@@ -118,6 +149,12 @@ const longTranscriptMentioningRateLimit =
   'can recover gracefully without hammering the service or losing user trust in the product.';
 
 const terminalErrorCases: TerminalErrorCase[] = [
+  {
+    // Exact live regression (2026-07-14): account/plan gate classifies as a
+    // structured availability failure so Council fallback can advance.
+    text: 'Sign up to continue seamlessly with Grok’s full power',
+    expected: 'grok-account-or-plan-block',
+  },
   {
     text: 'Please try again soon, or upgrade for higher priority access',
     expected: 'grok-capacity-error',

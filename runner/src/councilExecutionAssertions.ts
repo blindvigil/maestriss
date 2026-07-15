@@ -19,7 +19,13 @@ import {
   type CouncilContribution,
   type CouncilStage,
 } from '../../shared/council/index.js';
-import { runCouncil, type CouncilAskFn, type CouncilRunResult } from './councilExecution.js';
+import {
+  providerUnavailableAskReasons,
+  runCouncil,
+  type CouncilAskFn,
+  type CouncilRunResult,
+} from './councilExecution.js';
+import { structuredAskFailureReason } from './askFailureReason.js';
 import type { ParticipantResponse, ParticipantRunResponse } from './types.js';
 
 let failureCount = 0;
@@ -740,6 +746,57 @@ async function testProviderFallback() {
       seat.providerSelection?.chainExhausted === true &&
       seat.providerSelection?.rejectedProviders[0]?.phase === 'ask',
       'an availability ask failure on a chain of one is not retried; the exhausted chain resolves via the failure policy',
+    );
+  }
+
+  // Live-run regression (2026-07-14): structured availability categories
+  // must survive the server's error path and reach the engine, and the
+  // Grok account/plan gate must be fallback-eligible.
+  {
+    assert(
+      providerUnavailableAskReasons.has('grok-account-or-plan-block') &&
+      providerUnavailableAskReasons.has('grok-capacity-error') &&
+      providerUnavailableAskReasons.has('grok-rate-limited'),
+      'the Grok account/plan gate and capacity categories are fallback-eligible availability reasons',
+    );
+    assert(
+      structuredAskFailureReason('grok-account-or-plan-block: Sign up to continue seamlessly') === 'grok-account-or-plan-block' &&
+      structuredAskFailureReason('grok-capacity-error: Please try again soon...') === 'grok-capacity-error' &&
+      structuredAskFailureReason('Timed out waiting for ChatGPT completion.') === undefined &&
+      structuredAskFailureReason('Error: something broke') === undefined,
+      'structured category tokens are recovered from driver failure messages; free-text messages stay untouched',
+    );
+
+    // End-to-end: a driver-thrown availability category (as the server now
+    // forwards it) advances the fallback chain instead of failing the seat.
+    const calls: AskCall[] = [];
+    const result = await runCouncil({
+      configuration: makeConfiguration([
+        makeStage({
+          id: 's1',
+          provider: 'grok',
+          providerFallbacks: ['chatgpt'],
+          inputPolicy: 'original-only',
+        }),
+      ]),
+      request: testRequest,
+      ask: makeScriptedAsk(calls, [
+        (provider, prompt) => failedResponse(
+          provider,
+          prompt,
+          'grok-account-or-plan-block: Sign up to continue seamlessly with Grok’s full power',
+          structuredAskFailureReason('grok-account-or-plan-block: Sign up to continue seamlessly') ?? 'unknown',
+        ),
+      ]),
+    });
+
+    assert(
+      result.finalResult === 'PASS' &&
+      calls.map((call) => call.provider).join(',') === 'grok,chatgpt' &&
+      result.seats[0].providerSelection?.executedProvider === 'chatgpt' &&
+      result.seats[0].providerSelection?.rejectedProviders[0]?.reason === 'grok-account-or-plan-block' &&
+      calls[0].prompt === calls[1].prompt,
+      'a live Grok plan block advances the chain with the identical prompt instead of becoming a contribution',
     );
   }
 

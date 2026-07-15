@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { assertAskCapableDriversResolve, getDriver } from './drivers/index.js';
+import { structuredAskFailureReason } from './askFailureReason.js';
 import { inspectParticipantPage, type InspectionResult } from './inspector.js';
 import { participants, type RunnerParticipant } from './participants.js';
 import { getPromptTemplate } from './promptTemplates.js';
@@ -744,7 +745,10 @@ async function askParticipantResponse(
       prompt,
       'failed',
       fullMessage,
-      cancelled ? 'cancelled' : message,
+      // Preserve a structured category token when the driver threw one, so
+      // availability classification (and Council fallback) can act on it;
+      // otherwise keep the free-text message as before.
+      cancelled ? 'cancelled' : structuredAskFailureReason(message) ?? message,
       partial,
     );
   }

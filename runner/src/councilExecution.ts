@@ -90,6 +90,7 @@ export const providerUnavailableAskReasons: ReadonlySet<string> = new Set([
   // Structured driver availability categories observed live.
   'grok-capacity-error',
   'grok-rate-limited',
+  'grok-account-or-plan-block',
   // Generic availability categories reserved for provider drivers.
   'provider-unavailable',
   'account-restricted',

@@ -119,6 +119,55 @@ const geometryCases = [
     siblings: geometrySiblings,
     expectedReason: 'page-or-transcript-parent-container',
   },
+  {
+    // Exact live regression (2026-07-14 Dream Lab run): a completed ~8,000
+    // character response rendered far taller than the 1200px size cap, so
+    // every semantic assistant candidate was rejected as a transcript
+    // parent, latestAssistantText stayed empty, and waitForCompletion timed
+    // out on a visibly finished answer. Semantic assistant-message nodes are
+    // exempt from the size proxy: they identify exactly one message.
+    candidate: {
+      text: 'The strongest common thread across the contributions is that they are all arguing against a stateless polling architecture. '.repeat(60),
+      x: 640,
+      y: -2200,
+      width: 768,
+      height: 2600,
+      selector: '[data-message-author-role="assistant"]',
+    },
+    prompt: 'Say exactly: ChatGPT OK',
+    siblings: [],
+    expectedReason: '',
+  },
+  {
+    // The size proxy still guards broad fallback selectors: an equally tall
+    // candidate without a semantic assistant selector stays rejected.
+    candidate: {
+      text: 'The strongest common thread across the contributions is that they are all arguing against a stateless polling architecture. '.repeat(60),
+      x: 640,
+      y: -2200,
+      width: 768,
+      height: 2600,
+      selector: '[class*="markdown"]',
+    },
+    prompt: 'Say exactly: ChatGPT OK',
+    siblings: [],
+    expectedReason: 'page-or-transcript-parent-container',
+  },
+  {
+    // The semantic exemption bypasses only the size proxy — every other
+    // rejection rule still applies to assistant-selector candidates.
+    candidate: {
+      text: 'Say exactly: ChatGPT OK',
+      x: 640,
+      y: 120,
+      width: 768,
+      height: 1400,
+      selector: '[data-message-author-role="assistant"]',
+    },
+    prompt: 'Say exactly: ChatGPT OK',
+    siblings: [],
+    expectedReason: 'submitted-prompt-only',
+  },
 ];
 
 const submissionEvidenceCases = [

@@ -47,7 +47,27 @@ export type ChatGptCandidateGeometry = {
   y: number;
   width: number;
   height: number;
+  // The discovery selector that produced this candidate, when known.
+  // Provider-semantic single-message anchors are exempt from size-proxy
+  // rejection (see chatGptCandidateRejectionReason).
+  selector?: string;
 };
+
+// Selectors that identify exactly one assistant message by ChatGPT's own
+// semantics. Such a node is by construction never a page or transcript
+// parent, so its rendered size must not be used against it: a long
+// completed response is thousands of pixels tall (live regression
+// 2026-07-14: a completed ~8,000-char answer exceeded the 1200px cap every
+// poll, latestAssistantText stayed empty, and waitForCompletion timed out
+// on a visibly finished response).
+const semanticAssistantSelectors = [
+  '[data-message-author-role="assistant"]',
+  '[data-testid*="conversation-turn"][data-testid*="assistant"]',
+];
+
+export function isSemanticAssistantSelector(selector: string | undefined) {
+  return selector !== undefined && semanticAssistantSelectors.includes(selector);
+}
 
 export type ChatGptSubmissionSignals = {
   prompt: string;
@@ -175,7 +195,17 @@ export function chatGptCandidateRejectionReason(
   const normalizedRaw = normalizeChatGptCandidateText(candidate.text);
 
   if (!cleanedText) return 'empty-after-clean';
-  if (candidate.width > 1100 || candidate.height > 1200) return 'page-or-transcript-parent-container';
+
+  // The size cap is a proxy for page/transcript parents and applies only to
+  // broad fallback selectors. Semantic assistant-message nodes are exempt:
+  // a single long completed response legitimately exceeds any fixed height.
+  if (
+    !isSemanticAssistantSelector(candidate.selector) &&
+    (candidate.width > 1100 || candidate.height > 1200)
+  ) {
+    return 'page-or-transcript-parent-container';
+  }
+
   if (candidate.x < 90 && candidate.width <= 180) return 'navigation-container';
 
   const area = candidate.width * candidate.height;
