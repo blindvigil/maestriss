@@ -21,7 +21,11 @@ import {
   type CouncilInputPolicy,
 } from '../../shared/council/index.js';
 import type {
+  CouncilPreflightComplete,
+  CouncilPreflightStart,
+  CouncilProviderAvailabilityEvent,
   CouncilProviderRejectedEvent,
+  CouncilProviderSkippedEvent,
   CouncilRunResult,
   CouncilSeatAttempt,
   CouncilSeatBegin,
@@ -29,6 +33,7 @@ import type {
   CouncilSeatResult,
   CouncilSeatStart,
 } from './councilExecution.js';
+import type { ProviderAvailabilityState } from './councilAvailability.js';
 
 const heavyRule = '='.repeat(60);
 const lightRule = '-'.repeat(60);
@@ -124,8 +129,14 @@ export type CouncilRunReporterOptions = {
 
 export type CouncilRunReporter = {
   start: () => void;
+  // Run-scoped availability preflight surface (no-ops when preflight is off).
+  onPreflightStart: (event: CouncilPreflightStart) => void;
+  onProviderAvailability: (event: CouncilProviderAvailabilityEvent) => void;
+  onPreflightComplete: (event: CouncilPreflightComplete) => void;
   onSeatBegin: (begin: CouncilSeatBegin) => void;
   onProviderRejected: (event: CouncilProviderRejectedEvent) => void;
+  // A chain Mind skipped because it is already unavailable for this run.
+  onProviderSkipped: (event: CouncilProviderSkippedEvent) => void;
   onSeatStart: (start: CouncilSeatStart) => void;
   onSeatAttempt: (attempt: CouncilSeatAttempt) => void;
   onSeatResult: (seat: CouncilSeatResult) => void;
@@ -135,12 +146,20 @@ export type CouncilRunReporter = {
   heartbeatTick: () => void;
 };
 
+// CLI markers for run availability states.
+function availabilityMarker(state: ProviderAvailabilityState): string {
+  return state === 'ready' ? '✓' : state === 'unavailable' ? '⚠' : '?';
+}
+
 export function createCouncilRunReporter(options: CouncilRunReporterOptions): CouncilRunReporter {
   const { configuration, doctrine, print, verbose } = options;
   const now = options.now ?? Date.now;
   const seatCount = configuration.stages.length;
   const contributionInfo = new Map<string, ContributionDisplayInfo>();
   const counters: ReporterCounters = { passed: 0, skipped: 0, failed: 0, processed: 0 };
+  // Run-scoped availability accumulated from preflight and execution events,
+  // so per-seat rendering can explain the effective chain without re-probing.
+  const availabilityByProvider = new Map<string, { state: ProviderAvailabilityState; reason?: string }>();
   let runStartedAt = 0;
   let activeAsk: { provider: string; startedAt: number } | undefined;
   let seatHeaderPrinted = false;
@@ -307,6 +326,74 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
       print(heavyRule);
     },
 
+    onPreflightStart: (event) => {
+      print('');
+      print('CHECKING MINDS...');
+      print(`Inspecting ${event.providers.length} Mind${event.providers.length === 1 ? '' : 's'} that may serve in this Council.`);
+    },
+
+    onProviderAvailability: (event) => {
+      const reason = event.state === 'unavailable' ? event.evidence?.reason : undefined;
+      availabilityByProvider.set(event.provider, { state: event.state, ...(reason ? { reason } : {}) });
+
+      // Live per-Mind line during preflight only; execution transitions are
+      // narrated by the seat-level rejection output.
+      if (event.phase !== 'preflight') {
+        return;
+      }
+
+      const name = providerDisplayName(event.provider);
+      const detail = event.state === 'ready'
+        ? 'ready'
+        : event.state === 'unavailable'
+          ? event.evidence?.reason ?? 'unavailable'
+          : 'unknown';
+      print(`${availabilityMarker(event.state)} ${name} — ${detail}`);
+    },
+
+    onPreflightComplete: (event) => {
+      const group = (state: ProviderAvailabilityState) =>
+        event.entries.filter((entry) => entry.state === state);
+      const ready = group('ready');
+      const unavailable = group('unavailable');
+      const unknown = group('unknown');
+
+      print('');
+      print('Mind availability:');
+
+      if (ready.length > 0) {
+        print('');
+        print('  READY');
+        ready.forEach((entry) => print(`  ${availabilityMarker('ready')} ${providerDisplayName(entry.provider)}`));
+      }
+
+      if (unavailable.length > 0) {
+        print('');
+        print('  UNAVAILABLE');
+        unavailable.forEach((entry) =>
+          print(`  ${availabilityMarker('unavailable')} ${providerDisplayName(entry.provider)} — ${entry.evidence?.reason ?? 'unavailable'}`),
+        );
+      }
+
+      if (unknown.length > 0) {
+        print('');
+        print('  UNKNOWN');
+        unknown.forEach((entry) =>
+          print(`  ${availabilityMarker('unknown')} ${providerDisplayName(entry.provider)} — state not established; still eligible`),
+        );
+      }
+
+      print('');
+      print(`Available Minds: ${event.availableCount} of ${event.totalCount}`);
+
+      if (unavailable.length > 0) {
+        print('Unavailable Minds are skipped for the rest of this run; the saved Council and its provider chains are unchanged.');
+      }
+
+      print('');
+      print(heavyRule);
+    },
+
     onSeatBegin: (begin) => {
       seatHeaderPrinted = true;
       seatPromptIdentity = promptIdentity(begin.prompt);
@@ -320,6 +407,30 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
 
       if (begin.providerChain.length > 1) {
         print(`Provider chain: ${begin.providerChain.map(providerDisplayName).join(' → ')}`);
+      }
+
+      // When the run has already learned some Minds are unavailable, show the
+      // configured-vs-effective distinction. The Preferred Mind is never
+      // rewritten, even when it is the unavailable one.
+      const unavailableThisRun = begin.providerChain.filter(
+        (provider) => !begin.effectiveChain.includes(provider),
+      );
+
+      if (unavailableThisRun.length > 0) {
+        print('Unavailable this run:');
+        unavailableThisRun.forEach((provider) => {
+          const reason = availabilityByProvider.get(provider)?.reason;
+          print(`  ${providerDisplayName(provider)}${reason ? ` — ${reason}` : ''}`);
+        });
+        print(
+          begin.effectiveChain.length > 0
+            ? `Effective chain: ${begin.effectiveChain.map(providerDisplayName).join(' → ')}`
+            : 'Effective chain: (none — every configured Mind is unavailable this run)',
+        );
+
+        if (!begin.effectiveChain.includes(begin.preferredProvider)) {
+          print(`Preferred Mind remains: ${providerDisplayName(begin.preferredProvider)} (unavailable this run, not rewritten)`);
+        }
       }
 
       print(`Calling: ${callingPracticalTitle(begin.calling)}`);
@@ -362,12 +473,37 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
         print(`Message: ${event.rejection.error}`);
       }
 
+      // Note the run-scoped circuit breaker only when this Mind can recur on a
+      // later seat, so the operator understands it will be skipped there.
+      const recursLater = configuration.stages
+        .slice(event.seat)
+        .some((stage) => [stage.provider, ...(stage.providerFallbacks ?? [])].includes(event.rejection.provider));
+
+      if (recursLater) {
+        print(`${name} is now unavailable for the rest of this Council run and will be skipped on later seats.`);
+      }
+
       if (event.nextProvider !== undefined) {
         print(
           `Fallback: TRYING ${providerDisplayName(event.nextProvider).toUpperCase()} ` +
           `(choice ${event.nextChoiceIndex} of ${event.providerChain.length})...`,
         );
         print('The seat is unchanged: same Calling, cognitive stats, context, and composed prompt.');
+      }
+    },
+
+    onProviderSkipped: (event) => {
+      activeAsk = undefined;
+      const name = providerDisplayName(event.rejection.provider);
+
+      print('');
+      print(`${name} skipped — already unavailable for this run (${event.rejection.reason}).`);
+
+      if (event.nextProvider !== undefined) {
+        print(
+          `Fallback: TRYING ${providerDisplayName(event.nextProvider).toUpperCase()} ` +
+          `(choice ${event.nextChoiceIndex} of ${event.providerChain.length})...`,
+        );
       }
     },
 

@@ -52,6 +52,21 @@
 // failureReason 'provider-unavailable': under skip-and-record the seat is
 // skipped; under halt or retry-once the Council halts (there is no
 // available provider to retry).
+//
+// Run-scoped provider availability: provider unavailability is a routine
+// operating condition, so availability learned during a run is remembered for
+// the remainder of that run (createProviderAvailabilityRegistry — never
+// persisted; a new run starts empty). When `preflight` is enabled, one
+// readiness pass at Council start classifies every Mind that can appear in the
+// Formation as ready / unavailable / unknown; unknown remains executable. A
+// Mind established unavailable (by preflight, a readiness gate, or a
+// structured ask failure) is skipped on every later seat with no fresh check
+// and no ask — a run-scoped circuit breaker. The effective execution chain of
+// a seat is derived at runtime as the configured chain minus the run's
+// unavailable Minds; the configured chain and the seat's Preferred Mind are
+// never rewritten. This is strictly an availability filter layered BEFORE the
+// existing per-seat failure policy: it never circuit-breaks timeouts,
+// refusals, composition errors, or any non-availability failure.
 
 import {
   composeStagePrompt,
@@ -63,6 +78,14 @@ import {
   type CouncilFailurePolicy,
   type CouncilInputPolicy,
 } from '../../shared/council/index.js';
+import {
+  classifyReadinessState,
+  createProviderAvailabilityRegistry,
+  deriveEffectiveChain,
+  relevantProviders,
+  type CouncilProviderAvailabilityEntry,
+  type ProviderAvailabilitySource,
+} from './councilAvailability.js';
 import type { ParticipantRunResponse } from './types.js';
 
 export type CouncilAskFn = (providerId: string, prompt: string) => Promise<ParticipantRunResponse>;
@@ -103,16 +126,23 @@ export function isProviderUnavailabilityReason(reason: string | undefined): bool
   return reason !== undefined && providerUnavailableAskReasons.has(reason);
 }
 
-// One provider rejected during a seat's chain walk. phase 'readiness' means
-// no ask was sent to it; phase 'ask' means one real ask surfaced a
-// structured availability failure.
+// One provider rejected during a seat's chain walk.
+//   phase 'readiness'  — a per-seat readiness check refused it; no ask sent.
+//   phase 'ask'        — one real ask surfaced a structured availability
+//                        failure.
+//   phase 'run-scoped' — the provider was already established unavailable
+//                        earlier in THIS run (preflight or an earlier seat),
+//                        so it was skipped with no fresh check and no ask.
+// For a run-scoped skip, `source` records where the provider was originally
+// established unavailable.
 export type CouncilProviderRejection = {
   provider: string;
-  phase: 'readiness' | 'ask';
+  phase: 'readiness' | 'ask' | 'run-scoped';
   reason: string;
   error?: string;
   notes?: string[];
   elapsedMs?: number;
+  source?: ProviderAvailabilitySource;
 };
 
 // Full structured provider-selection state for one seat, sufficient for a
@@ -122,7 +152,13 @@ export type CouncilProviderRejection = {
 // fallback Mind when it differs from the preferred Mind).
 export type CouncilSeatProviderSelection = {
   preferredProvider: string;
+  // The seat's full configured provider chain (preferred Mind first, then the
+  // ordered fallback Minds). Never mutated by run-scoped availability.
   providerChain: string[];
+  // The effective execution chain at seat start: the configured chain minus
+  // the providers already established unavailable for this run, preserving
+  // configured order. Equal to providerChain when nothing has been learned.
+  effectiveChain: string[];
   executedProvider?: string;
   fallbackUsed: boolean;
   rejectedProviders: CouncilProviderRejection[];
@@ -200,6 +236,9 @@ export type CouncilRunResult = {
   // verdict — merely the final contribution in chronological order.
   finalContribution?: CouncilContribution;
   haltedAtSeat?: number;
+  // Final run-scoped availability snapshot for every relevant Mind, in
+  // Formation-first-seen order. Run-scoped only: a new run starts empty.
+  providerAvailability: CouncilProviderAvailabilityEntry[];
   // Honesty marker: no vote casting or tallying exists in this slice, so a
   // Crown Council run must never be reported as a collective verdict.
   voteAggregationImplemented: false;
@@ -216,8 +255,49 @@ export type CouncilSeatBegin = {
   failurePolicy: CouncilFailurePolicy;
   preferredProvider: string;
   providerChain: string[];
+  // Configured chain minus providers already unavailable for this run.
+  effectiveChain: string[];
   prompt: string;
   composition: CouncilSeatComposition;
+};
+
+// Fired once at Council start, before any seat, when run-scoped preflight is
+// enabled: the set of Minds that may appear anywhere in the Formation.
+export type CouncilPreflightStart = {
+  providers: string[];
+};
+
+// Fired per provider as availability is established: once during preflight for
+// every relevant Mind, and again when a Mind transitions to unavailable during
+// execution. phase 'preflight' is the start-of-run inspection; phase
+// 'execution' is a dynamic transition surfaced by a readiness gate or ask.
+export type CouncilProviderAvailabilityEvent = CouncilProviderAvailabilityEntry & {
+  phase: 'preflight' | 'execution';
+};
+
+// Fired once after preflight completes with the full availability snapshot.
+// availableCount counts Minds that are not unavailable (ready plus unknown —
+// unknown remains executable); totalCount is the relevant-Mind count.
+export type CouncilPreflightComplete = {
+  entries: CouncilProviderAvailabilityEntry[];
+  availableCount: number;
+  totalCount: number;
+};
+
+// Fired when a chain provider is skipped because it was already established
+// unavailable earlier in this run: no readiness check and no ask are issued.
+export type CouncilProviderSkippedEvent = {
+  seat: number;
+  seatCount: number;
+  stageId: string;
+  calling: string;
+  preferredProvider: string;
+  providerChain: string[];
+  // 1-based position of the skipped provider in the configured chain.
+  choiceIndex: number;
+  rejection: CouncilProviderRejection;
+  nextProvider?: string;
+  nextChoiceIndex?: number;
 };
 
 // Fired when a provider in the seat's chain is rejected as unavailable
@@ -282,8 +362,25 @@ export type RunCouncilOptions = {
   request: string;
   ask: CouncilAskFn;
   getReadiness?: CouncilReadinessFn;
+  // Run-scoped provider availability. When true (and getReadiness is
+  // provided), one preflight readiness pass runs at Council start over the
+  // Minds that may appear in the Formation, populating a run-scoped registry;
+  // providers established unavailable are then skipped on every seat without a
+  // fresh readiness check or ask, and per-seat readiness re-checking is
+  // suppressed (the registry plus ask-phase detection govern availability).
+  // When false or absent, behaviour is the legacy per-seat readiness gate.
+  preflight?: boolean;
   // Injectable clock for deterministic timing in assertions.
   now?: () => number;
+  // Fired once at Council start when preflight is enabled, before any seat.
+  onPreflightStart?: (event: CouncilPreflightStart) => void;
+  // Fired per Mind as availability is established (preflight or execution).
+  onProviderAvailability?: (event: CouncilProviderAvailabilityEvent) => void;
+  // Fired once after preflight completes with the full availability snapshot.
+  onPreflightComplete?: (event: CouncilPreflightComplete) => void;
+  // Fired when a chain provider is skipped because it is already unavailable
+  // for this run (no readiness check, no ask, no retry consumed).
+  onProviderSkipped?: (event: CouncilProviderSkippedEvent) => void;
   // Fired once per seat after composition, before provider selection.
   onSeatBegin?: (begin: CouncilSeatBegin) => void;
   // Fired when a chain provider is rejected as unavailable.
@@ -342,6 +439,74 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
     seats.push(seat);
     options.onSeatResult?.(seat);
   };
+
+  // Run-scoped provider availability. Created fresh per run and never
+  // persisted: a provider established unavailable is remembered only for the
+  // remainder of THIS run. The Council Configuration and its canonical
+  // provider chains are never mutated; effective chains are derived at
+  // runtime.
+  const runStartedAt = now();
+  const availability = createProviderAvailabilityRegistry();
+  const configuredChains = configuration.stages.map((stage) => effectiveProviderChain(stage));
+  const preflightMinds = relevantProviders(configuredChains);
+  const preflightRan = options.preflight === true && options.getReadiness !== undefined;
+
+  // Mark a provider unavailable in the run registry and announce the
+  // transition once. Preflight markings announce phase 'preflight'; every
+  // other detection (readiness gate or ask failure) is an execution-time
+  // transition.
+  const markUnavailable = (
+    provider: string,
+    reason: string,
+    source: ProviderAvailabilitySource,
+    extra: { message?: string; notes?: string[] } = {},
+    availabilityPhase: 'preflight' | 'execution' = 'execution',
+  ) => {
+    const evidence = {
+      provider,
+      reason,
+      source,
+      firstDetectedAtMs: now() - runStartedAt,
+      ...(extra.message ? { message: extra.message } : {}),
+      ...(extra.notes?.length ? { notes: extra.notes } : {}),
+    };
+
+    if (availability.markUnavailable(evidence)) {
+      options.onProviderAvailability?.({ provider, state: 'unavailable', evidence, phase: availabilityPhase });
+    }
+  };
+
+  if (preflightRan) {
+    options.onPreflightStart?.({ providers: preflightMinds });
+
+    for (const provider of preflightMinds) {
+      const readiness = await options.getReadiness!(provider);
+      const state = classifyReadinessState(readiness?.status);
+
+      if (state === 'ready') {
+        availability.markReady(provider);
+        options.onProviderAvailability?.({ provider, state: 'ready', phase: 'preflight' });
+      } else if (state === 'unavailable') {
+        markUnavailable(
+          provider,
+          readiness?.status ?? 'unknown',
+          'preflight',
+          { ...(readiness?.notes?.length ? { notes: readiness.notes } : {}) },
+          'preflight',
+        );
+      } else {
+        availability.markUnknown(provider);
+        options.onProviderAvailability?.({ provider, state: 'unknown', phase: 'preflight' });
+      }
+    }
+
+    const entries = availability.snapshot(preflightMinds);
+    options.onPreflightComplete?.({
+      entries,
+      availableCount: entries.filter((entry) => entry.state !== 'unavailable').length,
+      totalCount: entries.length,
+    });
+  }
 
   for (let index = 0; index < configuration.stages.length; index += 1) {
     const stage = configuration.stages[index];
@@ -419,6 +584,10 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
     }
 
     const providerChain = effectiveProviderChain(stage);
+    // Effective chain at seat start: the configured chain minus Minds already
+    // established unavailable for this run. Purely derived; the configured
+    // chain is never mutated.
+    const effectiveChain = deriveEffectiveChain(providerChain, availability);
     const rejectedProviders: CouncilProviderRejection[] = [];
     const maxAttempts = stage.failurePolicy === 'retry-once' ? 2 : 1;
     let attempts = 0;
@@ -436,6 +605,7 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
       failurePolicy: base.failurePolicy,
       preferredProvider: stage.provider,
       providerChain,
+      effectiveChain,
       prompt,
       composition,
     });
@@ -459,18 +629,56 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
         });
       };
 
-      if (options.getReadiness) {
+      // Run-scoped circuit breaker: a Mind already established unavailable
+      // earlier in this run is skipped with no fresh readiness check and no
+      // ask — it consumes no retry budget and forwards nothing.
+      if (availability.isUnavailable(candidate)) {
+        const evidence = availability.evidenceFor(candidate);
+        const rejection: CouncilProviderRejection = {
+          provider: candidate,
+          phase: 'run-scoped',
+          reason: evidence?.reason ?? 'provider-unavailable',
+          ...(evidence?.source ? { source: evidence.source } : {}),
+          ...(evidence?.notes?.length ? { notes: evidence.notes } : {}),
+        };
+        rejectedProviders.push(rejection);
+        options.onProviderSkipped?.({
+          seat: base.seat,
+          seatCount: base.seatCount,
+          stageId: base.stageId,
+          calling: base.calling,
+          preferredProvider: stage.provider,
+          providerChain,
+          choiceIndex: choice + 1,
+          rejection,
+          ...(nextProvider !== undefined ? { nextProvider, nextChoiceIndex: choice + 2 } : {}),
+        });
+        continue;
+      }
+
+      // Legacy per-seat readiness gate. Suppressed once run-scoped preflight
+      // has run: preflight already established availability, unknown Minds
+      // remain executable (the first ask establishes their state), and
+      // re-checking a Mind already known ready is wasteful. A readiness
+      // rejection also circuit-breaks the Mind for the rest of the run.
+      if (!preflightRan && options.getReadiness) {
         const readiness = await options.getReadiness(candidate);
 
         if (readiness?.status !== 'ready') {
+          const reason = readiness?.status ?? 'unknown';
+          markUnavailable(candidate, reason, 'readiness', {
+            ...(readiness?.notes?.length ? { notes: readiness.notes } : {}),
+          });
           rejectCandidate({
             provider: candidate,
             phase: 'readiness',
-            reason: readiness?.status ?? 'unknown',
+            reason,
             ...(readiness?.notes?.length ? { notes: readiness.notes } : {}),
           });
           continue;
         }
+
+        availability.markReady(candidate);
       }
 
       // This candidate executes the seat. Availability rejections above
@@ -523,7 +731,12 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
           // The ask itself surfaced a structured availability failure
           // (e.g. a usage limit hit after the readiness snapshot). This is
           // a provider rejection, not a seat execution failure: it consumes
-          // no retry budget and the chain advances with the same prompt.
+          // no retry budget and the chain advances with the same prompt. It
+          // also circuit-breaks the Mind for the rest of the run, so later
+          // seats skip it without another ask.
+          markUnavailable(candidate, attemptFailure.failureReason, 'ask', {
+            ...(attemptFailure.error ? { message: attemptFailure.error } : {}),
+          });
           rejectCandidate({
             provider: candidate,
             phase: 'ask',
@@ -571,6 +784,7 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
     const providerSelection: CouncilSeatProviderSelection = {
       preferredProvider: stage.provider,
       providerChain,
+      effectiveChain,
       ...(executedProvider !== undefined ? { executedProvider } : {}),
       fallbackUsed: executedProvider !== undefined && executedProvider !== stage.provider,
       rejectedProviders,
@@ -603,13 +817,18 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
 
     if (chainExhausted) {
       // Every configured provider choice was unavailable. Compatibility:
-      // readinessStatus reflects the preferred provider's readiness
-      // rejection when that is how it was rejected.
+      // readinessStatus reflects the preferred provider's rejection when it
+      // was refused before any ask — a per-seat readiness gate, or a
+      // run-scoped skip that originated from preflight/readiness.
       const preferredRejection = rejectedProviders[0];
-      const readinessFields = preferredRejection?.phase === 'readiness'
+      const readinessLike =
+        preferredRejection?.phase === 'readiness' ||
+        (preferredRejection?.phase === 'run-scoped' &&
+          (preferredRejection.source === 'preflight' || preferredRejection.source === 'readiness'));
+      const readinessFields = readinessLike
         ? {
-            readinessStatus: preferredRejection.reason,
-            ...(preferredRejection.notes?.length ? { readinessNotes: preferredRejection.notes } : {}),
+            readinessStatus: preferredRejection!.reason,
+            ...(preferredRejection!.notes?.length ? { readinessNotes: preferredRejection!.notes } : {}),
           }
         : {};
       const exhaustionFields = {
@@ -670,6 +889,7 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
     finalResult,
     ...(finalContribution ? { finalContribution } : {}),
     ...(haltedAtSeat !== undefined ? { haltedAtSeat } : {}),
+    providerAvailability: availability.snapshot(preflightMinds),
     voteAggregationImplemented: false,
   };
 }

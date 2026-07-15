@@ -110,6 +110,7 @@ type ScenarioOptions = {
   stages: CouncilStage[];
   script?: Responder[];
   verbose?: boolean;
+  preflight?: boolean;
   extraConfig?: Partial<CouncilConfiguration>;
   getReadiness?: (providerId: string) => Promise<{ status: string; notes?: string[] } | undefined>;
 };
@@ -139,8 +140,13 @@ async function runScenario(options: ScenarioOptions) {
     ask: makeScriptedAsk(options.script ?? []),
     now,
     ...(options.getReadiness ? { getReadiness: options.getReadiness } : {}),
+    ...(options.preflight ? { preflight: true } : {}),
+    onPreflightStart: reporter.onPreflightStart,
+    onProviderAvailability: reporter.onProviderAvailability,
+    onPreflightComplete: reporter.onPreflightComplete,
     onSeatBegin: reporter.onSeatBegin,
     onProviderRejected: reporter.onProviderRejected,
+    onProviderSkipped: reporter.onProviderSkipped,
     onSeatStart: reporter.onSeatStart,
     onSeatAttempt: reporter.onSeatAttempt,
     onSeatResult: reporter.onSeatResult,
@@ -664,6 +670,89 @@ async function testVerboseDiagnostics() {
   );
 }
 
+async function testRunScopedAvailabilityOutput() {
+  // Start-of-run availability summary plus per-seat effective-chain and skip
+  // rendering, driven by a preflight over a Formation with a mix of states.
+  const readiness = async (providerId: string) => {
+    const states: Record<string, string> = {
+      claude: 'security-verification',
+      grok: 'account-or-plan-block',
+      reka: 'unknown',
+    };
+    return { status: states[providerId] ?? 'ready' };
+  };
+
+  const { text } = await runScenario({
+    preflight: true,
+    getReadiness: readiness,
+    stages: [
+      makeStage({ id: 's1', provider: 'grok', providerFallbacks: ['chatgpt', 'gemini'], calling: 'sage', inputPolicy: 'original-only' }),
+      makeStage({ id: 's2', provider: 'reka', calling: 'oracle', inputPolicy: 'original-only', failurePolicy: 'halt' }),
+    ],
+  });
+
+  assert(
+    text.includes('CHECKING MINDS...') &&
+    text.includes('✓ ChatGPT — ready') &&
+    text.includes('⚠ Grok — account-or-plan-block') &&
+    text.includes('? Reka Chat — unknown'),
+    'the run opens with a live per-Mind availability check over the Formation Minds',
+  );
+  assert(
+    text.includes('Mind availability:') &&
+    /READY[\s\S]*✓ ChatGPT/.test(text) &&
+    /UNAVAILABLE[\s\S]*⚠ Grok — account-or-plan-block/.test(text) &&
+    /UNKNOWN[\s\S]*\? Reka Chat/.test(text),
+    'the availability summary groups Minds into READY / UNAVAILABLE / UNKNOWN distinctly',
+  );
+  assert(
+    /Available Minds: \d+ of \d+/.test(text),
+    'the availability summary reports the available-of-total count',
+  );
+  assert(
+    text.includes('Unavailable this run:') &&
+    text.includes('Effective chain: ChatGPT → Gemini') &&
+    text.includes('Preferred Mind remains: Grok (unavailable this run, not rewritten)'),
+    'a seat whose preferred Mind is unavailable shows the effective chain while keeping the configured Preferred Mind',
+  );
+  assert(
+    text.includes('Grok skipped — already unavailable for this run (account-or-plan-block).'),
+    'the seat renders a concise run-scoped skip line instead of a fresh unavailability report',
+  );
+  assert(
+    text.includes('Executed by: ChatGPT'),
+    'execution falls through the effective chain to the first available Mind',
+  );
+}
+
+async function testExecutionTimeAvailabilityOutput() {
+  // A Mind that passes preflight but becomes unavailable during an ask is
+  // reported as a fresh transition on the first seat and skipped concisely on
+  // a later seat.
+  const { text } = await runScenario({
+    preflight: true,
+    getReadiness: async () => ({ status: 'ready' }),
+    stages: [
+      makeStage({ id: 's1', provider: 'grok', providerFallbacks: ['chatgpt'], calling: 'sage', inputPolicy: 'original-only' }),
+      makeStage({ id: 's2', provider: 'grok', providerFallbacks: ['gemini'], calling: 'oracle', inputPolicy: 'original-only', failurePolicy: 'halt' }),
+    ],
+    script: [
+      (provider, prompt) => failedResponse(provider, prompt, 'Sign up to continue', 'grok-account-or-plan-block'),
+    ],
+  });
+
+  assert(
+    text.includes('Status: GROK UNAVAILABLE — grok-account-or-plan-block') &&
+    text.includes('Grok is now unavailable for the rest of this Council run and will be skipped on later seats.') &&
+    text.includes('Fallback: TRYING CHATGPT'),
+    'a Mind failing an ask with an availability category is reported as a mid-run transition with the fallback',
+  );
+  assert(
+    text.includes('Grok skipped — already unavailable for this run (grok-account-or-plan-block).'),
+    'the later seat reports the concise run-scoped skip rather than repeating the full explanation',
+  );
+}
+
 async function testHeartbeat() {
   const lines: string[] = [];
   let clock = 0;
@@ -760,6 +849,8 @@ async function main() {
   await testExhaustionRendering();
   await testVerbosePromptIdentity();
   await testVerboseDiagnostics();
+  await testRunScopedAvailabilityOutput();
+  await testExecutionTimeAvailabilityOutput();
   await testHeartbeat();
 
   if (failureCount > 0) {

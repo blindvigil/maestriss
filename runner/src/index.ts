@@ -689,8 +689,16 @@ async function runCouncilRunClient(args: string[], verbose: boolean) {
       request: cli.request,
       ask,
       getReadiness: async (providerId) => readinessSnapshot.get(providerId),
+      // Provider unavailability is a routine operating condition: preflight the
+      // Formation's Minds once, remember the unavailable ones for the run, and
+      // skip them on later seats without re-checking or re-asking.
+      preflight: true,
+      onPreflightStart: reporter.onPreflightStart,
+      onProviderAvailability: reporter.onProviderAvailability,
+      onPreflightComplete: reporter.onPreflightComplete,
       onSeatBegin: reporter.onSeatBegin,
       onProviderRejected: reporter.onProviderRejected,
+      onProviderSkipped: reporter.onProviderSkipped,
       onSeatStart: reporter.onSeatStart,
       onSeatAttempt: reporter.onSeatAttempt,
       onSeatResult: reporter.onSeatResult,

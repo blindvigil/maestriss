@@ -1032,6 +1032,288 @@ async function testDoctrineCognitiveFlows() {
   );
 }
 
+// Run-scoped provider availability: unavailability learned during a run is
+// remembered for the rest of that run so later seats never re-check or
+// re-attempt an unavailable Mind. Availability filtering happens BEFORE the
+// seat failure policy and never mutates the configuration.
+async function testRunScopedAvailability() {
+  const readinessMap = (states: Record<string, string>, calls?: string[]) =>
+    async (providerId: string) => {
+      calls?.push(providerId);
+      return { status: states[providerId] ?? 'ready' };
+    };
+
+  // Preflight classifies every relevant Mind once; configured chains are not
+  // mutated; the effective chain removes unavailable Minds in configured order
+  // while unknown Minds remain executable.
+  {
+    const configuration = makeConfiguration([
+      makeStage({ id: 's1', provider: 'claude', providerFallbacks: ['chatgpt'], inputPolicy: 'original-only' }),
+      makeStage({ id: 's2', provider: 'perplexity', providerFallbacks: ['gemini'] }),
+      makeStage({ id: 's3', provider: 'reka', inputPolicy: 'original-only', failurePolicy: 'halt' }),
+    ]);
+    deepFreeze(configuration);
+    const snapshot = JSON.stringify(configuration);
+    const readinessCalls: string[] = [];
+    const events: Array<{ provider: string; state: string; phase: string }> = [];
+    const calls: AskCall[] = [];
+
+    const result = await runCouncil({
+      configuration,
+      request: testRequest,
+      ask: makeScriptedAsk(calls),
+      preflight: true,
+      getReadiness: readinessMap(
+        { claude: 'security-verification', perplexity: 'security-verification', reka: 'unknown' },
+        readinessCalls,
+      ),
+      onProviderAvailability: (event) =>
+        events.push({ provider: event.provider, state: event.state, phase: event.phase }),
+    });
+
+    assert(
+      JSON.stringify(configuration) === snapshot,
+      'run-scoped availability never mutates the Council Configuration or its chains',
+    );
+    assert(
+      readinessCalls.join(',') === 'claude,chatgpt,perplexity,gemini,reka',
+      'preflight inspects each relevant Mind exactly once, in Formation-first-seen order, and re-checks none',
+      readinessCalls.join(','),
+    );
+    assert(
+      result.providerAvailability.find((entry) => entry.provider === 'claude')?.state === 'unavailable' &&
+      result.providerAvailability.find((entry) => entry.provider === 'chatgpt')?.state === 'ready' &&
+      result.providerAvailability.find((entry) => entry.provider === 'reka')?.state === 'unknown',
+      'preflight records ready, unavailable, and unknown states distinctly',
+    );
+    assert(
+      result.seats[0].providerSelection?.providerChain.join(',') === 'claude,chatgpt' &&
+      result.seats[0].providerSelection?.effectiveChain.join(',') === 'chatgpt',
+      'the configured chain is preserved while the effective chain removes the unavailable preferred Mind',
+    );
+    assert(
+      result.seats[0].providerSelection?.preferredProvider === 'claude' &&
+      result.seats[0].providerSelection?.executedProvider === 'chatgpt' &&
+      result.seats[0].providerSelection?.rejectedProviders[0]?.phase === 'run-scoped' &&
+      result.seats[0].providerSelection?.rejectedProviders[0]?.source === 'preflight',
+      'the Preferred Mind stays claude even though execution fell through to chatgpt via a run-scoped skip',
+    );
+    assert(
+      calls.map((call) => call.provider).join(',') === 'chatgpt,gemini,reka' &&
+      !calls.some((call) => call.provider === 'claude' || call.provider === 'perplexity'),
+      'no ask is ever sent to a preflight-unavailable Mind; an unknown Mind (reka) is still asked',
+      calls.map((call) => call.provider).join(','),
+    );
+    assert(
+      events.some((event) => event.provider === 'claude' && event.state === 'unavailable' && event.phase === 'preflight') &&
+      events.some((event) => event.provider === 'reka' && event.state === 'unknown' && event.phase === 'preflight'),
+      'structured preflight events expose each availability classification',
+    );
+  }
+
+  // A structured availability failure on one seat circuit-breaks the Mind for
+  // the run: a later seat skips it with no ask and no retry consumed.
+  {
+    const configuration = makeConfiguration([
+      makeStage({ id: 's1', provider: 'grok', providerFallbacks: ['chatgpt'], inputPolicy: 'original-only', failurePolicy: 'retry-once' }),
+      makeStage({ id: 's2', provider: 'grok', providerFallbacks: ['gemini'], failurePolicy: 'retry-once' }),
+    ]);
+    const calls: AskCall[] = [];
+    const skipped: string[] = [];
+
+    const result = await runCouncil({
+      configuration,
+      request: testRequest,
+      preflight: true,
+      getReadiness: readinessMap({}),
+      ask: makeScriptedAsk(calls, [
+        (provider, prompt) => failedResponse(provider, prompt, 'Sign up to continue', 'grok-account-or-plan-block'),
+      ]),
+      onProviderSkipped: (event) => skipped.push(`${event.rejection.provider}:${event.rejection.phase}:${event.rejection.reason}`),
+    });
+
+    assert(
+      calls.map((call) => call.provider).join(',') === 'grok,chatgpt,gemini',
+      'the first seat marks grok unavailable via its ask failure; the later seat never asks grok again',
+      calls.map((call) => call.provider).join(','),
+    );
+    assert(
+      result.seats[1].providerSelection?.rejectedProviders[0]?.phase === 'run-scoped' &&
+      result.seats[1].providerSelection?.rejectedProviders[0]?.reason === 'grok-account-or-plan-block' &&
+      result.seats[1].providerSelection?.effectiveChain.join(',') === 'gemini' &&
+      result.seats[1].attempts === 1,
+      'the later seat skips grok without an ask, consuming no retry, and executes its fallback',
+    );
+    assert(
+      skipped.join(',') === 'grok:run-scoped:grok-account-or-plan-block',
+      'a run-scoped skip fires a structured onProviderSkipped event',
+      skipped.join(','),
+    );
+    assert(result.finalResult === 'PASS', 'both seats still complete via their effective chains');
+  }
+
+  // A Mind marked ready at preflight may still transition ready -> unavailable
+  // during an ask; later seats then skip it.
+  {
+    const configuration = makeConfiguration([
+      makeStage({ id: 's1', provider: 'chatgpt', providerFallbacks: ['gemini'], inputPolicy: 'original-only' }),
+      makeStage({ id: 's2', provider: 'chatgpt', providerFallbacks: ['deepseek'] }),
+    ]);
+    const calls: AskCall[] = [];
+    const transitions: Array<{ provider: string; state: string; phase: string }> = [];
+
+    const result = await runCouncil({
+      configuration,
+      request: testRequest,
+      preflight: true,
+      getReadiness: readinessMap({}),
+      ask: makeScriptedAsk(calls, [
+        (provider, prompt) => failedResponse(provider, prompt, 'Usage limit reached', 'usage-limit'),
+      ]),
+      onProviderAvailability: (event) =>
+        transitions.push({ provider: event.provider, state: event.state, phase: event.phase }),
+    });
+
+    assert(
+      transitions.some((event) => event.provider === 'chatgpt' && event.state === 'ready' && event.phase === 'preflight') &&
+      transitions.some((event) => event.provider === 'chatgpt' && event.state === 'unavailable' && event.phase === 'execution'),
+      'a ready-at-preflight Mind can transition to unavailable during execution, and both transitions are reported',
+    );
+    assert(
+      calls.map((call) => call.provider).join(',') === 'chatgpt,gemini,deepseek',
+      'once chatgpt is marked unavailable at ask time the second seat skips it and uses its fallback',
+      calls.map((call) => call.provider).join(','),
+    );
+    assert(result.finalResult === 'PASS', 'the run still completes after the mid-run availability transition');
+  }
+
+  // Non-availability failures never mark a Mind unavailable: a generic timeout
+  // and a refusal both leave the Mind's run state untouched.
+  {
+    const timeoutResult = await runCouncil({
+      configuration: makeConfiguration([
+        makeStage({ id: 's1', provider: 'chatgpt', inputPolicy: 'original-only', failurePolicy: 'retry-once' }),
+      ]),
+      request: testRequest,
+      preflight: true,
+      getReadiness: readinessMap({}),
+      ask: makeScriptedAsk([], [
+        (provider, prompt) => failedResponse(provider, prompt, 'Timed out', 'timeout'),
+        (provider, prompt) => failedResponse(provider, prompt, 'Timed out again', 'timeout'),
+      ]),
+    });
+
+    assert(
+      timeoutResult.finalResult === 'FAIL' &&
+      timeoutResult.providerAvailability.find((entry) => entry.provider === 'chatgpt')?.state === 'ready',
+      'a generic timeout halts via the failure policy but never marks the Mind unavailable',
+    );
+
+    const refusalResult = await runCouncil({
+      configuration: makeConfiguration([
+        makeStage({ id: 's1', provider: 'chatgpt', inputPolicy: 'original-only', failurePolicy: 'skip-and-record' }),
+      ]),
+      request: testRequest,
+      preflight: true,
+      getReadiness: readinessMap({}),
+      ask: makeScriptedAsk([], [
+        (provider, prompt) => failedResponse(provider, prompt, 'Refused', 'refusal'),
+      ]),
+    });
+
+    assert(
+      refusalResult.seats[0].outcome === 'skipped' &&
+      refusalResult.seats[0].failureReason === 'refusal' &&
+      refusalResult.providerAvailability.find((entry) => entry.provider === 'chatgpt')?.state === 'ready',
+      'a refusal is owned by the failure policy and does not mark the Mind unavailable (approved taxonomy unchanged)',
+    );
+  }
+
+  // Every configured Mind unavailable at preflight: the chain is exhausted
+  // with no ask, then the existing failure policy resolves the seat exactly as
+  // before.
+  {
+    const calls: AskCall[] = [];
+    const result = await runCouncil({
+      configuration: makeConfiguration([
+        makeStage({ id: 's1', provider: 'claude', providerFallbacks: ['perplexity'], inputPolicy: 'original-only', failurePolicy: 'skip-and-record' }),
+      ]),
+      request: testRequest,
+      preflight: true,
+      getReadiness: readinessMap({ claude: 'security-verification', perplexity: 'security-verification' }),
+      ask: makeScriptedAsk(calls),
+    });
+
+    assert(
+      calls.length === 0 &&
+      result.seats[0].outcome === 'skipped' &&
+      result.seats[0].failureReason === 'provider-unavailable' &&
+      result.seats[0].providerSelection?.chainExhausted === true &&
+      result.seats[0].providerSelection?.effectiveChain.length === 0 &&
+      result.seats[0].readinessStatus === 'security-verification',
+      'an all-unavailable chain sends no ask and resolves through the unchanged skip-and-record policy',
+    );
+  }
+
+  // The registry begins fresh for every run: a first run that marks a Mind
+  // unavailable does not leak into a second run over the same configuration.
+  {
+    const configuration = makeConfiguration([
+      makeStage({ id: 's1', provider: 'grok', providerFallbacks: ['chatgpt'], inputPolicy: 'original-only' }),
+    ]);
+
+    const first = await runCouncil({
+      configuration,
+      request: testRequest,
+      preflight: true,
+      getReadiness: readinessMap({ grok: 'logged-out' }),
+      ask: makeScriptedAsk([]),
+    });
+
+    const secondCalls: AskCall[] = [];
+    const second = await runCouncil({
+      configuration,
+      request: testRequest,
+      preflight: true,
+      getReadiness: readinessMap({}),
+      ask: makeScriptedAsk(secondCalls),
+    });
+
+    assert(
+      first.providerAvailability.find((entry) => entry.provider === 'grok')?.state === 'unavailable' &&
+      second.providerAvailability.find((entry) => entry.provider === 'grok')?.state === 'ready' &&
+      secondCalls[0].provider === 'grok',
+      'each Council run begins with a fresh availability registry; nothing persists between runs',
+    );
+  }
+
+  // Fallback after a run-scoped skip still reuses the byte-identical composed
+  // prompt (maxResponseChars target included), never a recomposition.
+  {
+    const configuration = makeConfiguration([
+      makeStage({ id: 's1', provider: 'claude', providerFallbacks: ['chatgpt'], inputPolicy: 'original-only', maxResponseChars: 64 }),
+    ]);
+    const calls: AskCall[] = [];
+    const result = await runCouncil({
+      configuration,
+      request: testRequest,
+      preflight: true,
+      getReadiness: readinessMap({ claude: 'security-verification' }),
+      ask: makeScriptedAsk(calls),
+    });
+    const expected = expectedPromptFor(configuration, 0, []);
+
+    assert(
+      calls.length === 1 &&
+      calls[0].provider === 'chatgpt' &&
+      calls[0].prompt === expected &&
+      result.seats[0].prompt === expected &&
+      calls[0].prompt.includes('approximately 64 characters'),
+      'a run-scoped skip forwards the byte-identical composed prompt, including the response target, to the fallback Mind',
+    );
+  }
+}
+
 async function testCrownCouncilHonesty() {
   const doctrine = getCouncilDoctrine('crown-council');
   const configuration = doctrine!.build();
@@ -1068,6 +1350,7 @@ async function main() {
   await testReadinessGate();
   await testEmptyResponseAndErrors();
   await testProviderFallback();
+  await testRunScopedAvailability();
   await testResponseTargetDiagnostics();
   await testStructuredObservabilityMetadata();
   await testDoctrineCognitiveFlows();
