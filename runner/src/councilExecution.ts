@@ -142,6 +142,9 @@ export type CouncilSeatComposition = {
   promptChars: number;
   totalPromptChars: number;
   perContributionCap: number;
+  // Resolved requested response-size ceiling (prompt-side target; overruns
+  // are diagnostic, never failures).
+  resolvedMaxResponseChars: number;
   callingFlavourSource: 'canonical' | 'council-override';
 };
 
@@ -163,6 +166,10 @@ export type CouncilSeatResult = {
   // Actual extracted provider response (successful seats only).
   response?: string;
   responseChars?: number;
+  // True when the actual contribution length exceeds the seat's resolved
+  // maxResponseChars target. Diagnostic only: the seat still passes and the
+  // contribution enters Council history unchanged.
+  responseTargetExceeded?: boolean;
   // Provider-selection state: preferred provider, the effective chain,
   // rejections, the executing provider, and whether the chain was
   // exhausted. Present for every seat that reached provider selection.
@@ -380,6 +387,7 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
         promptChars: composed.prompt.length,
         totalPromptChars: configuration.budgets.totalPromptChars,
         perContributionCap: composed.effectivePerContributionChars,
+        resolvedMaxResponseChars: composed.resolvedMaxResponseChars,
         callingFlavourSource:
           configuration.callingFlavourOverrides?.[stage.calling] !== undefined
             ? 'council-override'
@@ -587,6 +595,7 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
         outcome: 'pass',
         response: successText,
         responseChars: successText.length,
+        responseTargetExceeded: successText.length > composition.resolvedMaxResponseChars,
         elapsedMs,
       });
       continue;

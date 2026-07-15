@@ -90,6 +90,10 @@ export type CouncilStage = {
   inputPolicyN?: number;
   outputPolicy?: CouncilOutputPolicy;
   variableOverrides?: CouncilVariableOverrides;
+  // Requested response-size ceiling in characters (32-8192). Absent means
+  // the shared canonical default (defaultMaxResponseChars). See the
+  // constant's documentation for semantics.
+  maxResponseChars?: number;
   // Per-seat cognitive stat overrides: the highest-precedence layer of
   // cognitive resolution (seat > Calling > provider > neutral). These are
   // Maestriss behavioral levels, never provider inference parameters.
@@ -144,6 +148,25 @@ export const defaultCouncilBudgets: CouncilBudgets = {
 // Maximum total provider choices per seat: the preferred provider plus up
 // to four ordered fallbacks.
 export const maxSeatProviderChoices = 5;
+
+// Canonical per-seat requested response-size ceiling, in characters. This
+// is a prompt-side target rendered as one deterministic provider-facing
+// instruction — NOT max_tokens, NOT a native provider parameter, and NOT a
+// hard truncation mechanism: actual provider output is always preserved,
+// and exceeding the target is diagnostic, never a seat failure. It is
+// independent from the Voice cognitive stat (Voice governs style and
+// elaboration; maxResponseChars governs requested physical size).
+export const defaultMaxResponseChars = 1024;
+export const minMaxResponseChars = 32;
+export const maxMaxResponseChars = 8192;
+
+// The single canonical resolution: an explicit seat value, else the shared
+// default. Defaulting logic must not be repeated elsewhere.
+export function resolveMaxResponseChars(
+  stage: Pick<CouncilStage, 'maxResponseChars'>,
+): number {
+  return stage.maxResponseChars ?? defaultMaxResponseChars;
+}
 
 // The single deterministic effective provider preference order for a seat:
 // the preferred provider first, then the ordered fallbacks. There is no
@@ -424,6 +447,20 @@ export function validateCouncilConfiguration(value: unknown): CouncilValidationR
           issues.push({ path: `${path}.variableOverrides`, message: 'variableOverrides must be an object.' });
         } else {
           validateVariableOverrides(stage.variableOverrides, `${path}.variableOverrides`, issues);
+        }
+      }
+
+      if (stage.maxResponseChars !== undefined) {
+        if (
+          typeof stage.maxResponseChars !== 'number' ||
+          !Number.isInteger(stage.maxResponseChars) ||
+          stage.maxResponseChars < minMaxResponseChars ||
+          stage.maxResponseChars > maxMaxResponseChars
+        ) {
+          issues.push({
+            path: `${path}.maxResponseChars`,
+            message: `maxResponseChars must be an integer between ${minMaxResponseChars} and ${maxMaxResponseChars}.`,
+          });
         }
       }
 

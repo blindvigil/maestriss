@@ -145,6 +145,7 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
   let activeAsk: { provider: string; startedAt: number } | undefined;
   let seatHeaderPrinted = false;
   let seatPromptIdentity = '';
+  let seatMaxResponseChars: number | undefined;
 
   const contributionLine = (marker: string, stageId: string) => {
     const info = contributionInfo.get(stageId);
@@ -228,6 +229,7 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
     print(`Omitted contribution ids: ${ids(composition.omittedContributionIds)}`);
     print(`Prompt budget: ${formatChars(composition.promptChars)} / ${formatChars(composition.totalPromptChars)} chars`);
     print(`Per-contribution cap: ${formatChars(composition.perContributionCap)} chars`);
+    print(`Resolved max response chars: ${composition.resolvedMaxResponseChars}`);
     print('Resolved cognitive instructions:');
     print(guidance || '(none — all prose stats are neutral)');
     print('--- END COUNCIL COMPOSITION DIAGNOSTICS ---');
@@ -308,6 +310,7 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
     onSeatBegin: (begin) => {
       seatHeaderPrinted = true;
       seatPromptIdentity = promptIdentity(begin.prompt);
+      seatMaxResponseChars = begin.composition.resolvedMaxResponseChars;
       const { composition } = begin;
 
       print('');
@@ -330,6 +333,7 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
       printCognitiveStats(composition);
       print('');
       print(`Prompt length: ${formatChars(composition.promptChars)} chars`);
+      print(`Max response length: ${formatChars(composition.resolvedMaxResponseChars)} chars`);
       print(`Calling flavour: ${composition.callingFlavourSource}`);
       print(`Failure policy: ${begin.failurePolicy}`);
       print('');
@@ -396,6 +400,18 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
         print('Status: RESPONSE RECEIVED');
         print(`Elapsed: ${formatSeconds(attempt.elapsedMs)}`);
         print(`Response length: ${formatChars(attempt.responseChars ?? 0)} chars`);
+
+        if (seatMaxResponseChars !== undefined) {
+          print(`Response target: ${formatChars(seatMaxResponseChars)} chars`);
+
+          const overage = (attempt.responseChars ?? 0) - seatMaxResponseChars;
+
+          if (overage > 0) {
+            print('Target exceeded: YES');
+            print(`WARNING: Response exceeded requested target by ${formatChars(overage)} characters.`);
+          }
+        }
+
         print(`Attempt: ${attempt.attempt} of ${attempt.maxAttempts}`);
         return;
       }

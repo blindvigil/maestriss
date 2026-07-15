@@ -820,6 +820,78 @@ async function testProviderFallback() {
   }
 }
 
+// maxResponseChars is a prompt-side target: overruns are diagnostic facts
+// on the seat record, never failures, and the contribution is never
+// truncated or altered.
+async function testResponseTargetDiagnostics() {
+  const runWithAnswer = async (answerLength: number) => {
+    const configuration = makeConfiguration([
+      makeStage({ id: 's1', inputPolicy: 'original-only', maxResponseChars: 40, failurePolicy: 'halt' }),
+    ]);
+    const result = await runCouncil({
+      configuration,
+      request: testRequest,
+      ask: makeScriptedAsk([], [
+        (provider, prompt) => completedResponse(provider, prompt, 'A'.repeat(answerLength)),
+      ]),
+    });
+    return { seat: result.seats[0], result };
+  };
+
+  const below = await runWithAnswer(39);
+  const exact = await runWithAnswer(40);
+  const above = await runWithAnswer(300);
+
+  assert(
+    below.seat.responseTargetExceeded === false && below.seat.responseChars === 39,
+    'a response below the target records responseTargetExceeded false',
+  );
+  assert(
+    exact.seat.responseTargetExceeded === false && exact.seat.responseChars === 40,
+    'a response exactly at the target records responseTargetExceeded false',
+  );
+  assert(
+    above.seat.responseTargetExceeded === true &&
+    above.seat.responseChars === 300 &&
+    above.seat.outcome === 'pass' &&
+    above.result.finalResult === 'PASS' &&
+    above.result.contributions[0].text === 'A'.repeat(300),
+    'an over-target response still passes and enters Council history unchanged (never truncated)',
+  );
+  assert(
+    above.seat.composition?.resolvedMaxResponseChars === 40 &&
+    above.seat.prompt?.includes('approximately 40 characters') === true,
+    'the seat record carries the resolved target and the prompt carries its exact instruction',
+  );
+
+  // Fallback Minds receive the identical prompt, including the same target.
+  const fallbackConfig = makeConfiguration([
+    makeStage({
+      id: 's1',
+      provider: 'copilot',
+      providerFallbacks: ['claude'],
+      inputPolicy: 'original-only',
+      maxResponseChars: 64,
+    }),
+  ]);
+  const calls: AskCall[] = [];
+  const fallback = await runCouncil({
+    configuration: fallbackConfig,
+    request: testRequest,
+    ask: makeScriptedAsk(calls),
+    getReadiness: async (providerId) =>
+      providerId === 'copilot' ? { status: 'provider-blocked' } : { status: 'ready' },
+  });
+
+  assert(
+    fallback.finalResult === 'PASS' &&
+    calls[0].provider === 'claude' &&
+    calls[0].prompt.includes('approximately 64 characters') &&
+    calls[0].prompt === fallback.seats[0].prompt,
+    'a fallback Mind receives the byte-identical prompt carrying the same response target',
+  );
+}
+
 // Observability metadata is additive: it must reflect real execution facts
 // without changing any execution semantics.
 async function testStructuredObservabilityMetadata() {
@@ -874,6 +946,7 @@ async function testStructuredObservabilityMetadata() {
     seat2.composition.promptChars === seat2.prompt?.length &&
     seat2.composition.totalPromptChars === configuration.budgets.totalPromptChars &&
     seat2.composition.callingFlavourSource === 'canonical' &&
+    seat2.composition.resolvedMaxResponseChars === 1024 &&
     seat2.composition.resolvedCognitiveStats.memory === 7,
     'seat records preserve structured composition diagnostics matching the exact prompt',
   );
@@ -995,6 +1068,7 @@ async function main() {
   await testReadinessGate();
   await testEmptyResponseAndErrors();
   await testProviderFallback();
+  await testResponseTargetDiagnostics();
   await testStructuredObservabilityMetadata();
   await testDoctrineCognitiveFlows();
   await testCrownCouncilHonesty();

@@ -265,6 +265,14 @@ async function testSuccessfulSeatOutput() {
   );
   assert(/Prompt length: [\d,]+ chars/.test(text), 'prompt length renders');
   assert(
+    text.includes('Max response length: 1,024 chars'),
+    'the seat block shows the resolved response target with readable formatting',
+  );
+  assert(
+    text.includes('Response target: 1,024 chars') && !text.includes('Target exceeded'),
+    'a within-target response shows its target concisely with no warning',
+  );
+  assert(
     text.includes('Status: PROMPT COMPOSED — OK') &&
     text.includes('Status: SENDING TO CLAUDE (attempt 1 of 1)...'),
     'composition and sending status lines render',
@@ -566,6 +574,32 @@ async function testExhaustionRendering() {
   );
 }
 
+async function testResponseTargetWarning() {
+  const { text, result } = await runScenario({
+    stages: [
+      makeStage({ id: 's1', inputPolicy: 'original-only', maxResponseChars: 32, failurePolicy: 'halt' }),
+    ],
+    script: [
+      (provider, prompt) => completedResponse(provider, prompt, 'X'.repeat(100)),
+    ],
+  });
+
+  assert(
+    text.includes('Max response length: 32 chars') &&
+    text.includes('Response length: 100 chars') &&
+    text.includes('Response target: 32 chars') &&
+    text.includes('Target exceeded: YES') &&
+    text.includes('WARNING: Response exceeded requested target by 68 characters.'),
+    'an over-target response warns clearly with the exact overage',
+  );
+  assert(
+    text.includes('RESULT: PASS') &&
+    result.seats[0].responseTargetExceeded === true &&
+    result.contributions[0].text.length === 100,
+    'the over-target seat still passes and its contribution is preserved unchanged',
+  );
+}
+
 async function testVerbosePromptIdentity() {
   const { text } = await runScenario({
     stages: [
@@ -614,7 +648,8 @@ async function testVerboseDiagnostics() {
     text.includes('Truncated contribution ids: (none)') &&
     text.includes('Omitted contribution ids: (none)') &&
     /Prompt budget: [\d,]+ \/ 12,000 chars/.test(text) &&
-    text.includes('Per-contribution cap: 4,000 chars'),
+    text.includes('Per-contribution cap: 4,000 chars') &&
+    text.includes('Resolved max response chars: 1024'),
     'verbose diagnostics expose flavour source, composition ids, and budget usage',
   );
   assert(
@@ -669,6 +704,7 @@ async function testHeartbeat() {
       promptChars: 11,
       totalPromptChars: 12000,
       perContributionCap: 4000,
+      resolvedMaxResponseChars: 1024,
       callingFlavourSource: 'canonical',
     },
     attempt: 1,
@@ -719,6 +755,7 @@ async function main() {
   await testHaltOutput();
   await testMemoryVersusBudgetDiagnostics();
   await testReadinessSkipOutput();
+  await testResponseTargetWarning();
   await testFallbackRendering();
   await testExhaustionRendering();
   await testVerbosePromptIdentity();

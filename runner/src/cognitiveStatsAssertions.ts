@@ -629,6 +629,63 @@ function compose(stage: CouncilStage, priors: CouncilContribution[], extra: Part
 }
 
 // =========================================================================
+// Response-length target: independence from Voice and guidance sparsity
+// =========================================================================
+{
+  const expansiveTight = compose(
+    makeStage({ id: 's1', inputPolicy: 'original-only', maxResponseChars: 512, cognitiveOverrides: { voice: 9 } }),
+    [],
+  );
+  assert(
+    expansiveTight.resolvedCognitiveStats.voice === 9 &&
+    expansiveTight.resolvedMaxResponseChars === 512 &&
+    expansiveTight.prompt.includes('approximately 512 characters') &&
+    expansiveTight.prompt.includes('Fully elaborate the contribution wherever meaningful substance exists'),
+    'Voice 9 with a 512-character target composes expansive style within a tight requested size',
+  );
+
+  const terseRoomy = compose(
+    makeStage({ id: 's1', inputPolicy: 'original-only', maxResponseChars: 8192, cognitiveOverrides: { voice: 1 } }),
+    [],
+  );
+  assert(
+    terseRoomy.resolvedMaxResponseChars === 8192 &&
+    terseRoomy.prompt.includes('approximately 8192 characters') &&
+    terseRoomy.prompt.includes('Be exceptionally terse.'),
+    'Voice 1 with an 8192-character target composes terse style despite ample space',
+  );
+
+  const withoutTarget = compose(makeStage({ id: 's1', inputPolicy: 'original-only' }), []);
+  const withTarget = compose(makeStage({ id: 's1', inputPolicy: 'original-only', maxResponseChars: 64 }), []);
+  assert(
+    JSON.stringify(withoutTarget.resolvedCognitiveStats) === JSON.stringify(withTarget.resolvedCognitiveStats),
+    'maxResponseChars changes never alter resolved cognitive stats',
+  );
+  assert(
+    compose(makeStage({ id: 's1', inputPolicy: 'original-only', cognitiveOverrides: { voice: 9 } }), []).resolvedMaxResponseChars === 1024 &&
+    compose(makeStage({ id: 's1', inputPolicy: 'original-only', cognitiveOverrides: { voice: 1 } }), []).resolvedMaxResponseChars === 1024,
+    'Voice changes never alter the resolved response target (default stays 1024)',
+  );
+
+  const neutralWithTarget = compose(
+    makeStage({
+      id: 's1',
+      provider: 'google',
+      calling: 'sage',
+      inputPolicy: 'original-only',
+      maxResponseChars: 512,
+      cognitiveOverrides: { conviction: 5, depth: 5 },
+    }),
+    [],
+  );
+  assert(
+    !neutralWithTarget.prompt.includes('Cognitive guidance:') &&
+    neutralWithTarget.prompt.includes('approximately 512 characters'),
+    'a neutral seat stays guidance-sparse while still carrying its response-length instruction',
+  );
+}
+
+// =========================================================================
 // Exact prompt snapshots
 // =========================================================================
 {
@@ -647,6 +704,8 @@ function compose(stage: CouncilStage, priors: CouncilContribution[], extra: Part
     'You are one participant in a structured multi-participant review council, acting as its Clarifier / Socratic Examiner.',
     '',
     callingFlavourTexts.sage,
+    '',
+    'Keep your complete response within approximately 1024 characters. Prioritize the most important content if space is limited.',
     '',
     'Treat this as one step in a running discussion and build on what came before.',
     '',
@@ -685,6 +744,8 @@ function compose(stage: CouncilStage, priors: CouncilContribution[], extra: Part
     '- Push strongly beyond conventional interpretations. Explore bold, unusual, associative, and highly imaginative possibilities wherever they may reveal useful directions.',
     '- Lean toward adaptability. Defend conclusions lightly and update them readily when the case changes.',
     '- Relentlessly search for substantive disagreement, weak assumptions, counterarguments, and failure points. Prioritize rigorous challenge over harmony.',
+    '',
+    'Keep your complete response within approximately 1024 characters. Prioritize the most important content if space is limited.',
     '',
     'Treat this as one step in a running discussion and build on what came before.',
     '',

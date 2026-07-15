@@ -9,8 +9,11 @@ import {
   crownCouncilDefaultSize,
   crownCouncilMaxSize,
   crownCouncilMinSize,
+  defaultMaxResponseChars,
   effectiveProviderChain,
   getCanonicalCallingFlavourText,
+  resolveMaxResponseChars,
+  responseLengthInstruction,
   parseCallingFlavourOverrides,
   renderCallingFraming,
   resolveCallingFlavourText,
@@ -711,6 +714,28 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     config.stages[0].providerFallbacks = 'claude' as never;
   }, 'non-array fallback data fails clearly', 'stages[0].providerFallbacks');
 
+  // maxResponseChars: explicit values must be integers in 32-8192.
+  rejects((config) => { config.stages[0].maxResponseChars = 31; }, 'maxResponseChars below the minimum is rejected', 'stages[0].maxResponseChars');
+  rejects((config) => { config.stages[0].maxResponseChars = 8193; }, 'maxResponseChars above the maximum is rejected', 'stages[0].maxResponseChars');
+  rejects((config) => { config.stages[0].maxResponseChars = 512.5; }, 'fractional maxResponseChars is rejected', 'stages[0].maxResponseChars');
+  rejects((config) => { config.stages[0].maxResponseChars = Number.NaN; }, 'NaN maxResponseChars is rejected', 'stages[0].maxResponseChars');
+  rejects((config) => {
+    (config.stages[0] as { maxResponseChars: unknown }).maxResponseChars = '512';
+  }, 'string maxResponseChars is rejected', 'stages[0].maxResponseChars');
+
+  assert(
+    [32, 8192, 1024].every((value) => {
+      const config = baseConfiguration();
+      config.stages[0].maxResponseChars = value;
+      return validateCouncilConfiguration(config).valid;
+    }),
+    'maxResponseChars accepts the inclusive 32-8192 range',
+  );
+  assert(
+    validateCouncilConfiguration(baseConfiguration()).valid,
+    'configurations without maxResponseChars remain valid (shared default applies)',
+  );
+
   const withChain = baseConfiguration();
   withChain.stages[0].providerFallbacks = ['claude', 'chatgpt', 'gemini', 'grok'];
   assert(
@@ -765,6 +790,64 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
   assert(
     resolveOutputPolicy({ ...inquisitorStage, outputPolicy: 'synthesis' }) === 'synthesis',
     'stage output policy overrides the role default',
+  );
+}
+
+// =========================================================================
+// Response-length target: canonical default, resolution, and instruction
+// =========================================================================
+{
+  assert(defaultMaxResponseChars === 1024, 'the shared canonical default response target is exactly 1024 characters');
+  assert(
+    resolveMaxResponseChars({}) === defaultMaxResponseChars &&
+    resolveMaxResponseChars({ maxResponseChars: 512 }) === 512,
+    'resolution is the explicit seat value or the shared default, nowhere else',
+  );
+
+  const defaultInstruction =
+    'Keep your complete response within approximately 1024 characters. Prioritize the most important content if space is limited.';
+  assert(
+    responseLengthInstruction(defaultMaxResponseChars) === defaultInstruction &&
+    responseLengthInstruction(512) ===
+    'Keep your complete response within approximately 512 characters. Prioritize the most important content if space is limited.',
+    'the provider-facing instruction is deterministic with the raw integer (no separators)',
+  );
+  assert(
+    !/token/i.test(responseLengthInstruction(8192)) && !responseLengthInstruction(8192).includes('8,192'),
+    'the instruction speaks in characters with no comma formatting and never mentions tokens',
+  );
+
+  const stage: CouncilStage = {
+    id: 'stage-x',
+    provider: 'claude',
+    calling: 'inquisitor',
+    inputPolicy: 'original-only',
+    failurePolicy: 'halt',
+  };
+  const composedDefault = composeStagePrompt({
+    configuration: baseConfiguration(),
+    stage,
+    request: 'Is the sky blue?',
+    priorContributions: [],
+  });
+  assert(
+    composedDefault.prompt.includes(defaultInstruction) &&
+    composedDefault.resolvedMaxResponseChars === defaultMaxResponseChars &&
+    composedDefault.prompt.includes(callingFlavourTexts.inquisitor),
+    'every seat receives the default instruction as its own section, independent of Calling flavour text',
+  );
+
+  const composedOverride = composeStagePrompt({
+    configuration: baseConfiguration(),
+    stage: { ...stage, maxResponseChars: 256 },
+    request: 'Is the sky blue?',
+    priorContributions: [],
+  });
+  assert(
+    composedOverride.prompt.includes('approximately 256 characters') &&
+    !composedOverride.prompt.includes(defaultInstruction) &&
+    composedOverride.resolvedMaxResponseChars === 256,
+    'an explicit seat override renders its exact integer and is reported in composition metadata',
   );
 }
 
@@ -1132,6 +1215,8 @@ function contribution(stageId: string, roleId: string, providerId: string, text:
     '- Remain somewhat flexible and open to revision while preserving conclusions that still appear well supported.',
     '- Relentlessly search for substantive disagreement, weak assumptions, counterarguments, and failure points. Prioritize rigorous challenge over harmony.',
     '- Perform a deep analysis of assumptions, edge cases, downstream effects, and serious alternative interpretations.',
+    '',
+    'Keep your complete response within approximately 1024 characters. Prioritize the most important content if space is limited.',
     '',
     'Treat this as one step in a running discussion and build on what came before.',
     '',
