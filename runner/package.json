@@ -13,6 +13,7 @@
     "test:cognitive-stats": "tsx src/cognitiveStatsAssertions.ts",
     "test:council-cli": "tsx src/councilCliFormatAssertions.ts",
     "audit:doctrine-memory": "tsx src/doctrineMemoryAudit.ts",
+    "test:openai-api": "tsx src/openaiApiSmokeTest.ts",
     "test:chatgpt-filter": "tsx src/chatgptFilterAssertions.ts",
     "test:perplexity-filter": "tsx src/perplexityFilterAssertions.ts",
     "test:reka-filter": "tsx src/rekaFilterAssertions.ts",
@@ -24,6 +25,7 @@
     "test:google-filter": "tsx src/googleFilterAssertions.ts"
   },
   "dependencies": {
+    "openai": "^6.47.0",
     "playwright": "^1.47.2"
   },
   "devDependencies": {
