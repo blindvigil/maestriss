@@ -17,8 +17,16 @@ import {
   runBatonTest,
   type BatonStageResult,
 } from './batonTest.js';
-import { runCouncil } from './councilExecution.js';
+import { runCouncil, type CouncilAskFn, type CouncilExecutionTarget } from './councilExecution.js';
 import { createCouncilRunReporter } from './councilCliFormat.js';
+import {
+  OPENAI_DEFAULT_MODEL,
+  OPENAI_PROVIDER_FAMILY,
+  createOpenAiCouncilAsk,
+  createOpenAiResponsesCaller,
+  openAiMindId,
+  readOpenAiKey,
+} from './openaiTransport.js';
 import {
   councilDoctrines,
   getCouncilDoctrine,
@@ -546,12 +554,15 @@ async function runBatonTestClient(args: string[]) {
 }
 
 const councilRunUsage =
-  'Usage: npm run dev -- council run --doctrine <doctrine-id> (--prompt "text" | --prompt-file path) [--size N] [--verbose]';
+  'Usage: npm run dev -- council run --doctrine <doctrine-id> (--prompt "text" | --prompt-file path) [--size N] [--mind openai-api] [--verbose]';
 
 type CouncilRunCliArgs = {
   doctrineId: string;
   request: string;
   size?: number;
+  // Run-level execution Mind override. 'openai-api' forces every Seat through
+  // the OpenAI Responses API (gpt-4o-mini) instead of the browser path.
+  mind?: 'openai-api';
 };
 
 function parseCouncilRunArgs(args: string[]): CouncilRunCliArgs {
@@ -559,6 +570,7 @@ function parseCouncilRunArgs(args: string[]): CouncilRunCliArgs {
   let promptText: string | undefined;
   let promptFile: string | undefined;
   let size: number | undefined;
+  let mind: 'openai-api' | undefined;
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -601,6 +613,15 @@ function parseCouncilRunArgs(args: string[]): CouncilRunCliArgs {
       continue;
     }
 
+    if (arg === '--mind') {
+      if (value !== 'openai-api') {
+        throw new Error(`--mind currently supports only "openai-api". ${councilRunUsage}`);
+      }
+      mind = value;
+      index += 1;
+      continue;
+    }
+
     throw new Error(`Unknown council run argument "${arg}". ${councilRunUsage}`);
   }
 
@@ -624,7 +645,7 @@ function parseCouncilRunArgs(args: string[]): CouncilRunCliArgs {
     );
   }
 
-  return { doctrineId, request, ...(size !== undefined ? { size } : {}) };
+  return { doctrineId, request, ...(size !== undefined ? { size } : {}), ...(mind !== undefined ? { mind } : {}) };
 }
 
 async function runCouncilRunClient(args: string[], verbose: boolean) {
@@ -637,46 +658,94 @@ async function runCouncilRunClient(args: string[], verbose: boolean) {
   }
 
   const configuration = doctrine.build(cli.size !== undefined ? { size: cli.size } : undefined);
+
+  // Set up the execution transport for this run. Composition is identical for
+  // both paths: only WHERE the composed prompt is sent differs.
+  //   openai-api : force every Seat through the OpenAI Responses API. No Runner
+  //                browser service is required, and only the OpenAI API Mind is
+  //                preflighted (no unrelated browser providers).
+  //   default    : the existing browser /ask path over the Runner service.
+  let executionOverride: CouncilExecutionTarget | undefined;
+  let ask: CouncilAskFn;
+  let getReadiness: (providerId: string) => Promise<{ status: string; notes?: string[] } | undefined>;
+
+  if (cli.mind === 'openai-api') {
+    const apiKey = readOpenAiKey();
+
+    if (!apiKey) {
+      // Fail clearly before any Seat executes; the key value is never printed.
+      console.error('RESULT: FAIL — missing-api-key');
+      console.error('OPENAI_API_KEY is not set in the environment. Set it in a fresh terminal and retry.');
+      process.exitCode = 1;
+      return;
+    }
+
+    const target: CouncilExecutionTarget = {
+      mindId: openAiMindId(OPENAI_DEFAULT_MODEL),
+      providerFamily: OPENAI_PROVIDER_FAMILY,
+      transport: 'api',
+      model: OPENAI_DEFAULT_MODEL,
+    };
+    executionOverride = target;
+
+    const caller = createOpenAiResponsesCaller({ apiKey, model: OPENAI_DEFAULT_MODEL });
+    const apiAsk = createOpenAiCouncilAsk({ caller, mindId: target.mindId });
+
+    // Transport dispatcher: route by execution-mind id. In this forced-API run
+    // only the API target is ever asked; any other id would be a wiring error.
+    ask = async (mindId, prompt) => {
+      if (mindId === target.mindId) {
+        return apiAsk(mindId, prompt);
+      }
+      throw new Error(`No transport wired for mind "${mindId}" in OpenAI API run mode.`);
+    };
+
+    // API readiness is established without a paid generation: the key is
+    // present (checked above), so the API Mind is ready for preflight. Dynamic
+    // API failures (auth, quota, rate limit, availability) are caught at the
+    // first real Seat ask and classified by the shared transport.
+    getReadiness = async () => ({ status: 'ready' });
+  } else {
+    ask = async (providerId, prompt): Promise<ParticipantRunResponse> => {
+      const result = await postJson<AskResponse>('/ask', { participant: providerId, prompt });
+
+      if (!result) {
+        throw new Error('Runner service is not reachable.');
+      }
+
+      return result.normalizedResponse ?? {
+        participant: providerId,
+        question: prompt,
+        answer: result.response ?? '',
+        citations: [],
+        elapsedSeconds: 0,
+        rawText: result.response ?? '',
+        cleanedText: result.response ?? '',
+      };
+    };
+
+    const statusResult = await getJson<{ providers: ProviderStatus[] }>('/providers/status');
+
+    if (!statusResult) {
+      return;
+    }
+
+    const readinessSnapshot = new Map(
+      statusResult.providers.map((provider) => [provider.participant, provider]),
+    );
+    getReadiness = async (providerId) => readinessSnapshot.get(providerId);
+  }
+
   const reporter = createCouncilRunReporter({
     doctrine,
     configuration,
     requestChars: cli.request.length,
     verbose,
     print: (line) => console.log(line),
+    ...(executionOverride ? { executionOverride } : {}),
   });
 
   reporter.start();
-
-  const statusResult = await getJson<{ providers: ProviderStatus[] }>('/providers/status');
-
-  if (!statusResult) {
-    return;
-  }
-
-  const readinessSnapshot = new Map(
-    statusResult.providers.map((provider) => [provider.participant, provider]),
-  );
-
-  const ask = async (providerId: string, prompt: string): Promise<ParticipantRunResponse> => {
-    const result = await postJson<AskResponse>('/ask', {
-      participant: providerId,
-      prompt,
-    });
-
-    if (!result) {
-      throw new Error('Runner service is not reachable.');
-    }
-
-    return result.normalizedResponse ?? {
-      participant: providerId,
-      question: prompt,
-      answer: result.response ?? '',
-      citations: [],
-      elapsedSeconds: 0,
-      rawText: result.response ?? '',
-      cleanedText: result.response ?? '',
-    };
-  };
 
   // Elapsed-time heartbeat while an ask is in flight. The reporter prints
   // nothing when no ask is active, so the interval is safe to keep running
@@ -688,11 +757,12 @@ async function runCouncilRunClient(args: string[], verbose: boolean) {
       configuration,
       request: cli.request,
       ask,
-      getReadiness: async (providerId) => readinessSnapshot.get(providerId),
+      getReadiness,
       // Provider unavailability is a routine operating condition: preflight the
-      // Formation's Minds once, remember the unavailable ones for the run, and
+      // relevant Minds once, remember the unavailable ones for the run, and
       // skip them on later seats without re-checking or re-asking.
       preflight: true,
+      ...(executionOverride ? { executionOverride } : {}),
       onPreflightStart: reporter.onPreflightStart,
       onProviderAvailability: reporter.onProviderAvailability,
       onPreflightComplete: reporter.onPreflightComplete,
@@ -787,7 +857,7 @@ function printUsage() {
   console.log('  npm run dev -- chain google chatgpt "optional prompt"');
   console.log('  npm run dev -- run-random "original prompt here" [--verbose]');
   console.log('  npm run dev -- baton-test [--seed MAESTRISS] [--skip-unavailable]');
-  console.log('  npm run dev -- council run --doctrine dream-lab (--prompt "text" | --prompt-file path) [--size N] [--verbose]');
+  console.log('  npm run dev -- council run --doctrine dream-lab (--prompt "text" | --prompt-file path) [--size N] [--mind openai-api] [--verbose]');
   console.log('  npm run dev -- inspect claude');
   console.log('  npm run dev -- version');
 }

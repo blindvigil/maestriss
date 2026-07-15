@@ -97,6 +97,26 @@ export type CouncilSeatReadiness = {
 
 export type CouncilReadinessFn = (providerId: string) => Promise<CouncilSeatReadiness | undefined>;
 
+// How a Seat's composed prompt reaches a Mind and how the response returns.
+// 'browser' is the existing Native Runner /ask path; 'api' is a direct
+// provider API (initially the OpenAI Responses API). Transport is deliberately
+// distinct from Mind identity: one provider family may later carry multiple
+// models and multiple transports.
+export type CouncilExecutionTransport = 'browser' | 'api';
+
+// A concrete execution target: the Mind/model actually asked, plus its
+// transport. For browser execution the mindId is the canonical provider id
+// (e.g. 'chatgpt') so existing behaviour is unchanged; for an API target the
+// mindId is a distinct execution-mind id (e.g. 'openai-gpt-4o-mini') carrying
+// its provider family and model. This is narrowly scoped execution metadata —
+// NOT a redesign of the canonical provider/Calling/Doctrine schema.
+export type CouncilExecutionTarget = {
+  mindId: string;
+  providerFamily: string;
+  transport: CouncilExecutionTransport;
+  model?: string;
+};
+
 export type CouncilSeatOutcome = 'pass' | 'fail' | 'skipped' | 'not-run';
 
 // Structured provider-availability categories that make an ask failure
@@ -163,6 +183,13 @@ export type CouncilSeatProviderSelection = {
   fallbackUsed: boolean;
   rejectedProviders: CouncilProviderRejection[];
   chainExhausted: boolean;
+  // Run-level execution override requested for this run (e.g. force every Seat
+  // through the OpenAI API). Present only when an override is active; the
+  // configured Preferred Mind (preferredProvider) is never falsified by it.
+  executionOverride?: CouncilExecutionTarget;
+  // The target that actually executed (or attempted) this Seat: the browser
+  // provider under normal execution, or the override target under an override.
+  executedTarget?: CouncilExecutionTarget;
 };
 
 // Structured composition diagnostics for one seat, captured verbatim from
@@ -239,6 +266,8 @@ export type CouncilRunResult = {
   // Final run-scoped availability snapshot for every relevant Mind, in
   // Formation-first-seen order. Run-scoped only: a new run starts empty.
   providerAvailability: CouncilProviderAvailabilityEntry[];
+  // The run-level execution override in force for this run, if any.
+  executionOverride?: CouncilExecutionTarget;
   // Honesty marker: no vote casting or tallying exists in this slice, so a
   // Crown Council run must never be reported as a collective verdict.
   voteAggregationImplemented: false;
@@ -370,6 +399,14 @@ export type RunCouncilOptions = {
   // suppressed (the registry plus ask-phase detection govern availability).
   // When false or absent, behaviour is the legacy per-seat readiness gate.
   preflight?: boolean;
+  // Run-level execution override: force every Seat to execute through this
+  // single target (e.g. the OpenAI API), bypassing the Seat's normal
+  // browser-provider fallback chain. Composition is unchanged — cognitive
+  // stats, Calling, context, and the byte-identical composed prompt still come
+  // from the Seat's configured identity; only the executing target changes.
+  // The `ask` function receives this target's mindId. When absent, execution
+  // walks the configured provider chain exactly as before.
+  executionOverride?: CouncilExecutionTarget;
   // Injectable clock for deterministic timing in assertions.
   now?: () => number;
   // Fired once at Council start when preflight is enabled, before any seat.
@@ -448,7 +485,12 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
   const runStartedAt = now();
   const availability = createProviderAvailabilityRegistry();
   const configuredChains = configuration.stages.map((stage) => effectiveProviderChain(stage));
-  const preflightMinds = relevantProviders(configuredChains);
+  // A run-level execution override forces every Seat to one target, so the
+  // relevant Mind set is only that target — unrelated browser providers must
+  // not be preflighted.
+  const preflightMinds = options.executionOverride
+    ? [options.executionOverride.mindId]
+    : relevantProviders(configuredChains);
   const preflightRan = options.preflight === true && options.getReadiness !== undefined;
 
   // Mark a provider unavailable in the run registry and announce the
@@ -583,15 +625,27 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
       continue;
     }
 
+    // The Seat's configured provider chain (Preferred Mind + fallbacks). Never
+    // mutated; recorded verbatim for reporting.
     const providerChain = effectiveProviderChain(stage);
-    // Effective chain at seat start: the configured chain minus Minds already
-    // established unavailable for this run. Purely derived; the configured
-    // chain is never mutated.
-    const effectiveChain = deriveEffectiveChain(providerChain, availability);
+    // The chain actually walked for execution. Normally the configured chain
+    // mapped to browser targets; under a run-level execution override it is a
+    // single forced target and the configured fallback chain is NOT walked.
+    const executionSteps: Array<{ askId: string; target: CouncilExecutionTarget }> = options.executionOverride
+      ? [{ askId: options.executionOverride.mindId, target: options.executionOverride }]
+      : providerChain.map((id) => ({
+          askId: id,
+          target: { mindId: id, providerFamily: id, transport: 'browser' as const },
+        }));
+    const walkChain = executionSteps.map((step) => step.askId);
+    // Effective chain at seat start: the walked chain minus Minds already
+    // established unavailable for this run. Purely derived.
+    const effectiveChain = deriveEffectiveChain(walkChain, availability);
     const rejectedProviders: CouncilProviderRejection[] = [];
     const maxAttempts = stage.failurePolicy === 'retry-once' ? 2 : 1;
     let attempts = 0;
     let executedProvider: string | undefined;
+    let executedTarget: CouncilExecutionTarget | undefined;
     let lastFailure: SeatAttemptFailure | undefined;
     let successText: string | undefined;
     const seatStartedAt = now();
@@ -604,15 +658,16 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
       inputPolicy: base.inputPolicy,
       failurePolicy: base.failurePolicy,
       preferredProvider: stage.provider,
-      providerChain,
+      providerChain: walkChain,
       effectiveChain,
       prompt,
       composition,
     });
 
-    for (let choice = 0; choice < providerChain.length && successText === undefined; choice += 1) {
-      const candidate = providerChain[choice];
-      const nextProvider = providerChain[choice + 1];
+    for (let choice = 0; choice < executionSteps.length && successText === undefined; choice += 1) {
+      const step = executionSteps[choice];
+      const candidate = step.askId;
+      const nextProvider = executionSteps[choice + 1]?.askId;
 
       const rejectCandidate = (rejection: CouncilProviderRejection) => {
         rejectedProviders.push(rejection);
@@ -622,7 +677,7 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
           stageId: base.stageId,
           calling: base.calling,
           preferredProvider: stage.provider,
-          providerChain,
+          providerChain: walkChain,
           choiceIndex: choice + 1,
           rejection,
           ...(nextProvider !== undefined ? { nextProvider, nextChoiceIndex: choice + 2 } : {}),
@@ -648,7 +703,7 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
           stageId: base.stageId,
           calling: base.calling,
           preferredProvider: stage.provider,
-          providerChain,
+          providerChain: walkChain,
           choiceIndex: choice + 1,
           rejection,
           ...(nextProvider !== undefined ? { nextProvider, nextChoiceIndex: choice + 2 } : {}),
@@ -683,8 +738,9 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
 
       // This candidate executes the seat. Availability rejections above
       // consumed no retry budget; normal attempt/failure-policy semantics
-      // now apply to this provider with the same exact composed prompt.
+      // now apply to this target with the same exact composed prompt.
       executedProvider = candidate;
+      executedTarget = step.target;
       lastFailure = undefined;
       let providerAttempts = 0;
       let availabilityRejection = false;
@@ -696,9 +752,9 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
           ...base,
           provider: candidate,
           preferredProvider: stage.provider,
-          providerChain,
+          providerChain: walkChain,
           choiceIndex: choice + 1,
-          fallbackUsed: candidate !== stage.provider,
+          fallbackUsed: options.executionOverride ? false : candidate !== stage.provider,
           prompt,
           composition,
           attempt: providerAttempts,
@@ -745,6 +801,7 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
             elapsedMs: attemptElapsedMs,
           });
           executedProvider = undefined;
+          executedTarget = undefined;
           availabilityRejection = true;
           break;
         }
@@ -786,9 +843,15 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
       providerChain,
       effectiveChain,
       ...(executedProvider !== undefined ? { executedProvider } : {}),
-      fallbackUsed: executedProvider !== undefined && executedProvider !== stage.provider,
+      // Under an execution override the executing target is not a "fallback":
+      // it is a forced run-level override, reported separately.
+      fallbackUsed: options.executionOverride
+        ? false
+        : executedProvider !== undefined && executedProvider !== stage.provider,
       rejectedProviders,
       chainExhausted,
+      ...(options.executionOverride ? { executionOverride: options.executionOverride } : {}),
+      ...(executedTarget !== undefined ? { executedTarget } : {}),
     };
 
     if (successText !== undefined) {
@@ -890,6 +953,7 @@ export async function runCouncil(options: RunCouncilOptions): Promise<CouncilRun
     ...(finalContribution ? { finalContribution } : {}),
     ...(haltedAtSeat !== undefined ? { haltedAtSeat } : {}),
     providerAvailability: availability.snapshot(preflightMinds),
+    ...(options.executionOverride ? { executionOverride: options.executionOverride } : {}),
     voteAggregationImplemented: false,
   };
 }

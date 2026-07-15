@@ -14,7 +14,7 @@ import {
   type CouncilConfiguration,
   type CouncilStage,
 } from '../../shared/council/index.js';
-import { runCouncil, type CouncilSeatStart } from './councilExecution.js';
+import { runCouncil, type CouncilExecutionTarget, type CouncilSeatStart } from './councilExecution.js';
 import {
   createCouncilRunReporter,
   describeInputPolicy,
@@ -111,6 +111,7 @@ type ScenarioOptions = {
   script?: Responder[];
   verbose?: boolean;
   preflight?: boolean;
+  executionOverride?: CouncilExecutionTarget;
   extraConfig?: Partial<CouncilConfiguration>;
   getReadiness?: (providerId: string) => Promise<{ status: string; notes?: string[] } | undefined>;
 };
@@ -131,6 +132,7 @@ async function runScenario(options: ScenarioOptions) {
     verbose: options.verbose ?? false,
     print: (line) => lines.push(line),
     now,
+    ...(options.executionOverride ? { executionOverride: options.executionOverride } : {}),
   });
 
   reporter.start();
@@ -141,6 +143,7 @@ async function runScenario(options: ScenarioOptions) {
     now,
     ...(options.getReadiness ? { getReadiness: options.getReadiness } : {}),
     ...(options.preflight ? { preflight: true } : {}),
+    ...(options.executionOverride ? { executionOverride: options.executionOverride } : {}),
     onPreflightStart: reporter.onPreflightStart,
     onProviderAvailability: reporter.onProviderAvailability,
     onPreflightComplete: reporter.onPreflightComplete,
@@ -753,6 +756,63 @@ async function testExecutionTimeAvailabilityOutput() {
   );
 }
 
+async function testExecutionOverrideOutput() {
+  const apiTarget: CouncilExecutionTarget = {
+    mindId: 'openai-gpt-4o-mini',
+    providerFamily: 'openai',
+    transport: 'api',
+    model: 'gpt-4o-mini',
+  };
+
+  const { text } = await runScenario({
+    executionOverride: apiTarget,
+    preflight: true,
+    getReadiness: async () => ({ status: 'ready' }),
+    stages: [
+      makeStage({ id: 's1', provider: 'grok', providerFallbacks: ['chatgpt'], calling: 'wild-mage', inputPolicy: 'original-only', maxResponseChars: 64 }),
+      makeStage({ id: 's2', provider: 'claude', calling: 'sage', inputPolicy: 'full-record', failurePolicy: 'halt' }),
+    ],
+  });
+
+  assert(
+    text.includes('RUN EXECUTION OVERRIDE') &&
+    text.includes('Mind: OpenAI API (gpt-4o-mini)') &&
+    text.includes('Provider family: OpenAI') &&
+    text.includes('Model: gpt-4o-mini') &&
+    text.includes('Transport: API') &&
+    text.includes('Canonical Preferred Minds are not mutated.') &&
+    text.includes('Normal provider fallback chains are bypassed for this run.'),
+    'the run opens with a clear execution-override banner (Mind, family, model, transport)',
+  );
+  assert(
+    text.includes('CHECKING MINDS...') &&
+    text.includes('✓ OpenAI API (gpt-4o-mini) — ready') &&
+    text.includes('Available Minds: 1 of 1'),
+    'preflight in override mode inspects only the OpenAI API Mind',
+  );
+  assert(
+    text.includes('Configured Preferred Mind: Grok') &&
+    text.includes('Configured Preferred Mind: Claude') &&
+    text.includes('Execution override: OpenAI API (gpt-4o-mini)'),
+    'each Seat shows its configured Preferred Mind alongside the execution override',
+  );
+  assert(
+    text.includes('Status: SENDING TO OPENAI API (GPT-4O-MINI) (attempt 1 of 1)...'),
+    'the sending line names the OpenAI API execution target',
+  );
+  assert(
+    text.includes('Execution Mind: OpenAI API (gpt-4o-mini)') &&
+    text.includes('Run override: OpenAI API (gpt-4o-mini)') &&
+    /Response length: [\d,]+ chars/.test(text) &&
+    text.includes('Response target: 64 chars'),
+    'a completed Seat reports the execution Mind/model/transport and the response length against the target',
+  );
+  assert(
+    !text.includes('Provider chain: Grok → ChatGPT') && !text.includes('Fallback used:'),
+    'override mode does not render the normal configured-chain / fallback lines',
+  );
+}
+
 async function testHeartbeat() {
   const lines: string[] = [];
   let clock = 0;
@@ -851,6 +911,7 @@ async function main() {
   await testVerboseDiagnostics();
   await testRunScopedAvailabilityOutput();
   await testExecutionTimeAvailabilityOutput();
+  await testExecutionOverrideOutput();
   await testHeartbeat();
 
   if (failureCount > 0) {

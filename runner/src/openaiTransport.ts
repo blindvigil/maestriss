@@ -15,11 +15,21 @@
 // truncates, or summarizes prompts or responses.
 
 import OpenAI from 'openai';
+import type { ParticipantRunResponse } from './types.js';
 
 // The initial transport-test model: a currently supported, small, low-cost
 // general-purpose text model fully supported by the Responses API and the
 // official openai Node SDK. Native model-parameter mapping is future work.
 export const OPENAI_DEFAULT_MODEL = 'gpt-4o-mini';
+export const OPENAI_PROVIDER_FAMILY = 'openai';
+
+// A stable execution-mind id for an OpenAI API model, distinct from the
+// canonical browser provider ids (e.g. 'chatgpt'). Keeping the API mind id
+// separate is what lets one provider family carry multiple models/transports
+// later without conflating transport with Mind identity.
+export function openAiMindId(model: string): string {
+  return `openai-${model}`;
+}
 
 // Structured OpenAI failure categories, classified from SDK/API structured
 // fields only (never arbitrary prose).
@@ -130,5 +140,68 @@ export function createOpenAiResponsesCaller(params: { apiKey: string; model: str
       const classified = classifyOpenAiError(error);
       return { ok: false, category: classified.category, message: classified.message, detail: classified.detail };
     }
+  };
+}
+
+// Map an OpenAI failure category onto the Council ask-failure `reason`
+// vocabulary. Availability categories deliberately use reasons that are in the
+// canonical `providerUnavailableAskReasons` taxonomy, so the run-scoped
+// circuit breaker and fallback treat them as provider unavailability. A
+// malformed response is NOT an availability condition — it maps to a
+// non-availability reason so the seat's failure policy owns it and it is never
+// disguised as provider unavailability.
+export function mapOpenAiCategoryToCouncilReason(category: OpenAiFailureCategory): string {
+  switch (category) {
+    case 'authentication-failure':
+      return 'session-unavailable';
+    case 'billing-or-quota-failure':
+      return 'usage-limit';
+    case 'rate-limit':
+      return 'rate-limited';
+    case 'network-or-availability-failure':
+      return 'provider-unavailable';
+    case 'missing-api-key':
+      return 'session-unavailable';
+    case 'malformed-api-response':
+      return 'malformed-response';
+  }
+}
+
+// Adapt an OpenAI caller into a Council ask function. The exact composed Seat
+// prompt is sent unchanged; a successful response text becomes the seat's
+// contribution verbatim (only outer whitespace is trimmed downstream by the
+// engine, matching the existing contribution contract), and a structured
+// failure becomes a normalized failed response carrying the mapped reason.
+export function createOpenAiCouncilAsk(params: {
+  caller: OpenAiCaller;
+  mindId: string;
+}): (mindId: string, prompt: string) => Promise<ParticipantRunResponse> {
+  return async (_requestedMindId, prompt) => {
+    const result = await params.caller(prompt);
+
+    if (result.ok) {
+      return {
+        participant: params.mindId,
+        question: prompt,
+        answer: result.text,
+        citations: [],
+        elapsedSeconds: 0,
+        rawText: result.text,
+        cleanedText: result.text,
+      };
+    }
+
+    return {
+      participant: params.mindId,
+      question: prompt,
+      answer: '',
+      citations: [],
+      elapsedSeconds: 0,
+      rawText: '',
+      cleanedText: '',
+      status: 'failed',
+      reason: mapOpenAiCategoryToCouncilReason(result.category),
+      error: result.message ?? result.category,
+    };
   };
 }

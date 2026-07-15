@@ -357,6 +357,19 @@ Provider unavailability is treated as routine, and availability is remembered fo
 
 Seats execute sequentially in Formation order over the existing ask lifecycle. Failure policies behave as configured: `halt` ends the run (FAIL) preserving all real prior contributions, `retry-once` re-sends the same exact prompt one time and halts if the retry also fails, and `skip-and-record` records the failure and continues without forwarding anything from the failed seat. Provider readiness is preflighted once at run start and then remembered for the run; an unavailable provider consumes no ask on any seat. The final result is `PASS` (every seat succeeded), `PARTIAL` (reached the end with skipped or failed seats), or `FAIL` (halted); the reported final contribution is simply the last successful seat output — no synthesis stage is invented, and a Crown Council run explicitly notes that vote aggregation is not yet implemented. Run state is in-memory only; nothing is persisted yet. Ctrl+C stops the CLI without fabricating Council state, and a stuck in-flight ask can be cleared with `npm run dev -- cancel-all`.
 
+### OpenAI API Execution Mode
+
+`--mind openai-api` forces every seat through the OpenAI Responses API (model `gpt-4o-mini`) instead of the browser, for a transport experiment:
+
+```text
+cd runner
+npm run dev -- council run --doctrine dream-lab --prompt-file .\test-prompts\response-detection.txt --mind openai-api --verbose
+```
+
+This mode requires no Runner browser service. It reads `OPENAI_API_KEY` from the environment (never printed or stored; API billing is separate from any ChatGPT subscription) and fails clearly before any seat if the key is missing. Prompt composition is identical to the browser path — each seat keeps its canonical Calling, cognitive stats, `maxResponseChars`, Memory/context policy, and speaking order, and the byte-identical composed prompt is what is sent; only the executing target changes. The CLI prints a RUN EXECUTION OVERRIDE banner and, per seat, the configured Preferred Mind alongside the OpenAI API execution Mind/model/transport. Only the OpenAI API Mind is preflighted (no browser providers); the normal provider fallback chain is bypassed, so if an OpenAI request fails the seat's own failure policy resolves it (structured OpenAI auth/quota/rate-limit/availability failures also mark the API Mind unavailable for the rest of the run). Canonical Calling affinities, Doctrine Preferred Minds, and saved Councils are never modified; `maxResponseChars` stays a prompt-side target and is not mapped to a native token limit.
+
+`npm run test:openai-api` is a separate isolated LIVE smoke test (one real billed Responses API call, exact-response validation) and is not part of any deterministic suite; `npm run test:openai-transport` covers the transport deterministically without a network call.
+
 ## Regression Testing
 
 Regression tests preserve known behavior and discovered bug fixes.

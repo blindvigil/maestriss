@@ -23,8 +23,10 @@ import {
   providerUnavailableAskReasons,
   runCouncil,
   type CouncilAskFn,
+  type CouncilExecutionTarget,
   type CouncilRunResult,
 } from './councilExecution.js';
+import { createOpenAiCouncilAsk, type OpenAiCallResult } from './openaiTransport.js';
 import { structuredAskFailureReason } from './askFailureReason.js';
 import type { ParticipantResponse, ParticipantRunResponse } from './types.js';
 
@@ -1314,6 +1316,256 @@ async function testRunScopedAvailability() {
   }
 }
 
+// Run-level execution override: force every Seat through the OpenAI API
+// (transport) while composition — Calling, cognitive stats, context, Memory,
+// maxResponseChars, and the byte-identical composed prompt — stays owned by
+// the Seat's configured identity. The configured Preferred Mind is never
+// falsified; configured / override / actual targets are recorded distinctly.
+async function testExecutionOverride() {
+  const apiTarget: CouncilExecutionTarget = {
+    mindId: 'openai-gpt-4o-mini',
+    providerFamily: 'openai',
+    transport: 'api',
+    model: 'gpt-4o-mini',
+  };
+
+  // A scripted OpenAI caller drives the REAL Council adapter, so the exact
+  // composed prompt flows through the production API ask path.
+  const scriptedCaller = (script: OpenAiCallResult[]) => {
+    const inputs: string[] = [];
+    let index = 0;
+    const caller = async (input: string): Promise<OpenAiCallResult> => {
+      inputs.push(input);
+      const scripted = script[index];
+      index += 1;
+      return scripted ?? { ok: true, text: `API answer ${index}` };
+    };
+    return { inputs, ask: createOpenAiCouncilAsk({ caller, mindId: apiTarget.mindId }) };
+  };
+
+  // Invariance + identity + no-browser-ask + no-fallback-walk + only-API
+  // preflight + prior-API-contribution forwarding, all in one run.
+  {
+    const configuration = makeConfiguration([
+      makeStage({
+        id: 's1',
+        provider: 'grok',
+        providerFallbacks: ['chatgpt', 'gemini'],
+        calling: 'wild-mage',
+        inputPolicy: 'original-only',
+        cognitiveOverrides: { temperament: 9 },
+        maxResponseChars: 64,
+      }),
+      makeStage({ id: 's2', provider: 'claude', calling: 'sage', inputPolicy: 'full-record', failurePolicy: 'halt' }),
+    ]);
+    deepFreeze(configuration);
+    const snapshot = JSON.stringify(configuration);
+    const { inputs, ask } = scriptedCaller([
+      { ok: true, text: 'First API contribution' },
+      { ok: true, text: 'Second API contribution' },
+    ]);
+    const readinessCalls: string[] = [];
+
+    const result = await runCouncil({
+      configuration,
+      request: testRequest,
+      ask,
+      preflight: true,
+      executionOverride: apiTarget,
+      getReadiness: async (providerId) => {
+        readinessCalls.push(providerId);
+        return { status: 'ready' };
+      },
+    });
+
+    assert(
+      JSON.stringify(configuration) === snapshot,
+      'an execution override never mutates the Doctrine, Callings, Seats, cognitive stats, or maxResponseChars',
+    );
+    assert(
+      readinessCalls.length === 1 && readinessCalls[0] === apiTarget.mindId,
+      'only the OpenAI API Mind is preflighted; no unrelated browser providers are inspected',
+      readinessCalls.join(','),
+    );
+    const [seat1, seat2] = result.seats;
+    assert(
+      seat1.providerSelection?.preferredProvider === 'grok' &&
+      seat2.providerSelection?.preferredProvider === 'claude',
+      'each Seat keeps its configured Preferred Mind (grok, claude) — never falsified to the override',
+    );
+    assert(
+      seat1.providerSelection?.executionOverride?.mindId === apiTarget.mindId &&
+      seat1.providerSelection?.executedTarget?.mindId === apiTarget.mindId &&
+      seat1.providerSelection?.executedTarget?.transport === 'api' &&
+      seat1.providerSelection?.executedTarget?.model === 'gpt-4o-mini' &&
+      seat1.providerSelection?.executedTarget?.providerFamily === 'openai' &&
+      result.executionOverride?.mindId === apiTarget.mindId,
+      'the run override and the actual execution target (family/model/transport) are recorded structurally',
+    );
+    assert(
+      seat1.providerSelection?.fallbackUsed === false && seat1.providerSelection?.rejectedProviders.length === 0,
+      'the configured browser fallback chain (chatgpt, gemini) is NOT walked in forced API mode',
+    );
+    assert(
+      JSON.stringify(seat1.composition?.resolvedCognitiveStats) ===
+        JSON.stringify(resolveCognitiveStats('grok', 'wild-mage', { temperament: 9 })) &&
+      seat1.composition?.resolvedMaxResponseChars === 64,
+      'cognitive stats resolve from the configured Preferred Mind (grok), and maxResponseChars is unchanged',
+    );
+
+    // Exact composed prompts reach the API ask path byte-identically, with the
+    // second seat receiving the first seat's actual API contribution.
+    const prior: CouncilContribution[] = [];
+    const expected1 = expectedPromptFor(configuration, 0, prior);
+    prior.push({ stageId: 's1', provider: apiTarget.mindId, calling: 'wild-mage', text: 'First API contribution' });
+    const expected2 = expectedPromptFor(configuration, 1, prior);
+    assert(
+      inputs.length === 2 && inputs[0] === expected1 && inputs[1] === expected2 &&
+      inputs[1].includes('First API contribution'),
+      'the exact composed Seat prompt reaches the API unchanged, and later Seats receive prior API contributions per Memory policy',
+    );
+    assert(
+      result.contributions[0].provider === apiTarget.mindId && result.finalResult === 'PASS',
+      'the contribution is attributed to the executing OpenAI API Mind and the run passes',
+    );
+  }
+
+  // Over-target API output is preserved and never fails the Seat.
+  {
+    const configuration = makeConfiguration([
+      makeStage({ id: 's1', inputPolicy: 'original-only', maxResponseChars: 40, failurePolicy: 'halt' }),
+    ]);
+    const { ask } = scriptedCaller([{ ok: true, text: 'A'.repeat(300) }]);
+    const result = await runCouncil({
+      configuration, request: testRequest, ask, preflight: true, executionOverride: apiTarget,
+      getReadiness: async () => ({ status: 'ready' }),
+    });
+
+    assert(
+      result.seats[0].responseChars === 300 &&
+      result.seats[0].responseTargetExceeded === true &&
+      result.seats[0].outcome === 'pass' &&
+      result.contributions[0].text === 'A'.repeat(300),
+      'over-target API output uses the actual text length, still passes, and enters Council history unchanged',
+    );
+  }
+
+  // A non-availability API failure (malformed) is owned by the Seat failure
+  // policy: it does not mark the API Mind unavailable and does not fall back.
+  {
+    const configuration = makeConfiguration([
+      makeStage({ id: 's1', provider: 'grok', providerFallbacks: ['chatgpt'], inputPolicy: 'original-only', failurePolicy: 'halt' }),
+    ]);
+    const { inputs, ask } = scriptedCaller([{ ok: false, category: 'malformed-api-response', message: 'bad shape' }]);
+    const result = await runCouncil({
+      configuration, request: testRequest, ask, preflight: true, executionOverride: apiTarget,
+      getReadiness: async () => ({ status: 'ready' }),
+    });
+
+    assert(
+      inputs.length === 1 &&
+      result.seats[0].outcome === 'fail' &&
+      result.seats[0].failureReason === 'malformed-response' &&
+      result.seats[0].providerSelection?.chainExhausted === false &&
+      result.seats[0].providerSelection?.rejectedProviders.length === 0 &&
+      result.providerAvailability.find((entry) => entry.provider === apiTarget.mindId)?.state === 'ready' &&
+      result.finalResult === 'FAIL',
+      'a malformed API response fails via the Seat policy, never marks the API Mind unavailable, and never falls back to a browser provider',
+    );
+  }
+
+  // A retry-once Seat retries the same API target on a non-availability failure
+  // with the identical composed prompt.
+  {
+    const configuration = makeConfiguration([
+      makeStage({ id: 's1', inputPolicy: 'original-only', failurePolicy: 'retry-once' }),
+    ]);
+    const { inputs, ask } = scriptedCaller([
+      { ok: false, category: 'malformed-api-response', message: 'transient bad shape' },
+      { ok: true, text: 'Recovered API answer' },
+    ]);
+    const result = await runCouncil({
+      configuration, request: testRequest, ask, preflight: true, executionOverride: apiTarget,
+      getReadiness: async () => ({ status: 'ready' }),
+    });
+
+    assert(
+      inputs.length === 2 && inputs[0] === inputs[1] &&
+      result.seats[0].attempts === 2 &&
+      result.seats[0].outcome === 'pass' &&
+      result.contributions[0].text === 'Recovered API answer',
+      'retry-once retries the same API target with the byte-identical prompt on a non-availability failure',
+    );
+  }
+
+  // A fallback-eligible API failure marks the API Mind unavailable for the run;
+  // the next Seat is skipped with no ask, then the failure policy resolves it.
+  {
+    const configuration = makeConfiguration([
+      makeStage({ id: 's1', inputPolicy: 'original-only', failurePolicy: 'skip-and-record' }),
+      makeStage({ id: 's2', inputPolicy: 'original-only', failurePolicy: 'halt' }),
+    ]);
+    const { inputs, ask } = scriptedCaller([{ ok: false, category: 'billing-or-quota-failure', message: 'no quota' }]);
+    const result = await runCouncil({
+      configuration, request: testRequest, ask, preflight: true, executionOverride: apiTarget,
+      getReadiness: async () => ({ status: 'ready' }),
+    });
+
+    assert(
+      inputs.length === 1 &&
+      result.seats[0].outcome === 'skipped' &&
+      result.providerAvailability.find((entry) => entry.provider === apiTarget.mindId)?.state === 'unavailable' &&
+      result.seats[1].providerSelection?.rejectedProviders[0]?.phase === 'run-scoped' &&
+      result.seats[1].attempts === 0 &&
+      result.finalResult === 'FAIL',
+      'an API availability failure circuit-breaks the API Mind for the run; the next Seat is skipped with no ask and the failure policy resolves it',
+    );
+  }
+
+  // Missing API key established at preflight: the Seat is refused before any
+  // ask, with a clear classification and no fabricated contribution.
+  {
+    const configuration = makeConfiguration([
+      makeStage({ id: 's1', inputPolicy: 'original-only', failurePolicy: 'halt' }),
+    ]);
+    const { inputs, ask } = scriptedCaller([]);
+    const result = await runCouncil({
+      configuration, request: testRequest, ask, preflight: true, executionOverride: apiTarget,
+      getReadiness: async () => ({ status: 'openai-api-key-missing' }),
+    });
+
+    assert(
+      inputs.length === 0 &&
+      result.seats[0].outcome === 'fail' &&
+      result.seats[0].readinessStatus === 'openai-api-key-missing' &&
+      result.providerAvailability.find((entry) => entry.provider === apiTarget.mindId)?.state === 'unavailable' &&
+      result.contributions.length === 0,
+      'a missing/unavailable API Mind is refused at preflight before any Seat ask, with no fabricated contribution',
+    );
+  }
+
+  // Normal execution WITHOUT the override is entirely unchanged: no API mind,
+  // browser transport recorded, executed provider is the configured Mind.
+  {
+    const calls: AskCall[] = [];
+    const result = await runCouncil({
+      configuration: makeConfiguration([makeStage({ id: 's1', provider: 'chatgpt', inputPolicy: 'original-only' })]),
+      request: testRequest,
+      ask: makeScriptedAsk(calls),
+    });
+    const selection = result.seats[0].providerSelection;
+
+    assert(
+      selection?.executionOverride === undefined &&
+      selection?.executedTarget?.transport === 'browser' &&
+      selection?.executedProvider === 'chatgpt' &&
+      result.executionOverride === undefined &&
+      calls[0].provider === 'chatgpt',
+      'without an override, execution is unchanged: browser transport, configured Mind, no override recorded',
+    );
+  }
+}
+
 async function testCrownCouncilHonesty() {
   const doctrine = getCouncilDoctrine('crown-council');
   const configuration = doctrine!.build();
@@ -1351,6 +1603,7 @@ async function main() {
   await testEmptyResponseAndErrors();
   await testProviderFallback();
   await testRunScopedAvailability();
+  await testExecutionOverride();
   await testResponseTargetDiagnostics();
   await testStructuredObservabilityMetadata();
   await testDoctrineCognitiveFlows();

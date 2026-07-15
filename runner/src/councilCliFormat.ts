@@ -21,6 +21,7 @@ import {
   type CouncilInputPolicy,
 } from '../../shared/council/index.js';
 import type {
+  CouncilExecutionTarget,
   CouncilPreflightComplete,
   CouncilPreflightStart,
   CouncilProviderAvailabilityEvent,
@@ -125,7 +126,28 @@ export type CouncilRunReporterOptions = {
   verbose: boolean;
   print: (line: string) => void;
   now?: () => number;
+  // Run-level execution override in force for this run, if any. When set, the
+  // reporter renders the execution path (Mind/model/transport) and keeps the
+  // configured Preferred Mind visible without falsifying it.
+  executionOverride?: CouncilExecutionTarget;
 };
+
+// Human-readable label for an execution target: an API target shows its
+// family and model; a browser target shows the canonical provider name.
+export function executionTargetLabel(target: CouncilExecutionTarget): string {
+  if (target.transport === 'api') {
+    const familyLabel = target.providerFamily === 'openai'
+      ? 'OpenAI'
+      : providerDisplayName(target.providerFamily);
+    return `${familyLabel} API (${target.model ?? target.mindId})`;
+  }
+
+  return providerDisplayName(target.mindId);
+}
+
+function providerFamilyLabel(providerFamily: string): string {
+  return providerFamily === 'openai' ? 'OpenAI' : providerDisplayName(providerFamily);
+}
 
 export type CouncilRunReporter = {
   start: () => void;
@@ -153,8 +175,15 @@ function availabilityMarker(state: ProviderAvailabilityState): string {
 
 export function createCouncilRunReporter(options: CouncilRunReporterOptions): CouncilRunReporter {
   const { configuration, doctrine, print, verbose } = options;
+  const executionOverride = options.executionOverride;
   const now = options.now ?? Date.now;
   const seatCount = configuration.stages.length;
+  // Display label for an execution-mind id: an active API override target
+  // renders its family/model; every other id resolves as a provider name.
+  const mindDisplayName = (mindId: string): string =>
+    executionOverride && mindId === executionOverride.mindId
+      ? executionTargetLabel(executionOverride)
+      : providerDisplayName(mindId);
   const contributionInfo = new Map<string, ContributionDisplayInfo>();
   const counters: ReporterCounters = { passed: 0, skipped: 0, failed: 0, processed: 0 };
   // Run-scoped availability accumulated from preflight and execution events,
@@ -322,6 +351,24 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
       configuration.stages.forEach((stage, index) => {
         print(`  ${index + 1}. ${callingTitle(stage.calling).padEnd(titleWidth)} — ${providerDisplayName(stage.provider)}`);
       });
+
+      if (executionOverride) {
+        print('');
+        print('RUN EXECUTION OVERRIDE');
+        print(`Mind: ${executionTargetLabel(executionOverride)}`);
+        print(`Provider family: ${providerFamilyLabel(executionOverride.providerFamily)}`);
+
+        if (executionOverride.model) {
+          print(`Model: ${executionOverride.model}`);
+        }
+
+        print(`Transport: ${executionOverride.transport.toUpperCase()}`);
+        print('');
+        print('All Formation Seats retain their canonical Callings and cognitive configuration.');
+        print('Canonical Preferred Minds are not mutated.');
+        print('Normal provider fallback chains are bypassed for this run.');
+      }
+
       print('');
       print(heavyRule);
     },
@@ -342,7 +389,7 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
         return;
       }
 
-      const name = providerDisplayName(event.provider);
+      const name = mindDisplayName(event.provider);
       const detail = event.state === 'ready'
         ? 'ready'
         : event.state === 'unavailable'
@@ -364,14 +411,14 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
       if (ready.length > 0) {
         print('');
         print('  READY');
-        ready.forEach((entry) => print(`  ${availabilityMarker('ready')} ${providerDisplayName(entry.provider)}`));
+        ready.forEach((entry) => print(`  ${availabilityMarker('ready')} ${mindDisplayName(entry.provider)}`));
       }
 
       if (unavailable.length > 0) {
         print('');
         print('  UNAVAILABLE');
         unavailable.forEach((entry) =>
-          print(`  ${availabilityMarker('unavailable')} ${providerDisplayName(entry.provider)} — ${entry.evidence?.reason ?? 'unavailable'}`),
+          print(`  ${availabilityMarker('unavailable')} ${mindDisplayName(entry.provider)} — ${entry.evidence?.reason ?? 'unavailable'}`),
         );
       }
 
@@ -379,7 +426,7 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
         print('');
         print('  UNKNOWN');
         unknown.forEach((entry) =>
-          print(`  ${availabilityMarker('unknown')} ${providerDisplayName(entry.provider)} — state not established; still eligible`),
+          print(`  ${availabilityMarker('unknown')} ${mindDisplayName(entry.provider)} — state not established; still eligible`),
         );
       }
 
@@ -403,6 +450,48 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
       print('');
       print(lightRule);
       print(`SEAT ${begin.seat} OF ${begin.seatCount} — ${callingTitle(begin.calling).toUpperCase()}`);
+
+      // Under a run-level execution override every Seat is forced to the
+      // override target. Show the execution path while keeping the configured
+      // Preferred Mind visible (never rewritten); skip the normal
+      // configured-vs-effective chain rendering, which does not apply.
+      if (executionOverride) {
+        print(`Configured Preferred Mind: ${providerDisplayName(begin.preferredProvider)}`);
+        print(`Execution override: ${executionTargetLabel(executionOverride)}`);
+        print(`Provider family: ${providerFamilyLabel(executionOverride.providerFamily)}`);
+
+        if (executionOverride.model) {
+          print(`Model: ${executionOverride.model}`);
+        }
+
+        print(`Transport: ${executionOverride.transport.toUpperCase()}`);
+        print(`Resolved max response chars: ${begin.composition.resolvedMaxResponseChars}`);
+        print(`Calling: ${callingPracticalTitle(begin.calling)}`);
+        print(`Stage id: ${begin.stageId}`);
+        print('');
+        print(`Input policy: ${begin.inputPolicy}`);
+        print(`  ${describeInputPolicy(begin.inputPolicy, configuration.stages[begin.seat - 1]?.inputPolicyN)}`);
+        print('');
+        printContextFlow(composition);
+        print('');
+        printCognitiveStats(composition);
+        print('');
+        print(`Prompt length: ${formatChars(composition.promptChars)} chars`);
+        print(`Max response length: ${formatChars(composition.resolvedMaxResponseChars)} chars`);
+        print(`Calling flavour: ${composition.callingFlavourSource}`);
+        print(`Failure policy: ${begin.failurePolicy}`);
+        print('');
+        print('Status: PROMPT COMPOSED — OK');
+
+        if (verbose) {
+          print(`Prompt identity: fnv1a ${seatPromptIdentity}`);
+          printVerboseDiagnostics(begin);
+          print('');
+        }
+
+        return;
+      }
+
       print(`Preferred Mind: ${providerDisplayName(begin.preferredProvider)}`);
 
       if (begin.providerChain.length > 1) {
@@ -459,7 +548,7 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
 
     onProviderRejected: (event) => {
       activeAsk = undefined;
-      const name = providerDisplayName(event.rejection.provider);
+      const name = mindDisplayName(event.rejection.provider);
 
       print('');
       print(`Status: ${name.toUpperCase()} UNAVAILABLE — ${event.rejection.reason}`);
@@ -494,7 +583,7 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
 
     onProviderSkipped: (event) => {
       activeAsk = undefined;
-      const name = providerDisplayName(event.rejection.provider);
+      const name = mindDisplayName(event.rejection.provider);
 
       print('');
       print(`${name} skipped — already unavailable for this run (${event.rejection.reason}).`);
@@ -511,7 +600,15 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
       if (start.attempt > 1) {
         print('');
         print(`Retry attempt: ${start.attempt} of ${start.maxAttempts}`);
-        print(`Re-sending the exact same composed prompt to ${providerDisplayName(start.provider)}...`);
+        print(`Re-sending the exact same composed prompt to ${mindDisplayName(start.provider)}...`);
+        activeAsk = { provider: start.provider, startedAt: now() };
+        return;
+      }
+
+      // Under an execution override the target is forced; there is no fallback
+      // position to describe.
+      if (executionOverride) {
+        print(`Status: SENDING TO ${executionTargetLabel(executionOverride).toUpperCase()} (attempt ${start.attempt} of ${start.maxAttempts})...`);
         activeAsk = { provider: start.provider, startedAt: now() };
         return;
       }
@@ -619,12 +716,29 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
           chars: seat.responseChars ?? seat.response?.length ?? 0,
         });
         print('');
-        print(`Executed by: ${providerDisplayName(executedProvider)}`);
-        print(`Preferred Mind: ${providerDisplayName(selection?.preferredProvider ?? seat.provider)}`);
-        print(`Fallback used: ${selection?.fallbackUsed ? 'YES' : 'NO'}`);
+
+        const executedTarget = selection?.executedTarget;
+
+        if (selection?.executionOverride && executedTarget) {
+          print(`Execution Mind: ${executionTargetLabel(executedTarget)}`);
+          print(`Provider family: ${providerFamilyLabel(executedTarget.providerFamily)}`);
+
+          if (executedTarget.model) {
+            print(`Model: ${executedTarget.model}`);
+          }
+
+          print(`Transport: ${executedTarget.transport.toUpperCase()}`);
+          print(`Configured Preferred Mind: ${providerDisplayName(selection.preferredProvider)}`);
+          print(`Run override: ${executionTargetLabel(selection.executionOverride)}`);
+        } else {
+          print(`Executed by: ${providerDisplayName(executedProvider)}`);
+          print(`Preferred Mind: ${providerDisplayName(selection?.preferredProvider ?? seat.provider)}`);
+          print(`Fallback used: ${selection?.fallbackUsed ? 'YES' : 'NO'}`);
+        }
+
         print('');
         print('Contribution recorded:');
-        print(`  Seat ${seat.seat} — ${seatLabel(seat.calling, executedProvider)}`);
+        print(`  Seat ${seat.seat} — ${callingTitle(seat.calling)} / ${mindDisplayName(executedProvider)}`);
         print(`  Council contributions now: ${contributionInfo.size}`);
         print('');
         print('Response:');
@@ -745,7 +859,7 @@ export function createCouncilRunReporter(options: CouncilRunReporterOptions): Co
         return;
       }
 
-      print(`[${formatClock(now() - activeAsk.startedAt)}] ${providerDisplayName(activeAsk.provider)} is still processing...`);
+      print(`[${formatClock(now() - activeAsk.startedAt)}] ${mindDisplayName(activeAsk.provider)} is still processing...`);
     },
   };
 }
